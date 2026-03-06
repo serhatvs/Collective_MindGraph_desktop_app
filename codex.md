@@ -16,6 +16,7 @@
 - Persistence is handled locally with SQLite; there are no external services, browsers, webviews, or network dependencies in the app architecture.
 - Automated tests cover schema creation, session create/list/search, demo seeding, snapshot hash determinism, and export payload structure.
 - Root-level repo memory is now defined through `AGENTS.md` plus this `codex.md` file.
+- This workspace is now a git repository and has been pushed to `https://github.com/serhatvs/Collective_MindGraph_desktop_app.git`.
 - A separate end-user application concept is now in scope as a sibling product to the current AI or reasoning-facing desktop app.
 - The companion app is implemented as `Collective MindGraph Companion` with its own package, tests, local SQLite storage, notes autosave, main-category and sub-category hierarchy, and a generated workspace map that displays session templates inside that category tree.
 - `tests/README.md` now contains the original project README for comparison: the original product was a Docker-first distributed multi-agent reasoning demo with MQTT, Postgres, agents, and a browser dashboard.
@@ -69,3 +70,4 @@
 - 2026-03-06: Refactored the companion app into a category-first product with main categories, sub categories, quick idea capture, and a generated workspace map instead of insights, action items, and standalone mind map CRUD.
 - 2026-03-06: Added the original project README under `tests/README.md` as a comparison source for keeping future UX closer to the repo's original product DNA.
 - 2026-03-06: Reworked the companion UI again around session-first flow and a generated mindgraph, keeping category management only as supporting workspace context.
+- 2026-03-06: Initialized git for this workspace and pushed the current history to `serhatvs/Collective_MindGraph_desktop_app` with several small history commits plus a final full project commit.

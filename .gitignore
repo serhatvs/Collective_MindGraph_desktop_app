@@ -7,6 +7,8 @@ __pycache__/
 .venv/
 venv/
 .env
+realtime_backend/run_logs/
+realtime_backend/realtime_backend_data/
 dist/
 build/
 *.egg-info/

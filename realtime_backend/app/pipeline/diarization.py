@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -33,6 +34,7 @@ class PyAnnoteDiarizer(BaseDiarizer):
             raise RuntimeError("pyannote.audio is not installed.") from exc
 
         self._torch = torch
+        _enable_pyannote_checkpoint_compat(torch)
         self._pipeline = Pipeline.from_pretrained(
             settings.diarizer_model_name,
             use_auth_token=settings.diarizer_auth_token,
@@ -114,6 +116,31 @@ def build_diarizer(settings: Settings) -> BaseDiarizer:
     except Exception as exc:
         LOGGER.warning("Falling back to SingleSpeakerFallbackDiarizer because pyannote failed: %s", exc)
         return SingleSpeakerFallbackDiarizer()
+
+
+def _enable_pyannote_checkpoint_compat(torch_module) -> None:
+    """Allow pyannote checkpoints to load on newer PyTorch defaults."""
+
+    # pyannote 3.x still relies on checkpoint objects that PyTorch 2.6+
+    # blocks behind weights_only=True by default.
+    os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
+
+    add_safe_globals = getattr(torch_module.serialization, "add_safe_globals", None)
+    if add_safe_globals is None:
+        return
+    torch_version_cls = getattr(torch_module.torch_version, "TorchVersion", None)
+    specifications_cls = None
+    try:
+        from pyannote.audio.core.task import Specifications
+
+        specifications_cls = Specifications
+    except Exception:  # pragma: no cover - best effort compatibility
+        specifications_cls = None
+
+    safe_globals = [item for item in (torch_version_cls, specifications_cls) if item is not None]
+    if not safe_globals:
+        return
+    add_safe_globals(safe_globals)
 
 
 def _regions_for_diarization(

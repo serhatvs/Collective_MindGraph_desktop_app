@@ -57,8 +57,8 @@ class VoiceCommandWorkflow:
             stage="audio_ready",
             status_label="Audio Ready",
             guidance_text=(
-                "Recording is saved locally. The next step is sending this audio clip to Amazon Nova "
-                "for speech-to-text."
+                "Recording is saved locally. The next step is sending this audio clip to the local "
+                "transcription backend."
             ),
             transcript_text="",
             audio_path=audio_path,
@@ -76,9 +76,7 @@ class VoiceCommandWorkflow:
         self._state = VoiceCommandState(
             stage="transcribing",
             status_label="Transcribing",
-            guidance_text=(
-                "Sending the recorded audio to Amazon Nova for speech-to-text."
-            ),
+            guidance_text="Sending the recorded audio to the local transcription backend.",
             transcript_text="",
             audio_path=self._state.audio_path,
             start_enabled=False,
@@ -96,7 +94,7 @@ class VoiceCommandWorkflow:
         self._state = VoiceCommandState(
             stage="transcript_ready",
             status_label="Transcript Ready",
-            guidance_text="Amazon Nova returned transcript text for the recorded audio.",
+            guidance_text="The local transcription backend returned transcript text for the recorded audio.",
             transcript_text=cleaned_text,
             audio_path=self._state.audio_path,
             start_enabled=True,
@@ -131,7 +129,7 @@ class VoiceCommandWorkflow:
             status_label="Idle",
             guidance_text=(
                 "Input starts as a spoken command. Microphone capture is now wired; the next pipeline "
-                "step after recording is Amazon Nova transcription."
+                "step after recording is local-backend transcription."
             ),
             transcript_text="",
             audio_path=None,

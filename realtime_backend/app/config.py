@@ -7,6 +7,66 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - optional at import time
+    load_dotenv = None
+
+
+def _backend_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _load_local_dotenv() -> None:
+    if load_dotenv is None:
+        return
+
+    candidates = [
+        _backend_root() / ".env",
+        Path.cwd() / ".env",
+    ]
+    loaded: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in loaded or not resolved.exists():
+            continue
+        load_dotenv(resolved, override=False)
+        loaded.add(resolved)
+
+
+def _huggingface_token_paths() -> list[Path]:
+    candidates = [
+        Path.home() / ".cache" / "huggingface" / "token",
+        Path.home() / ".huggingface" / "token",
+    ]
+    appdata = os.getenv("APPDATA")
+    if appdata:
+        candidates.append(Path(appdata) / "huggingface" / "token")
+    return candidates
+
+
+def _resolve_pyannote_token() -> str | None:
+    for env_name in (
+        "CMG_RT_PYANNOTE_TOKEN",
+        "HF_TOKEN",
+        "HUGGINGFACE_HUB_TOKEN",
+        "HUGGING_FACE_HUB_TOKEN",
+    ):
+        value = os.getenv(env_name)
+        if value:
+            return value
+
+    for path in _huggingface_token_paths():
+        if not path.exists():
+            continue
+        token = path.read_text(encoding="utf-8").strip()
+        if token:
+            return token
+    return None
+
+
+_load_local_dotenv()
+
 
 def _env(name: str, default: str) -> str:
     return os.getenv(name, default)
@@ -79,7 +139,7 @@ class Settings:
 
     asr_provider: str = field(default_factory=lambda: _env("CMG_RT_ASR_PROVIDER", "faster_whisper"))
     asr_model_name: str = field(
-        default_factory=lambda: _env("CMG_RT_ASR_MODEL", "distil-large-v3")
+        default_factory=lambda: _env("CMG_RT_ASR_MODEL", "large-v3-turbo")
     )
     asr_device: str = field(default_factory=lambda: _env("CMG_RT_ASR_DEVICE", "cuda"))
     asr_compute_type: str = field(
@@ -96,7 +156,7 @@ class Settings:
         default_factory=lambda: _env("CMG_RT_DIARIZER_MODEL", "pyannote/speaker-diarization-3.1")
     )
     diarizer_auth_token: str | None = field(
-        default_factory=lambda: os.getenv("CMG_RT_PYANNOTE_TOKEN") or None
+        default_factory=_resolve_pyannote_token
     )
     diarizer_region_padding_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_DIARIZER_REGION_PADDING_SECONDS", 0.25)

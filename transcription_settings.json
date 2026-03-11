@@ -1,8 +1,5 @@
 {
-  "model_id": "us.amazon.nova-2-lite-v1:0",
-  "region_name": "us-east-1",
-  "max_tokens": 2048,
-  "temperature": 0.0,
-  "top_p": 0.1,
-  "prompt_text": "Transcribe this audio recording exactly. Return only the transcript text. Do not summarize, explain, or add markdown."
+  "base_url": "http://127.0.0.1:8080",
+  "language": null,
+  "request_timeout_seconds": 240
 }

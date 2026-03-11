@@ -14,22 +14,22 @@ from PySide6.QtWidgets import (
 
 from ..audio_capture import AudioCaptureController
 from ..transcription import (
-    AmazonNovaTranscriptionConfig,
-    AmazonNovaTranscriptionService,
-    AmazonNovaTranscriptionSettingsStore,
+    RealtimeBackendTranscriptionConfig,
+    RealtimeBackendTranscriptionService,
+    RealtimeBackendTranscriptionSettingsStore,
 )
 from ..voice_command import VoiceCommandState, VoiceCommandWorkflow
 from .widgets import CardWidget, TranscriptionSettingsDialog
 
 
-class NovaTranscriptionWorker(QObject):
+class BackendTranscriptionWorker(QObject):
     finished = Signal(str)
     failed = Signal(str)
 
     def __init__(
         self,
         audio_path: str,
-        config: AmazonNovaTranscriptionConfig,
+        config: RealtimeBackendTranscriptionConfig,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -39,7 +39,7 @@ class NovaTranscriptionWorker(QObject):
     @Slot()
     def run(self) -> None:
         try:
-            result = AmazonNovaTranscriptionService(config=self._config).transcribe_file(self._audio_path)
+            result = RealtimeBackendTranscriptionService(config=self._config).transcribe_file(self._audio_path)
         except Exception as exc:
             self.failed.emit(str(exc))
             return
@@ -54,17 +54,17 @@ class VoiceCommandPanel(QWidget):
         self,
         workflow: VoiceCommandWorkflow | None = None,
         capture_controller: AudioCaptureController | None = None,
-        transcription_config: AmazonNovaTranscriptionConfig | None = None,
-        settings_store: AmazonNovaTranscriptionSettingsStore | None = None,
+        transcription_config: RealtimeBackendTranscriptionConfig | None = None,
+        settings_store: RealtimeBackendTranscriptionSettingsStore | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._workflow = workflow or VoiceCommandWorkflow()
         self._capture_controller = capture_controller or AudioCaptureController(parent=self)
-        self._settings_store = settings_store or AmazonNovaTranscriptionSettingsStore()
+        self._settings_store = settings_store or RealtimeBackendTranscriptionSettingsStore()
         self._transcription_config = transcription_config or self._load_transcription_config()
         self._transcription_thread: QThread | None = None
-        self._transcription_worker: NovaTranscriptionWorker | None = None
+        self._transcription_worker: BackendTranscriptionWorker | None = None
 
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
@@ -80,7 +80,7 @@ class VoiceCommandPanel(QWidget):
         self.status_badge.setMinimumWidth(128)
         header_row.addWidget(self.status_badge)
 
-        self.pipeline_label = QLabel("Input: spoken command  ->  Output: command text")
+        self.pipeline_label = QLabel("Input: recorded speech  ->  Local backend transcript  ->  Session")
         self.pipeline_label.setObjectName("MutedText")
         self.pipeline_label.setWordWrap(True)
         header_row.addWidget(self.pipeline_label, 1)
@@ -100,7 +100,7 @@ class VoiceCommandPanel(QWidget):
         self.capture_path_label.setWordWrap(True)
         card.body_layout.addWidget(self.capture_path_label)
 
-        config_label = QLabel("Transcript Settings")
+        config_label = QLabel("Transcription Backend")
         config_label.setObjectName("MutedText")
         card.body_layout.addWidget(config_label)
 
@@ -116,7 +116,7 @@ class VoiceCommandPanel(QWidget):
         self.stop_button = QPushButton("Stop")
         self.stop_button.setProperty("secondary", True)
         self.transcribe_button = QPushButton("Transcribe")
-        self.settings_button = QPushButton("Transcript Settings")
+        self.settings_button = QPushButton("Backend Settings")
         self.settings_button.setProperty("secondary", True)
         self.clear_button = QPushButton("Clear")
         self.clear_button.setProperty("secondary", True)
@@ -147,7 +147,7 @@ class VoiceCommandPanel(QWidget):
         self.transcript_output.setReadOnly(True)
         self.transcript_output.setMinimumHeight(110)
         self.transcript_output.setPlaceholderText(
-            "Transcript text will appear here after the transcription step."
+            "Transcript text from the local backend will appear here after transcription."
         )
         card.body_layout.addWidget(self.transcript_output)
 
@@ -180,7 +180,7 @@ class VoiceCommandPanel(QWidget):
 
         self._apply_state(self._workflow.transcribe())
         self._transcription_thread = QThread(self)
-        self._transcription_worker = NovaTranscriptionWorker(audio_path, self._transcription_config)
+        self._transcription_worker = BackendTranscriptionWorker(audio_path, self._transcription_config)
         self._transcription_worker.moveToThread(self._transcription_thread)
         self._transcription_thread.started.connect(self._transcription_worker.run)
         self._transcription_worker.finished.connect(self._handle_transcription_finished)
@@ -255,20 +255,18 @@ class VoiceCommandPanel(QWidget):
         self._transcription_thread = None
         self._refresh_config_summary()
 
-    def _load_transcription_config(self) -> AmazonNovaTranscriptionConfig:
+    def _load_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
         try:
             return self._settings_store.load()
         except Exception:
-            return AmazonNovaTranscriptionConfig.from_env()
+            return RealtimeBackendTranscriptionConfig.from_env()
 
     def _refresh_config_summary(self) -> None:
-        region = self._transcription_config.region_name or "Not set"
         self.config_summary_label.setText(
             (
-                f"Region: {region}  |  Model: {self._transcription_config.model_id}\n"
-                f"Max Tokens: {self._transcription_config.max_tokens}  |  "
-                f"Temp: {self._transcription_config.temperature:.2f}  |  "
-                f"Top P: {self._transcription_config.top_p:.2f}"
+                f"URL: {self._transcription_config.base_url}\n"
+                f"Language: {self._transcription_config.language or 'auto'}  |  "
+                f"Timeout: {self._transcription_config.request_timeout_seconds}s"
             )
         )
 
@@ -279,9 +277,9 @@ class VoiceCommandPanel(QWidget):
         if state.stage == "audio_ready":
             return f"Audio capture saved to {state.audio_path}"
         if state.stage == "transcribing":
-            return "Sending audio to Amazon Nova for transcription."
+            return "Sending audio to the local transcription backend."
         if state.stage == "transcript_ready":
-            return "Amazon Nova transcription received."
+            return "Transcript received from the local backend."
         if state.stage == "error":
             return state.guidance_text
         return "Voice command panel reset."

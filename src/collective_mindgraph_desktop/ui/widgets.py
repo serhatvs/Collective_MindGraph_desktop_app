@@ -7,13 +7,11 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
     QSpinBox,
@@ -22,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..models import AppSummary
-from ..transcription import AmazonNovaTranscriptionConfig
+from ..transcription import RealtimeBackendTranscriptionConfig
 
 
 class CardWidget(QFrame):
@@ -210,51 +208,32 @@ class SessionDialog(QDialog):
 class TranscriptionSettingsDialog(QDialog):
     def __init__(
         self,
-        config: AmazonNovaTranscriptionConfig,
+        config: RealtimeBackendTranscriptionConfig,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Transcript Settings")
-        self.resize(560, 420)
+        self.resize(520, 240)
 
         layout = QVBoxLayout(self)
         form_layout = QFormLayout()
         form_layout.setContentsMargins(0, 0, 0, 0)
         form_layout.setSpacing(10)
 
-        self.region_edit = QLineEdit(config.region_name or "")
-        self.region_edit.setPlaceholderText("e.g. us-east-1")
+        self.base_url_edit = QLineEdit(config.base_url)
+        self.base_url_edit.setPlaceholderText("e.g. http://127.0.0.1:8080")
 
-        self.model_edit = QLineEdit(config.model_id)
-        self.model_edit.setPlaceholderText("e.g. us.amazon.nova-pro-v1:0")
+        self.language_edit = QLineEdit(config.language or "")
+        self.language_edit.setPlaceholderText("Blank = backend auto detect")
 
-        self.max_tokens_spin = QSpinBox()
-        self.max_tokens_spin.setRange(1, 32000)
-        self.max_tokens_spin.setValue(config.max_tokens)
+        self.timeout_spin = QSpinBox()
+        self.timeout_spin.setRange(10, 3600)
+        self.timeout_spin.setValue(config.request_timeout_seconds)
+        self.timeout_spin.setSuffix(" s")
 
-        self.temperature_spin = QDoubleSpinBox()
-        self.temperature_spin.setRange(0.0, 1.0)
-        self.temperature_spin.setDecimals(2)
-        self.temperature_spin.setSingleStep(0.05)
-        self.temperature_spin.setValue(config.temperature)
-
-        self.top_p_spin = QDoubleSpinBox()
-        self.top_p_spin.setRange(0.0, 1.0)
-        self.top_p_spin.setDecimals(2)
-        self.top_p_spin.setSingleStep(0.05)
-        self.top_p_spin.setValue(config.top_p)
-
-        self.prompt_edit = QPlainTextEdit()
-        self.prompt_edit.setPlainText(config.prompt_text)
-        self.prompt_edit.setPlaceholderText("Prompt sent with the audio for transcription.")
-        self.prompt_edit.setMinimumHeight(160)
-
-        form_layout.addRow("AWS Region", self.region_edit)
-        form_layout.addRow("Model ID", self.model_edit)
-        form_layout.addRow("Max Tokens", self.max_tokens_spin)
-        form_layout.addRow("Temperature", self.temperature_spin)
-        form_layout.addRow("Top P", self.top_p_spin)
-        form_layout.addRow("Prompt", self.prompt_edit)
+        form_layout.addRow("Backend URL", self.base_url_edit)
+        form_layout.addRow("Language", self.language_edit)
+        form_layout.addRow("Request Timeout", self.timeout_spin)
         layout.addLayout(form_layout)
 
         self.button_box = QDialogButtonBox(
@@ -265,22 +244,15 @@ class TranscriptionSettingsDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
 
-    def config(self) -> AmazonNovaTranscriptionConfig:
-        region_name = self.region_edit.text().strip() or None
-        return AmazonNovaTranscriptionConfig(
-            model_id=self.model_edit.text().strip(),
-            region_name=region_name,
-            max_tokens=self.max_tokens_spin.value(),
-            temperature=float(self.temperature_spin.value()),
-            top_p=float(self.top_p_spin.value()),
-            prompt_text=self.prompt_edit.toPlainText().strip(),
+    def config(self) -> RealtimeBackendTranscriptionConfig:
+        return RealtimeBackendTranscriptionConfig(
+            base_url=self.base_url_edit.text().strip().rstrip("/"),
+            language=self.language_edit.text().strip() or None,
+            request_timeout_seconds=self.timeout_spin.value(),
         )
 
     def _validate_and_accept(self) -> None:
-        if not self.model_edit.text().strip():
-            self.model_edit.setFocus()
-            return
-        if not self.prompt_edit.toPlainText().strip():
-            self.prompt_edit.setFocus()
+        if not self.base_url_edit.text().strip():
+            self.base_url_edit.setFocus()
             return
         self.accept()

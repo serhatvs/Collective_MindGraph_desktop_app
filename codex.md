@@ -16,17 +16,17 @@
 - The main desktop window now also includes a `Voice Command` panel with staged UI controls for `Start Recording`, `Stop`, `Transcribe`, and `Clear`, plus a transcript output area.
 - The MVP UI now exposes direct empty-state actions for `New Session` and `Seed Demo Data`, and menu actions are enabled or disabled based on current selection/state.
 - The desktop layout is now sidebar-first and more minimal: sessions stay in a persistent left column, the top summary bar has been removed, and the session-detail area stays fully hidden until the user explicitly selects a session.
-- Persistence is handled locally with SQLite; there are no external services, browsers, webviews, or network dependencies in the app architecture.
+- Session persistence is handled locally with SQLite; the only active network dependency in the desktop product is the loopback HTTP call to the sibling `realtime_backend/` service for voice transcription.
 - Early-stage product flow is now being defined from input to output using a rubber duck workflow; the first input is a spoken command that will be transcribed to text.
-- Voice-command behavior now includes real microphone capture to local `.wav` files through QtMultimedia and a transcription stage that targets Amazon Nova.
-- Voice-command transcription is now wired to an Amazon Nova adapter through AWS Bedrock `converse` requests with direct audio bytes upload, using `boto3` and the Nova audio-understanding path rather than the lower-level Nova Sonic streaming API.
-- The current app can complete the `record audio -> send to Nova -> receive transcript text` path in code, but live AWS execution still depends on external AWS region, credentials, and Bedrock model access being configured.
+- Voice-command behavior now includes real microphone capture to local `.wav` files through QtMultimedia and a transcription stage that targets the sibling local realtime backend.
+- The desktop voice-command panel now uploads recorded audio to the local FastAPI backend at `http://127.0.0.1:8080/transcribe/file`, receives structured transcript output, and feeds the cleaned transcript back into the existing session-ingestion flow.
+- The desktop app can now complete the `record audio -> send to local backend -> receive transcript text -> ingest into session` path when `realtime_backend` is running.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
 - Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
-- Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file.
+- Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file with backend URL, language override, and request timeout; the repo-local default file has been migrated to that schema.
 - Transcript completion is now wired into a local session flow: if no session is explicitly selected, the next transcript starts a new session automatically; if a session is selected, the transcript is appended to that session.
-- The default transcription preset is now aligned to `Amazon Nova 2 Lite` with `us.amazon.nova-2-lite-v1:0` in `us-east-1` so project-gallery or judging flows that prefer named Nova 2 options match the implementation more closely.
-- Based on the Devpost hackathon framing, the current project aligns better with `Amazon Nova 2 Lite` and the Multimodal Understanding style of submission than with `Nova 2 Sonic`, unless the app is later redesigned around real-time conversational voice interaction.
+- The legacy Amazon Nova adapter is still present in code with the prior `Amazon Nova 2 Lite` defaults, but the active desktop transcription path now points to the local realtime backend instead.
+- Based on the Devpost hackathon framing, the earlier Amazon Nova positioning remains useful background, but it no longer drives the live desktop transcription path.
 - Automated tests cover schema creation, session create/list/search, demo seeding, snapshot hash determinism, and export payload structure.
 - Root-level repo memory is now defined through `AGENTS.md` plus this `codex.md` file.
 - This workspace is now a git repository and has been pushed to `https://github.com/serhatvs/Collective_MindGraph_desktop_app.git`.
@@ -47,6 +47,12 @@
 - The realtime backend summary layer now extracts heuristic topics, decisions, and action items more explicitly instead of relying only on a very shallow first/last-line summary.
 - The realtime backend now exposes `/quality/{id}` intrinsic transcript-quality reporting for unresolved speakers, overlap rate, confidence coverage, correction ratio, and related warnings.
 - The LLM post-processing layer is now context-aware across batch boundaries and supports `lmstudio` as an alias of the OpenAI-compatible API path.
+- The local backend environment has now been provisioned under `realtime_backend/.venv` on Python 3.12 with `torch 2.8.0+cu128`, `torchaudio 2.8.0+cu128`, `numpy`, `faster-whisper`, `silero-vad`, and `pyannote.audio` installed successfully.
+- The backend ASR default has now been moved from `distil-large-v3` to `large-v3-turbo` because the desktop app needs multilingual transcription and `distil-large-v3` is not a safe default for Turkish.
+- For reproducible backend setup, `huggingface-hub` must stay below `1.0` and `torchaudio 2.9+` should be avoided because `pyannote.audio 3.4.0` still depends on older hub auth and audio metadata APIs.
+- Even with packages installed, real pyannote diarization remains blocked until a valid Hugging Face token is accepted for the gated `pyannote/speaker-diarization-3.1` model and exported as `CMG_RT_PYANNOTE_TOKEN`.
+- The backend config now auto-loads a local `realtime_backend/.env` file and can resolve the pyannote token from `CMG_RT_PYANNOTE_TOKEN`, `HF_TOKEN`, other Hugging Face env names, or the Hugging Face CLI token cache, so manual export is no longer required every run.
+- The local backend environment now has a working Hugging Face token source, and `PyAnnoteDiarizer` can be instantiated successfully on this machine instead of falling back immediately.
 - `tests/README.md` now contains the original project README for comparison: the original product was a Docker-first distributed multi-agent reasoning demo with MQTT, Postgres, agents, and a browser dashboard.
 - The companion UI has been realigned again so the selected session is the center of the experience, with a readable session flow and a session-centered mindgraph derived from notes, template choice, branch context, and related sessions.
 
@@ -56,25 +62,26 @@
 - Main layers are `models`, `database`, `repositories`, `services`, and `ui`.
 - UI is built with native Qt widgets through PySide6.
 - Repository classes own SQLite access; service layer owns higher-level workflows.
-- The first planned upstream pipeline stage is `voice command -> transcription text`, now implemented with a local audio capture adapter plus an Amazon Nova transcription adapter.
+- The first planned upstream pipeline stage is `voice command -> transcription text`, now implemented with a local audio capture adapter plus a local realtime-backend transcription adapter.
 - The desktop service layer now also owns a local `transcript -> session/transcript/node/snapshot` ingestion path so the UI can behave more like a chat app even when live API work is deferred.
 - The main window now uses a horizontal split with a dedicated session sidebar and a separate content column for voice input plus an on-demand session-detail panel.
 - A dedicated `voice_command.py` workflow module now owns the UI-facing voice state transitions, while `audio_capture.py` owns real microphone recording to local files through QtMultimedia.
-- `transcription.py` now defaults to the `Amazon Nova 2 Lite` model ID `us.amazon.nova-2-lite-v1:0`, which fits the current Bedrock `converse` implementation better than Nova Sonic.
+- `transcription.py` now contains both the legacy Amazon Nova adapter and the active realtime-backend adapter; the desktop UI currently uses the realtime-backend path by default.
 - The MVP audio-capture path should assume a single-user laptop setup and prefer the default built-in microphone unless a later settings surface adds device selection.
 - The audio capture default output path is now `Path.cwd() / "recordings"`, so recordings stay alongside the project files during MVP development.
-- The transcript settings surface currently edits region, model ID, max tokens, temperature, top-p, and the transcription prompt, then persists them through `AmazonNovaTranscriptionSettingsStore`.
+- The transcript settings surface currently edits backend URL, language, and request timeout, then persists them through `RealtimeBackendTranscriptionSettingsStore`.
 - The sibling user-facing product lives in `companion/src/collective_mindgraph_user_app` with the same layered structure and its own `companion/pyproject.toml`.
 - The sibling realtime backend lives in `realtime_backend/app` and is organized into `api`, `pipeline`, `services`, and `utils`, with separate tests and requirements.
 - Realtime ingest is split cleanly by responsibility: the backend accepts file uploads and raw PCM WebSocket streams, while microphone capture lives in a separate client script instead of being embedded into the server process.
 - VAD configuration now includes merge-gap, smoothing, adaptive-threshold, and max-region splitting controls to improve long-recording chunk boundaries before ASR and diarization.
-- ASR configuration now includes region padding for chunk-based transcription, and the current pipeline keeps word timestamps aligned back to the original timeline after per-region decoding.
+- ASR configuration now includes region padding for chunk-based transcription, and the current pipeline keeps word timestamps aligned back to the original timeline after per-region decoding; the preferred default model for this repo is now `large-v3-turbo`.
 - Diarization configuration now includes region padding, merge-gap, and max-window controls so long recordings can be diarized in bounded windows instead of only full-file passes.
 - Speaker stabilization now keeps a persistent speaker profile registry and avoids reusing the same stable speaker ID for multiple new raw labels inside the same chunk unless prior evidence supports it.
 - Transcript alignment now prefers word-level timing when available, emitting tighter segment start/end values and preserving per-word timestamps in the structured transcript output.
 - Transcript formatting now has explicit render helpers for raw/corrected text plus speaker-level aggregate stats, and `/transcript/{id}` returns that richer wrapper rather than only the raw transcript object.
 - The realtime orchestrator now builds bounded processing windows from VAD regions for long files, clips local speech regions into each window, and replaces overlap tails between windows before final correction.
 - Streaming session state now tracks a moving PCM buffer start offset so live sessions can drop old audio safely while still reprocessing a recent overlap window.
+- The pyannote integration now also applies a PyTorch 2.6+ compatibility workaround during diarizer initialization so gated pyannote checkpoints can load under the newer `weights_only=True` default.
 - Transcript models now also carry `decisions`, and the summary/final-stream surfaces publish those alongside summary, topics, and action items.
 - LLM correction requests now include a small prior-context window, and correction parsing tolerates fenced JSON responses for local API servers such as LM Studio.
 - A separate `quality.py` service now computes operational transcript metrics and optional reference comparisons.
@@ -87,14 +94,14 @@
 - Keep the product local-first, single-process, and SQLite-backed.
 - Prefer clean layering, connected runnable code, and practical implementations over over-abstraction.
 - While the project is still at the beginning stage, work in a rubber duck style: reason step by step from input toward output in sequence.
-- For the initial input stage, assume spoken commands are the primary interaction and Amazon Nova is the temporary/default transcription provider.
+- For the initial input stage, assume spoken commands are the primary interaction and the sibling local realtime backend is the default transcription provider.
 - For early feature work, prefer building the UI shell first and then wiring button functionality incrementally instead of starting with low-level capture code in isolation.
 - Keep this `codex.md` updated after user prompts so future work starts with current repo context.
-- Prefer the simpler Nova audio-understanding + Bedrock `converse` route for recorded-file transcription before considering Nova Sonic streaming.
+- Prefer the local realtime backend for recorded-file transcription in the desktop product before revisiting any cloud transcription adapter.
 - For the MVP, optimize around laptop usage and the built-in laptop microphone rather than external studio or headset hardware.
 - Keep transcript settings local and file-based for MVP; do not store AWS secrets in the project settings file.
-- If external evaluators or project-gallery forms ask which Nova model was used, answer with `Amazon Nova 2 Lite` for the current implementation.
-- For the hackathon context, using paid AWS cloud services is acceptable if it reduces implementation risk and keeps the demo aligned with Amazon Nova.
+- If the hackathon or gallery context comes back into scope, treat the Amazon Nova path as legacy context rather than the active product path unless the desktop UI is switched back explicitly.
+- For current implementation work, prefer the local backend path over paid cloud transcription unless there is a deliberate reason to compare providers.
 - For the immediate next phase, defer live API or Bedrock integration work and prioritize local product wiring, UX flow, and transcript-to-session behavior.
 - For transcript UX, follow a ChatGPT-like rule: no explicit session selection means start a new session; explicit selection means continue that session.
 - The user is now exploring a higher-bar voice product direction: multi-speaker conversational tracking with speaker continuity, tone/context awareness, and reliable long-recording handling rather than a simple one-shot `record -> transcribe` flow.
@@ -102,6 +109,9 @@
 - For LLM correction, keep provider abstraction clean so local and API-backed models can be swapped without changing transcript pipeline orchestration.
 - A local LM Studio GGUF model is available for experimentation: `Qwen3-VL-8B-Instruct-Q4_K_M.gguf` under `C:\Users\VICTUS\.lmstudio\models\lmstudio-community\Qwen3-VL-8B-Instruct-GGUF`.
 - For the realtime backend, LLM post-processing should stay last in the implementation order; first priority is getting the raw conversation pipeline solid end to end with capture, VAD, ASR, diarization, speaker stability, and structured transcript output.
+- For Turkish or mixed-language audio on this machine, do not rely on `distil-large-v3`; default to `large-v3-turbo` unless there is a measured reason to trade multilingual quality for speed.
+- For backend environment setup on this machine, prefer the project-local `realtime_backend/.venv` and keep the verified CUDA PyTorch stack (`torch/torchaudio 2.8.0+cu128`) rather than chasing latest wheels blindly.
+- To reduce setup friction, prefer placing the Hugging Face token once in `realtime_backend/.env` or logging in via Hugging Face CLI so the backend can discover it automatically.
 - The desktop UI is expected to represent the AI or reasoning-facing part of the product, not generic admin tooling.
 - The separate end-user app should not feel like a generic CRUD manager; it needs a clearer consumer-facing product shape.
 - The companion app should prioritize easy idea capture, visible category hierarchy, and session-template visualization over abstract `insight` or `action item` features.
@@ -112,18 +122,19 @@
 
 - Repo memory is enforced through `AGENTS.md`; there is no visible global Codex hook for automatic runtime-wide updates.
 - `codex.md` must stay compact and rewritten in place, not turn into an append-only log.
-- Amazon Nova as the initial speech-to-text provider introduces an external network dependency that partially conflicts with the local-first app direction; transcription should stay behind a replaceable adapter boundary.
-- Live Nova transcription has not yet been verified against a real AWS account from this workspace because the current local environment has neither `AWS_REGION` nor AWS credentials configured.
-- Direct Bedrock `converse` audio upload has a 25 MB limit in the current implementation; larger audio would need an S3-backed path if that becomes necessary.
-- `Amazon Nova 2 Sonic` remains a possible future option, but it is not the current default because the app is built around recorded-file transcription via `converse`, not Sonic's lower-latency voice streaming path.
+- The desktop app now depends on the sibling backend being up on the expected loopback URL; if the backend is stopped or bound to a different port, the voice panel will fail until settings are corrected.
+- The legacy Amazon Nova adapter still exists in code, but it is no longer the active desktop path and risks going stale if it is not either removed or covered by tests.
 - The new realtime backend is production-style at the module boundary, but true live diarization quality still depends on heavy external dependencies (`faster-whisper`, `pyannote.audio`, `silero-vad`, ffmpeg, CUDA-ready PyTorch) being installed and validated on the target machine.
+- Package installation is now complete locally, but real diarization is still effectively in fallback mode until Hugging Face access to the gated pyannote diarization model is configured.
+- Local package installation and gated-model access are now sufficient for `PyAnnoteDiarizer` to load, but a code-level compatibility workaround remains necessary because newer PyTorch defaults otherwise break pyannote checkpoint loading.
+- The remaining manual step is no longer exporting env vars; it is only obtaining/accepting gated-model access itself if the token is not already available locally.
 
 ## Next Likely Tasks
 
 - Keep this file aligned with any durable changes to architecture, workflow, or user preferences.
 - During early-stage work, structure implementation discussions and changes sequentially from input to output instead of jumping ahead to later layers.
-- Configure real AWS region, credentials, and Bedrock model access so the current Nova transcription path can be exercised end to end.
-- If transcription quality or latency becomes a problem, compare the current recorded-file `converse` approach with a future Nova Sonic streaming path.
+- Run real desktop-to-backend smoke tests so the new UI integration is exercised against the live FastAPI service, not only through unit tests.
+- If transcription quality or latency becomes a problem, tune the local backend pipeline and settings before revisiting any cloud transcription adapter.
 - Once live transcription is verified, decide how transcript text should feed into session creation, transcript history, and graph generation inside the desktop app.
 - Decide whether transcript settings should later move from `transcription_settings.json` into a richer app settings surface or remain repo-local for development.
 - Keep the current audio capture boundary replaceable so transcription providers can change without reworking the UI panel.
@@ -134,6 +145,10 @@
 - The next backend step after speaker stabilization and alignment is richer structured transcript output and validation on real recordings, especially around overlap-heavy turn boundaries.
 - After the new structured outputs and long-form windowing work, the next backend priority is validation on real 3+ speaker recordings and tuning of the new window/retention settings rather than adding more post-processing layers.
 - After summary/LLM/quality plumbing, the next backend priority is now real-audio validation and calibration of diarization, topic heuristics, and quality thresholds rather than more feature surface area.
+- After the desktop-to-backend wiring, the immediate quality step is validating Turkish transcription accuracy under `large-v3-turbo` and only then considering more aggressive model or prompt tuning.
+- The immediate environment-specific next step is exporting `CMG_RT_PYANNOTE_TOKEN` and accepting the gated model terms so the installed pyannote stack can stop falling back to single-speaker mode.
+- The immediate environment-specific next step is now just obtaining or caching a valid Hugging Face token and accepting the gated model terms so the installed pyannote stack can stop falling back to single-speaker mode.
+- The immediate next step after environment bring-up is now end-to-end desktop voice smoke tests now that pyannote can load locally and the desktop frontend can call the backend.
 - Do not spend the next iteration on transcript cleanup models before the base pipeline is verified on real audio, long files, and multi-speaker sessions.
 - If the backend matures, decide whether it remains a sibling service or becomes the speech/conversation engine behind the desktop product.
 - If the desktop app gains or loses major features, update the `Current State` and `Architecture` sections.
@@ -166,3 +181,8 @@
 - 2026-03-11: Improved realtime transcript alignment with word-level timing, speaker-boundary splitting, preserved per-word timestamps in final segments, and safer overlap replacement in streaming mode.
 - 2026-03-11: Added richer transcript render outputs and speaker stats, bounded long-file processing windows in the orchestrator, and bounded-window PCM buffer compaction for live streaming.
 - 2026-03-11: Upgraded heuristic summaries with topics/decisions/action items, made LLM post-processing context-aware with LM Studio-friendly parsing, and added intrinsic transcript quality reporting.
+- 2026-03-11: Provisioned a working local backend venv, pinned the verified CUDA/Python dependency combination, and confirmed that only gated-model access remains before full pyannote diarization can run locally.
+- 2026-03-11: Removed repeated manual token-export friction by teaching backend config to auto-discover Hugging Face credentials from `.env`, env vars, or local CLI cache.
+- 2026-03-11: Enabled real local pyannote loading by adding a PyTorch weights-only compatibility workaround after gated-model access and token discovery were put in place.
+- 2026-03-11: Switched the desktop voice-command UI from direct Amazon Nova transcription to the sibling local realtime backend, with persisted backend URL/language/timeout settings and transcript-to-session ingestion preserved.
+- 2026-03-11: Changed the backend default ASR model from `distil-large-v3` to `large-v3-turbo` after confirming the prior default was a bad fit for Turkish transcription in the desktop app.

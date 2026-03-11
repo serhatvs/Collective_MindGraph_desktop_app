@@ -48,8 +48,15 @@ cd realtime_backend
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
+python -m pip install torch==2.8.0+cu128 torchvision==0.23.0+cu128 torchaudio==2.8.0+cu128 --index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 ```
+
+Notes:
+
+- `pyannote.audio 3.4.0` currently works cleanly here with `torch/torchaudio 2.8.0+cu128`; newer `torchaudio 2.9+` builds break `AudioMetaData` used by pyannote.
+- `huggingface-hub` is intentionally kept below `1.0` because `pyannote.audio 3.4.0` still uses the older `use_auth_token` API path.
+- Real diarization still requires accepting the gated model terms, but token loading is now automatic from `CMG_RT_PYANNOTE_TOKEN`, `HF_TOKEN`, Hugging Face login cache, or `realtime_backend/.env`.
 
 ## Run
 
@@ -82,7 +89,7 @@ Useful flags:
 
 ## Key Environment Variables
 
-- `CMG_RT_ASR_MODEL=distil-large-v3`
+- `CMG_RT_ASR_MODEL=large-v3-turbo`
 - `CMG_RT_ASR_DEVICE=cuda`
 - `CMG_RT_ASR_COMPUTE_TYPE=float16`
 - `CMG_RT_DIARIZER_PROVIDER=pyannote`
@@ -231,7 +238,7 @@ Final transcript events also include:
 
 ## Suggested RTX 4060 Settings
 
-- ASR model: `distil-large-v3` or `large-v3-turbo`
+- ASR model: `large-v3-turbo`
 - compute type: `float16`
 - diarization on GPU if PyTorch CUDA is installed
 - keep stream partial windows around `8-12s`

@@ -22,7 +22,7 @@ def test_voice_command_workflow_reaches_transcript_ready_state():
 
     transcribing_state = workflow.transcribe()
     assert transcribing_state.stage == "transcribing"
-    assert "Amazon Nova" in transcribing_state.guidance_text
+    assert "local transcription backend" in transcribing_state.guidance_text
     assert transcribing_state.transcript_text == ""
 
     transcript_ready_state = workflow.complete_transcription("recognized speech")

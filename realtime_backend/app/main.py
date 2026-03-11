@@ -10,6 +10,7 @@ from .config import get_settings
 from .pipeline.orchestrator import TranscriptionPipeline
 from .services.conversation_store import ConversationStore
 from .services.media import FFmpegAudioNormalizer
+from .services.quality import TranscriptQualityService
 from .services.streaming import StreamingTranscriptionService
 from .services.transcription_service import TranscriptionService
 from .utils.ids import new_segment_id
@@ -23,6 +24,7 @@ def build_app() -> FastAPI:
     store = ConversationStore(settings.data_dir / "transcripts")
     normalizer = FFmpegAudioNormalizer(sample_rate=settings.sample_rate, channels=settings.channels)
     pipeline = TranscriptionPipeline(settings=settings)
+    quality_service = TranscriptQualityService()
     transcription_service = TranscriptionService(
         settings=settings,
         pipeline=pipeline,
@@ -40,6 +42,7 @@ def build_app() -> FastAPI:
     app.state.settings = settings
     app.state.transcription_service = transcription_service
     app.state.streaming_service = streaming_service
+    app.state.quality_service = quality_service
     app.state.id_factory = new_segment_id
     app.include_router(http_router)
     app.include_router(ws_router)

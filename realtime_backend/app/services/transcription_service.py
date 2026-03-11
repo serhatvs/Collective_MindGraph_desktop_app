@@ -37,12 +37,15 @@ class TranscriptionService:
         transcript_id = conversation_id or new_conversation_id()
         normalized_path = self._settings.temp_dir / f"{transcript_id}_normalized.wav"
         await asyncio.to_thread(self._normalizer.normalize_to_wav, source_path, normalized_path)
-        transcript = await self._pipeline.process_audio_path(
-            normalized_path,
-            conversation_id=transcript_id,
-            source=source,
-            language=language,
-        )
+        try:
+            transcript = await self._pipeline.process_audio_path(
+                normalized_path,
+                conversation_id=transcript_id,
+                source=source,
+                language=language,
+            )
+        finally:
+            normalized_path.unlink(missing_ok=True)
         self._store.save(transcript)
         return transcript
 

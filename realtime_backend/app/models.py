@@ -44,6 +44,7 @@ class TranscriptSegment(BaseModel):
     speaker: str
     raw_text: str
     corrected_text: str
+    words: list[WordTimestamp] = Field(default_factory=list)
     confidence: float | None = None
     speaker_confidence: float | None = None
     overlap: bool = False
@@ -74,6 +75,7 @@ class ConversationTranscript(BaseModel):
     summary: str | None = None
     topics: list[TopicSegment] = Field(default_factory=list)
     action_items: list[str] = Field(default_factory=list)
+    decisions: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     debug: ProcessingDebug | None = None
 
@@ -81,6 +83,7 @@ class ConversationTranscript(BaseModel):
 class CorrectionRequest(BaseModel):
     conversation_id: str
     language: str | None = None
+    context_segments: list[TranscriptSegment] = Field(default_factory=list)
     segments: list[TranscriptSegment]
 
 
@@ -89,6 +92,21 @@ class CorrectionResult(BaseModel):
     corrected_text: str
     speaker_override: str | None = None
     notes: list[str] = Field(default_factory=list)
+    confidence_note: str | None = None
+
+
+class SpeakerStats(BaseModel):
+    speaker: str
+    segment_count: int
+    speaking_seconds: float
+    overlap_segments: int = 0
+    first_start: float
+    last_end: float
+
+
+class TranscriptRenderings(BaseModel):
+    raw_text_output: str
+    corrected_text_output: str
 
 
 class HealthResponse(BaseModel):
@@ -103,6 +121,15 @@ class HealthResponse(BaseModel):
 class FileTranscriptionResponse(BaseModel):
     transcript: ConversationTranscript
     text_output: str
+    raw_text_output: str
+    corrected_text_output: str
+    speaker_stats: list[SpeakerStats] = Field(default_factory=list)
+
+
+class TranscriptResponse(BaseModel):
+    transcript: ConversationTranscript
+    renderings: TranscriptRenderings
+    speaker_stats: list[SpeakerStats] = Field(default_factory=list)
 
 
 class SummaryResponse(BaseModel):
@@ -110,3 +137,30 @@ class SummaryResponse(BaseModel):
     summary: str | None = None
     topics: list[TopicSegment] = Field(default_factory=list)
     action_items: list[str] = Field(default_factory=list)
+    decisions: list[str] = Field(default_factory=list)
+
+
+class QualityComparison(BaseModel):
+    text_overlap: float | None = None
+    speaker_match_ratio: float | None = None
+    action_item_overlap: float | None = None
+    summary_overlap: float | None = None
+
+
+class QualityReport(BaseModel):
+    conversation_id: str
+    segment_count: int
+    speaker_count: int
+    unresolved_segments: int
+    overlap_ratio: float
+    avg_asr_confidence: float | None = None
+    avg_speaker_confidence: float | None = None
+    word_timing_coverage: float
+    corrected_change_ratio: float
+    topic_count: int
+    action_item_count: int
+    decision_count: int
+    question_count: int
+    summary_present: bool
+    comparison: QualityComparison | None = None
+    warnings: list[str] = Field(default_factory=list)

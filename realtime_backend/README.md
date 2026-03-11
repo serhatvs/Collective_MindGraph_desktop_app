@@ -6,10 +6,12 @@ Production-style Python backend for long-form, near-real-time speech-to-text wit
 - VAD
 - ASR
 - speaker diarization
+- word-timestamp-based segment alignment
 - speaker stabilization across chunks
+- bounded long-recording processing windows
 - LLM-based transcript correction
 - JSON + readable transcript output
-- optional summary, topics, and action-item extraction
+- optional summary, topics, decisions, and action-item extraction
 
 ## What Is Fully Implemented
 
@@ -19,6 +21,9 @@ Production-style Python backend for long-form, near-real-time speech-to-text wit
 - pluggable VAD, ASR, diarization, and LLM modules
 - file-backed transcript persistence
 - transcript formatting
+- structured transcript renderings with raw/corrected text output plus speaker stats
+- heuristic summary/topic/decision/action extraction
+- transcript quality reporting endpoint
 - incremental stream session handling with overlap-based tail replacement
 - mock/no-op LLM providers for testing and local development
 - client scripts for microphone streaming and file upload
@@ -26,8 +31,9 @@ Production-style Python backend for long-form, near-real-time speech-to-text wit
 ## What Is Approximate In The MVP
 
 - Live stream diarization quality depends on processing rolling windows and reprocessing overlap
+- long recordings are processed in bounded windows, but very hard speaker shifts across distant windows can still drift
 - overlap handling is marked and preserved, but perfect separation is model-limited
-- summary/topics/action-items use heuristic extraction unless a stronger LLM provider is plugged in
+- summary/topics/decisions/action-items use heuristics unless a stronger LLM provider is plugged in
 - the websocket path expects `pcm_s16le`, mono, `16 kHz` chunks
 
 ## Recommended Install Flow
@@ -81,9 +87,13 @@ Useful flags:
 - `CMG_RT_ASR_COMPUTE_TYPE=float16`
 - `CMG_RT_DIARIZER_PROVIDER=pyannote`
 - `CMG_RT_PYANNOTE_TOKEN=...`
-- `CMG_RT_LLM_PROVIDER=mock|none|ollama|openai_compatible`
+- `CMG_RT_PIPELINE_MAX_WINDOW_SECONDS=90`
+- `CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS=2`
+- `CMG_RT_LLM_PROVIDER=mock|none|ollama|openai_compatible|lmstudio`
 - `CMG_RT_LLM_ENDPOINT=http://127.0.0.1:11434/api/generate`
 - `CMG_RT_LLM_MODEL=llama3.1`
+- `CMG_RT_LLM_CONTEXT_SEGMENTS=4`
+- `CMG_RT_STREAM_BUFFER_RETENTION_SECONDS=24`
 
 ## HTTP API
 
@@ -102,10 +112,86 @@ curl -X POST "http://127.0.0.1:8080/transcribe/file" `
 ```
 
 ### `GET /transcript/{id}`
-Returns the stored structured transcript.
+Returns the stored structured transcript together with raw/corrected renderings and speaker stats.
+
+Example response shape:
+
+```json
+{
+  "transcript": {
+    "conversation_id": "conv_123",
+    "source": "upload",
+    "segments": [
+      {
+        "segment_id": "seg_123",
+        "start": 12.48,
+        "end": 15.02,
+        "speaker": "Speaker_2",
+        "raw_text": "we should ship that next week",
+        "corrected_text": "We should ship that next week.",
+        "words": [
+          {"start": 12.48, "end": 12.71, "word": "we ", "probability": 0.91},
+          {"start": 12.72, "end": 13.10, "word": "should ", "probability": 0.94}
+        ],
+        "confidence": 0.92,
+        "speaker_confidence": 1.0,
+        "overlap": false,
+        "notes": [],
+        "metadata": {
+          "raw_speaker": "SPEAKER_01",
+          "alignment_source": "word_timestamps"
+        }
+      }
+    ]
+  },
+  "renderings": {
+    "raw_text_output": "[00:12.480 - 00:15.020] Speaker_2: we should ship that next week",
+    "corrected_text_output": "[00:12.480 - 00:15.020] Speaker_2: We should ship that next week."
+  },
+  "speaker_stats": [
+    {
+      "speaker": "Speaker_2",
+      "segment_count": 1,
+      "speaking_seconds": 2.54,
+      "overlap_segments": 0,
+      "first_start": 12.48,
+      "last_end": 15.02
+    }
+  ]
+}
+```
+
+Segment shape:
+
+```json
+{
+  "segment_id": "seg_123",
+  "start": 12.48,
+  "end": 15.02,
+  "speaker": "Speaker_2",
+  "raw_text": "we should ship that next week",
+  "corrected_text": "We should ship that next week.",
+  "words": [
+    {"start": 12.48, "end": 12.71, "word": "we ", "probability": 0.91},
+    {"start": 12.72, "end": 13.10, "word": "should ", "probability": 0.94}
+  ],
+  "confidence": 0.92,
+  "speaker_confidence": 1.0,
+  "overlap": false,
+  "notes": [],
+  "metadata": {
+    "raw_speaker": "SPEAKER_01",
+    "alignment_source": "word_timestamps"
+  }
+}
+```
 
 ### `GET /summary/{id}`
-Returns summary, topics, and action items.
+Returns summary, topics, decisions, and action items.
+
+### `GET /quality/{id}`
+Returns intrinsic transcript quality metrics such as unresolved-speaker count, overlap ratio,
+ASR confidence averages, word timestamp coverage, and readability change ratio.
 
 ## WebSocket Streaming
 
@@ -126,6 +212,22 @@ Events:
 - send binary frames with PCM audio
 - send `{"event":"flush"}` for an incremental update
 - send `{"event":"finalize"}` for final transcript + summary
+
+Partial and final transcript events now include:
+
+- `segments`
+- `text_output`
+- `raw_text_output`
+- `corrected_text_output`
+- `speaker_stats`
+- `is_final`
+
+Final transcript events also include:
+
+- `summary`
+- `topics`
+- `action_items`
+- `decisions`
 
 ## Suggested RTX 4060 Settings
 

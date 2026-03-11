@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QFileDialog,
+    QHBoxLayout,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -19,7 +21,8 @@ from PySide6.QtWidgets import (
 from ..services import CollectiveMindGraphService
 from .session_detail_panel import SessionDetailPanel
 from .session_list_panel import SessionListPanel
-from .widgets import SessionDialog, SummaryBar
+from .voice_command_panel import VoiceCommandPanel
+from .widgets import SessionDialog
 
 
 class MainWindow(QMainWindow):
@@ -73,21 +76,30 @@ class MainWindow(QMainWindow):
         central = QWidget()
         self.setCentralWidget(central)
 
-        layout = QVBoxLayout(central)
+        layout = QHBoxLayout(central)
         layout.setContentsMargins(16, 16, 16, 16)
-        layout.setSpacing(12)
+        layout.setSpacing(16)
 
-        self.summary_bar = SummaryBar()
-        layout.addWidget(self.summary_bar)
-
-        splitter = QSplitter()
         self.session_list_panel = SessionListPanel()
+
+        content_host = QWidget()
+        content_layout = QVBoxLayout(content_host)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(12)
+
+        self.voice_command_panel = VoiceCommandPanel()
+        content_layout.addWidget(self.voice_command_panel)
+
         self.session_detail_panel = SessionDetailPanel()
+        self.session_detail_panel.hide()
+        content_layout.addWidget(self.session_detail_panel, 1)
+
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.session_list_panel)
-        splitter.addWidget(self.session_detail_panel)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
-        splitter.setSizes([320, 960])
+        splitter.addWidget(content_host)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([320, 1040])
         layout.addWidget(splitter, 1)
 
         self.setStatusBar(QStatusBar())
@@ -105,11 +117,13 @@ class MainWindow(QMainWindow):
         self.session_list_panel.session_selected.connect(
             lambda session_id: self._run_guarded(lambda: self._select_session(session_id))
         )
-        self.session_detail_panel.new_session_requested.connect(
-            lambda: self._run_guarded(self._create_session)
+        self.voice_command_panel.activity_reported.connect(
+            lambda message: self.statusBar().showMessage(message, 5000)
         )
-        self.session_detail_panel.seed_demo_requested.connect(
-            lambda: self._run_guarded(self._seed_demo_data)
+        self.voice_command_panel.transcript_captured.connect(
+            lambda transcript_text: self._run_guarded(
+                lambda: self._ingest_transcript(transcript_text)
+            )
         )
 
     def _run_guarded(self, callback: Callable[[], None]) -> None:
@@ -120,22 +134,29 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage("Operation failed", 5000)
 
     def _refresh_summary(self) -> None:
-        self.summary_bar.set_summary(self._service.get_app_summary())
+        return
 
     def _refresh_sessions(self, query: str | None = None, selected_id: int | None = None) -> None:
         active_query = self.session_list_panel.search_text() if query is None else query
         sessions = self._service.list_sessions(active_query)
         target_id = selected_id if selected_id is not None else self._selected_session_id
         self.session_list_panel.set_sessions(sessions, target_id)
+        current_session_id = self.session_list_panel.current_session_id()
+        if current_session_id is None:
+            self._selected_session_id = None
+            self.session_detail_panel.set_detail(None)
+            self.session_detail_panel.hide()
         if not sessions:
             self._selected_session_id = None
             self.session_detail_panel.set_detail(None)
+            self.session_detail_panel.hide()
             self.statusBar().showMessage("Create a session or seed demo data to get started.", 5000)
         self._sync_action_state(bool(sessions))
 
     def _select_session(self, session_id: int) -> None:
         self._selected_session_id = session_id
         self.session_detail_panel.set_detail(self._service.get_session_detail(session_id))
+        self.session_detail_panel.show()
         self._sync_action_state(True)
         self.statusBar().showMessage(f"Loaded session #{session_id}", 3000)
 
@@ -199,6 +220,17 @@ class MainWindow(QMainWindow):
             return
         self._service.export_session(detail.session.id, file_path)
         self.statusBar().showMessage(f"Exported session to {file_path}", 5000)
+
+    def _ingest_transcript(self, transcript_text: str) -> None:
+        had_selection = self._selected_session_id is not None
+        session = self._service.ingest_transcript(transcript_text, self._selected_session_id)
+        self.session_list_panel.set_search_text("")
+        self._refresh_summary()
+        self._refresh_sessions(selected_id=session.id)
+        if had_selection:
+            self.statusBar().showMessage(f"Added transcript to '{session.title}'", 5000)
+            return
+        self.statusBar().showMessage(f"Started new session '{session.title}' from transcript", 5000)
 
     def _show_about(self) -> None:
         QMessageBox.about(

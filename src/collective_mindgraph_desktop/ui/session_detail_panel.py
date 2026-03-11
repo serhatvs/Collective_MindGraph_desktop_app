@@ -4,15 +4,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QScrollArea,
-    QStackedLayout,
     QTableWidget,
     QTableWidgetItem,
     QTreeWidget,
@@ -22,43 +20,18 @@ from PySide6.QtWidgets import (
 )
 
 from ..models import GraphNode, SessionDetail, Snapshot, Transcript
-from .widgets import ActionEmptyStateWidget, CardWidget
+from .widgets import CardWidget
 
 
 class SessionDetailPanel(QWidget):
-    new_session_requested = Signal()
-    seed_demo_requested = Signal()
-
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
-
-        self.stack_host = QWidget()
-        self.stack_layout = QStackedLayout(self.stack_host)
-        self.stack_layout.setContentsMargins(0, 0, 0, 0)
-        root_layout.addWidget(self.stack_host)
-
-        self.empty_state = ActionEmptyStateWidget(
-            "No session selected",
-            "Pick a session from the explorer, create a fresh one, or load demo data to inspect reasoning details.",
-            "New Session",
-            "Seed Demo Data",
-        )
-        self.empty_state.primary_button.clicked.connect(self.new_session_requested.emit)
-        if self.empty_state.secondary_button is not None:
-            self.empty_state.secondary_button.clicked.connect(self.seed_demo_requested.emit)
-        self.stack_layout.addWidget(self.empty_state)
-
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.content_widget = QWidget()
-        self.scroll_area.setWidget(self.content_widget)
-        self.stack_layout.addWidget(self.scroll_area)
-
-        content_layout = QVBoxLayout(self.content_widget)
+        content_layout = QVBoxLayout()
         content_layout.setContentsMargins(0, 0, 0, 0)
         content_layout.setSpacing(12)
+        root_layout.addLayout(content_layout)
 
         self.overview_card = CardWidget("Session Overview")
         overview_form = QFormLayout()
@@ -116,14 +89,10 @@ class SessionDetailPanel(QWidget):
         content_layout.addWidget(self.snapshot_card)
         content_layout.addStretch(1)
 
-        self.set_detail(None)
-
     def set_detail(self, detail: SessionDetail | None) -> None:
         if detail is None:
-            self.stack_layout.setCurrentWidget(self.empty_state)
             return
 
-        self.stack_layout.setCurrentWidget(self.scroll_area)
         self._overview_labels["title"].setText(detail.session.title)
         self._overview_labels["device_id"].setText(detail.session.device_id)
         self._overview_labels["status"].setText(detail.session.status.upper())

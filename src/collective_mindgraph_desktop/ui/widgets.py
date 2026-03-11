@@ -7,18 +7,22 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDoubleSpinBox,
     QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from ..models import AppSummary
+from ..transcription import AmazonNovaTranscriptionConfig
 
 
 class CardWidget(QFrame):
@@ -199,5 +203,84 @@ class SessionDialog(QDialog):
             return
         if not device_id:
             self.device_edit.setFocus()
+            return
+        self.accept()
+
+
+class TranscriptionSettingsDialog(QDialog):
+    def __init__(
+        self,
+        config: AmazonNovaTranscriptionConfig,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Transcript Settings")
+        self.resize(560, 420)
+
+        layout = QVBoxLayout(self)
+        form_layout = QFormLayout()
+        form_layout.setContentsMargins(0, 0, 0, 0)
+        form_layout.setSpacing(10)
+
+        self.region_edit = QLineEdit(config.region_name or "")
+        self.region_edit.setPlaceholderText("e.g. us-east-1")
+
+        self.model_edit = QLineEdit(config.model_id)
+        self.model_edit.setPlaceholderText("e.g. us.amazon.nova-pro-v1:0")
+
+        self.max_tokens_spin = QSpinBox()
+        self.max_tokens_spin.setRange(1, 32000)
+        self.max_tokens_spin.setValue(config.max_tokens)
+
+        self.temperature_spin = QDoubleSpinBox()
+        self.temperature_spin.setRange(0.0, 1.0)
+        self.temperature_spin.setDecimals(2)
+        self.temperature_spin.setSingleStep(0.05)
+        self.temperature_spin.setValue(config.temperature)
+
+        self.top_p_spin = QDoubleSpinBox()
+        self.top_p_spin.setRange(0.0, 1.0)
+        self.top_p_spin.setDecimals(2)
+        self.top_p_spin.setSingleStep(0.05)
+        self.top_p_spin.setValue(config.top_p)
+
+        self.prompt_edit = QPlainTextEdit()
+        self.prompt_edit.setPlainText(config.prompt_text)
+        self.prompt_edit.setPlaceholderText("Prompt sent with the audio for transcription.")
+        self.prompt_edit.setMinimumHeight(160)
+
+        form_layout.addRow("AWS Region", self.region_edit)
+        form_layout.addRow("Model ID", self.model_edit)
+        form_layout.addRow("Max Tokens", self.max_tokens_spin)
+        form_layout.addRow("Temperature", self.temperature_spin)
+        form_layout.addRow("Top P", self.top_p_spin)
+        form_layout.addRow("Prompt", self.prompt_edit)
+        layout.addLayout(form_layout)
+
+        self.button_box = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        self.button_box.button(QDialogButtonBox.StandardButton.Cancel).setProperty("secondary", True)
+        self.button_box.accepted.connect(self._validate_and_accept)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
+
+    def config(self) -> AmazonNovaTranscriptionConfig:
+        region_name = self.region_edit.text().strip() or None
+        return AmazonNovaTranscriptionConfig(
+            model_id=self.model_edit.text().strip(),
+            region_name=region_name,
+            max_tokens=self.max_tokens_spin.value(),
+            temperature=float(self.temperature_spin.value()),
+            top_p=float(self.top_p_spin.value()),
+            prompt_text=self.prompt_edit.toPlainText().strip(),
+        )
+
+    def _validate_and_accept(self) -> None:
+        if not self.model_edit.text().strip():
+            self.model_edit.setFocus()
+            return
+        if not self.prompt_edit.toPlainText().strip():
+            self.prompt_edit.setFocus()
             return
         self.accept()

@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.idea/
 .venv/
 venv/
 .env
@@ -13,4 +14,3 @@ htmlcov/
 .coverage
 .DS_Store
 Thumbs.db
-

@@ -73,3 +73,41 @@ def test_export_session_payload(tmp_path):
     assert payload["transcripts"]
     assert payload["graph_nodes"]
     assert payload["snapshots"]
+
+
+def test_ingest_transcript_creates_a_new_session_when_none_is_selected(tmp_path):
+    service = build_service(tmp_path)
+
+    session = service.ingest_transcript("Map out the incident and isolate the first failure signal.")
+    detail = service.get_session_detail(session.id)
+    summary = service.get_app_summary()
+
+    assert detail is not None
+    assert session.title == "Map out the incident and isolate the first failure signal."
+    assert summary.total_sessions == 1
+    assert summary.total_transcripts == 1
+    assert summary.total_nodes == 1
+    assert summary.total_snapshots == 1
+    assert detail.transcripts[0].text == "Map out the incident and isolate the first failure signal."
+    assert detail.graph_nodes[0].branch_type == "root"
+    assert detail.graph_nodes[0].parent_node_id is None
+
+
+def test_ingest_transcript_appends_to_the_selected_session(tmp_path):
+    service = build_service(tmp_path)
+
+    session = service.ingest_transcript("Track the incoming signal and keep the main hypothesis visible.")
+    continued = service.ingest_transcript(
+        "Add a follow-up note about the backup route staying available.",
+        session.id,
+    )
+    detail = service.get_session_detail(session.id)
+
+    assert continued.id == session.id
+    assert detail is not None
+    assert len(detail.transcripts) == 2
+    assert len(detail.graph_nodes) == 2
+    assert len(detail.snapshots) == 1
+    assert detail.graph_nodes[0].branch_type == "root"
+    assert detail.graph_nodes[1].branch_type == "main"
+    assert detail.graph_nodes[1].parent_node_id == detail.graph_nodes[0].id

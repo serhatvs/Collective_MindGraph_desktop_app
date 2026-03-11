@@ -30,11 +30,7 @@ class MockLLMProvider(BaseLLMProvider):
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         corrected: list[CorrectionResult] = []
         for item in request.segments:
-            text = item.raw_text.strip()
-            if text and text[-1] not in ".!?":
-                text = f"{text}."
-            if text:
-                text = text[0].upper() + text[1:]
+            text = _local_cleanup(item.raw_text)
             corrected.append(
                 CorrectionResult(
                     segment_id=item.segment_id,
@@ -85,6 +81,7 @@ class OpenAICompatibleLLMProvider(BaseLLMProvider):
                 json={
                     "model": self._model,
                     "response_format": {"type": "json_object"},
+                    "temperature": 0,
                     "messages": [
                         {
                             "role": "system",
@@ -104,30 +101,50 @@ class OpenAICompatibleLLMProvider(BaseLLMProvider):
 
 
 class LLMPostProcessor:
-    def __init__(self, provider: BaseLLMProvider, batch_size: int) -> None:
+    def __init__(self, provider: BaseLLMProvider, batch_size: int, context_segments: int = 0) -> None:
         self._provider = provider
         self._batch_size = batch_size
+        self._context_segments = max(0, context_segments)
 
     async def apply(self, conversation_id: str, language: str | None, segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
         updated_segments = list(segments)
         for batch_start in range(0, len(updated_segments), self._batch_size):
             batch = updated_segments[batch_start : batch_start + self._batch_size]
+            context = updated_segments[max(0, batch_start - self._context_segments) : batch_start]
             request = CorrectionRequest(
                 conversation_id=conversation_id,
                 language=language,
+                context_segments=context,
                 segments=batch,
             )
-            corrections = await self._provider.correct(request)
+            try:
+                corrections = await self._provider.correct(request)
+            except Exception as exc:
+                corrections = [
+                    CorrectionResult(
+                        segment_id=item.segment_id,
+                        corrected_text=item.raw_text,
+                        notes=[f"llm provider failed: {type(exc).__name__}"],
+                    )
+                    for item in batch
+                ]
             correction_map = {item.segment_id: item for item in corrections}
             for index, segment in enumerate(batch, start=batch_start):
                 correction = correction_map.get(segment.segment_id)
                 if correction is None:
                     continue
+                notes = list(segment.notes)
+                notes.extend(correction.notes)
+                if correction.confidence_note:
+                    notes.append(f"llm confidence note: {correction.confidence_note}")
                 updated_segments[index] = segment.model_copy(
                     update={
-                        "corrected_text": correction.corrected_text or segment.raw_text,
+                        "corrected_text": _normalize_correction(
+                            original=segment.raw_text,
+                            corrected=correction.corrected_text,
+                        ),
                         "speaker": correction.speaker_override or segment.speaker,
-                        "notes": segment.notes + correction.notes,
+                        "notes": _dedupe_notes(notes),
                     }
                 )
         return updated_segments
@@ -140,12 +157,27 @@ def build_llm_postprocessor(settings: Settings) -> LLMPostProcessor:
         provider = MockLLMProvider()
     elif settings.llm_provider == "ollama":
         provider = OllamaLLMProvider(settings)
+    elif settings.llm_provider in {"openai_compatible", "lmstudio"}:
+        provider = OpenAICompatibleLLMProvider(settings)
     else:
         provider = OpenAICompatibleLLMProvider(settings)
-    return LLMPostProcessor(provider=provider, batch_size=settings.llm_batch_size)
+    return LLMPostProcessor(
+        provider=provider,
+        batch_size=settings.llm_batch_size,
+        context_segments=settings.llm_context_segments,
+    )
 
 
 def _build_prompt(request: CorrectionRequest) -> str:
+    context_payload = [
+        {
+            "speaker": segment.speaker,
+            "start": segment.start,
+            "end": segment.end,
+            "text": segment.corrected_text or segment.raw_text,
+        }
+        for segment in request.context_segments
+    ]
     payload = [
         {
             "segment_id": segment.segment_id,
@@ -160,21 +192,72 @@ def _build_prompt(request: CorrectionRequest) -> str:
         "Correct the following diarized transcript segments for punctuation, capitalization, "
         "sentence continuity, local context consistency, and obvious ASR mistakes. Preserve meaning. "
         "Do not invent content. Keep timestamps and speaker structure unless correction is strongly justified.\n"
+        "Use the context block only to preserve continuity; do not rewrite context.\n"
         "Return JSON with the shape {\"segments\": [{\"segment_id\": ..., \"corrected_text\": ..., "
-        "\"speaker_override\": null, \"notes\": []}]}\n"
-        f"{json.dumps({'language': request.language, 'segments': payload}, ensure_ascii=False)}"
+        "\"speaker_override\": null, \"notes\": [], \"confidence_note\": null}]}\n"
+        f"{json.dumps({'language': request.language, 'context': context_payload, 'segments': payload}, ensure_ascii=False)}"
     )
 
 
 def _parse_json_results(content: str, source_segments: list[TranscriptSegment]) -> list[CorrectionResult]:
+    content = _strip_code_fence(content)
     try:
         payload = json.loads(content)
     except json.JSONDecodeError:
-        payload = {"segments": []}
+        try:
+            payload = {"segments": json.loads(content)}
+        except json.JSONDecodeError:
+            payload = {"segments": []}
+    if isinstance(payload, list):
+        payload = {"segments": payload}
     raw_segments: list[dict[str, Any]] = payload.get("segments", [])
     if not raw_segments:
         return [
             CorrectionResult(segment_id=item.segment_id, corrected_text=item.raw_text)
             for item in source_segments
         ]
-    return [CorrectionResult.model_validate(item) for item in raw_segments]
+    valid_ids = {item.segment_id for item in source_segments}
+    return [
+        CorrectionResult.model_validate(item)
+        for item in raw_segments
+        if item.get("segment_id") in valid_ids
+    ]
+
+
+def _strip_code_fence(content: str) -> str:
+    stripped = content.strip()
+    if stripped.startswith("```") and stripped.endswith("```"):
+        stripped = stripped.strip("`")
+        if stripped.startswith("json"):
+            stripped = stripped[4:]
+    return stripped.strip()
+
+
+def _local_cleanup(text: str) -> str:
+    cleaned = " ".join(text.strip().split())
+    cleaned = cleaned.replace(" i ", " I ")
+    if cleaned.startswith("i "):
+        cleaned = "I " + cleaned[2:]
+    if cleaned and cleaned[-1] not in ".!?":
+        cleaned = f"{cleaned}."
+    if cleaned:
+        cleaned = cleaned[:1].upper() + cleaned[1:]
+    return cleaned
+
+
+def _normalize_correction(original: str, corrected: str | None) -> str:
+    candidate = (corrected or original or "").strip()
+    if not candidate:
+        return original
+    return candidate
+
+
+def _dedupe_notes(notes: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for note in notes:
+        if note in seen:
+            continue
+        seen.add(note)
+        ordered.append(note)
+    return ordered

@@ -39,6 +39,14 @@
 - The realtime backend ASR layer now transcribes VAD-derived WAV regions chunk by chunk instead of running only a single full-file pass, then re-applies offsets and deduplicates padded boundary repeats.
 - The realtime backend diarization layer now supports VAD-driven diarization windows with padding, bounded window sizes, duplicate-turn cleanup, adjacent-turn merging, and overlap marking before transcript alignment.
 - The realtime backend speaker-mapping layer now resolves diarization labels chunk by chunk using overlap and recency voting against prior transcript segments, while maintaining stable `Speaker_n` IDs across chunk boundaries.
+- The realtime backend alignment layer now carries word timestamps into final transcript segments and can split a single ASR segment across speaker changes when diarization and word timing indicate a turn boundary.
+- The streaming transcript replacement logic now drops previously emitted segments that cross back into the overlap reprocessing window, reducing duplicate or stale boundary segments in live mode.
+- The realtime backend now exposes richer structured transcript output: raw and corrected text renderings, per-speaker aggregate stats, and WebSocket partial/final payloads that include those derived views alongside raw segments.
+- Long file processing is now bounded by orchestrator-level windows so long conversations can be processed sequentially instead of only as a single full-file pass.
+- Streaming now honors a bounded partial window and compacts old PCM buffer data after flushes, reducing memory growth during long live sessions.
+- The realtime backend summary layer now extracts heuristic topics, decisions, and action items more explicitly instead of relying only on a very shallow first/last-line summary.
+- The realtime backend now exposes `/quality/{id}` intrinsic transcript-quality reporting for unresolved speakers, overlap rate, confidence coverage, correction ratio, and related warnings.
+- The LLM post-processing layer is now context-aware across batch boundaries and supports `lmstudio` as an alias of the OpenAI-compatible API path.
 - `tests/README.md` now contains the original project README for comparison: the original product was a Docker-first distributed multi-agent reasoning demo with MQTT, Postgres, agents, and a browser dashboard.
 - The companion UI has been realigned again so the selected session is the center of the experience, with a readable session flow and a session-centered mindgraph derived from notes, template choice, branch context, and related sessions.
 
@@ -63,6 +71,13 @@
 - ASR configuration now includes region padding for chunk-based transcription, and the current pipeline keeps word timestamps aligned back to the original timeline after per-region decoding.
 - Diarization configuration now includes region padding, merge-gap, and max-window controls so long recordings can be diarized in bounded windows instead of only full-file passes.
 - Speaker stabilization now keeps a persistent speaker profile registry and avoids reusing the same stable speaker ID for multiple new raw labels inside the same chunk unless prior evidence supports it.
+- Transcript alignment now prefers word-level timing when available, emitting tighter segment start/end values and preserving per-word timestamps in the structured transcript output.
+- Transcript formatting now has explicit render helpers for raw/corrected text plus speaker-level aggregate stats, and `/transcript/{id}` returns that richer wrapper rather than only the raw transcript object.
+- The realtime orchestrator now builds bounded processing windows from VAD regions for long files, clips local speech regions into each window, and replaces overlap tails between windows before final correction.
+- Streaming session state now tracks a moving PCM buffer start offset so live sessions can drop old audio safely while still reprocessing a recent overlap window.
+- Transcript models now also carry `decisions`, and the summary/final-stream surfaces publish those alongside summary, topics, and action items.
+- LLM correction requests now include a small prior-context window, and correction parsing tolerates fenced JSON responses for local API servers such as LM Studio.
+- A separate `quality.py` service now computes operational transcript metrics and optional reference comparisons.
 - The companion app now uses category-first data modeling: `main_categories`, `sub_categories`, `user_sessions`, and `note_entries`. Its workspace map is derived from categories plus sessions rather than stored as a separate editable graph table.
 - The companion service now also derives `session_flow` and `session_graph` views from each session's notes and branch context so the UI can stay closer to the original product's session/graph semantics without introducing external services.
 
@@ -116,6 +131,9 @@
 - Supporting more than two speakers is an explicit product risk: speaker drift, overlapping speech, and identity continuity will need confidence scoring plus a manual correction path in the UI.
 - Validate the realtime backend against real GPU-backed local runs, long recordings, and 3+ speaker conversations before connecting it to any UI layer.
 - After ingest plumbing, the next backend priority remains VAD/ASR/diarization quality on real audio rather than LLM cleanup.
+- The next backend step after speaker stabilization and alignment is richer structured transcript output and validation on real recordings, especially around overlap-heavy turn boundaries.
+- After the new structured outputs and long-form windowing work, the next backend priority is validation on real 3+ speaker recordings and tuning of the new window/retention settings rather than adding more post-processing layers.
+- After summary/LLM/quality plumbing, the next backend priority is now real-audio validation and calibration of diarization, topic heuristics, and quality thresholds rather than more feature surface area.
 - Do not spend the next iteration on transcript cleanup models before the base pipeline is verified on real audio, long files, and multi-speaker sessions.
 - If the backend matures, decide whether it remains a sibling service or becomes the speech/conversation engine behind the desktop product.
 - If the desktop app gains or loses major features, update the `Current State` and `Architecture` sections.
@@ -145,3 +163,6 @@
 - 2026-03-10: User decided to defer live API work temporarily and focus next on local transcript-to-session product flow and UI wiring.
 - 2026-03-10: Implemented ChatGPT-like session continuation so transcript completion starts a new session only when no session is explicitly selected, otherwise it continues the selected session and persists transcript, graph, and snapshot data locally.
 - 2026-03-10: Added a new `realtime_backend/` sibling FastAPI project for multi-speaker transcription with VAD, ASR, diarization, stable speaker mapping, streaming support, summary extraction, and a dedicated pluggable LLM post-processing module.
+- 2026-03-11: Improved realtime transcript alignment with word-level timing, speaker-boundary splitting, preserved per-word timestamps in final segments, and safer overlap replacement in streaming mode.
+- 2026-03-11: Added richer transcript render outputs and speaker stats, bounded long-file processing windows in the orchestrator, and bounded-window PCM buffer compaction for live streaming.
+- 2026-03-11: Upgraded heuristic summaries with topics/decisions/action items, made LLM post-processing context-aware with LM Studio-friendly parsing, and added intrinsic transcript quality reporting.

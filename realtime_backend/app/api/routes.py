@@ -6,8 +6,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
-from ..models import FileTranscriptionResponse, HealthResponse, SummaryResponse
-from ..pipeline.transcript_formatter import format_transcript
+from ..models import FileTranscriptionResponse, HealthResponse, QualityReport, SummaryResponse, TranscriptResponse
+from ..pipeline.transcript_formatter import build_transcript_response
 
 router = APIRouter()
 
@@ -44,18 +44,22 @@ async def transcribe_file(
         )
     finally:
         source_path.unlink(missing_ok=True)
+    response = build_transcript_response(transcript)
     return FileTranscriptionResponse(
         transcript=transcript,
-        text_output=format_transcript(transcript),
+        text_output=response.renderings.corrected_text_output,
+        raw_text_output=response.renderings.raw_text_output,
+        corrected_text_output=response.renderings.corrected_text_output,
+        speaker_stats=response.speaker_stats,
     )
 
 
-@router.get("/transcript/{conversation_id}")
-async def get_transcript(request: Request, conversation_id: str):
+@router.get("/transcript/{conversation_id}", response_model=TranscriptResponse)
+async def get_transcript(request: Request, conversation_id: str) -> TranscriptResponse:
     transcript = request.app.state.transcription_service.get_transcript(conversation_id)
     if transcript is None:
         raise HTTPException(status_code=404, detail="Transcript not found.")
-    return transcript
+    return build_transcript_response(transcript)
 
 
 @router.get("/summary/{conversation_id}", response_model=SummaryResponse)
@@ -68,4 +72,13 @@ async def get_summary(request: Request, conversation_id: str) -> SummaryResponse
         summary=transcript.summary,
         topics=transcript.topics,
         action_items=transcript.action_items,
+        decisions=transcript.decisions,
     )
+
+
+@router.get("/quality/{conversation_id}", response_model=QualityReport)
+async def get_quality(request: Request, conversation_id: str) -> QualityReport:
+    transcript = request.app.state.transcription_service.get_transcript(conversation_id)
+    if transcript is None:
+        raise HTTPException(status_code=404, detail="Transcript not found.")
+    return request.app.state.quality_service.build_report(transcript)

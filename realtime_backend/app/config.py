@@ -50,6 +50,9 @@ class Settings:
     stream_min_emit_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_STREAM_MIN_EMIT_SECONDS", 4.0)
     )
+    stream_buffer_retention_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_STREAM_BUFFER_RETENTION_SECONDS", 24.0)
+    )
 
     vad_provider: str = field(default_factory=lambda: _env("CMG_RT_VAD_PROVIDER", "silero"))
     vad_frame_ms: int = field(default_factory=lambda: _env_int("CMG_RT_VAD_FRAME_MS", 30))
@@ -108,6 +111,13 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_DIARIZER_OVERLAP_THRESHOLD", 0.35)
     )
 
+    pipeline_max_window_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_PIPELINE_MAX_WINDOW_SECONDS", 90.0)
+    )
+    pipeline_window_overlap_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS", 2.0)
+    )
+
     llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "mock"))
     llm_model_name: str = field(default_factory=lambda: _env("CMG_RT_LLM_MODEL", "mock"))
     llm_endpoint: str | None = field(default_factory=lambda: os.getenv("CMG_RT_LLM_ENDPOINT") or None)
@@ -116,6 +126,9 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_LLM_TIMEOUT_SECONDS", 30.0)
     )
     llm_batch_size: int = field(default_factory=lambda: _env_int("CMG_RT_LLM_BATCH_SIZE", 12))
+    llm_context_segments: int = field(
+        default_factory=lambda: _env_int("CMG_RT_LLM_CONTEXT_SEGMENTS", 4)
+    )
 
     enable_summary: bool = field(
         default_factory=lambda: _env("CMG_RT_ENABLE_SUMMARY", "true").lower() == "true"

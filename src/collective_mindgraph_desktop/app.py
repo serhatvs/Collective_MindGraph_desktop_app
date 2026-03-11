@@ -60,14 +60,48 @@ QLabel#SectionTitle {
     font-size: 12pt;
     font-weight: 700;
 }
-QLineEdit, QListWidget, QTreeWidget, QTableWidget, QComboBox {
+QLineEdit, QListWidget, QTreeWidget, QTableWidget, QComboBox, QPlainTextEdit {
     background: #ffffff;
     border: 1px solid #ccd8e4;
     border-radius: 10px;
     padding: 6px 8px;
 }
-QLineEdit:focus, QListWidget:focus, QTreeWidget:focus, QTableWidget:focus, QComboBox:focus {
+QLineEdit:focus, QListWidget:focus, QTreeWidget:focus, QTableWidget:focus, QComboBox:focus, QPlainTextEdit:focus {
     border: 1px solid #4b6cb7;
+}
+QLabel#MutedText {
+    color: #5a6b7d;
+}
+QLabel#VoiceStatusBadge {
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 9pt;
+    font-weight: 700;
+}
+QLabel#VoiceStatusBadge[stage="idle"] {
+    background: #eef3f9;
+    color: #264a7f;
+    border: 1px solid #c8d6e4;
+}
+QLabel#VoiceStatusBadge[stage="recording"] {
+    background: #fff0f0;
+    color: #a13232;
+    border: 1px solid #efb3b3;
+}
+QLabel#VoiceStatusBadge[stage="audio_ready"] {
+    background: #fff7e3;
+    color: #8b5a08;
+    border: 1px solid #eed49a;
+}
+QLabel#VoiceStatusBadge[stage="transcript_ready"] {
+    background: #ebfaf1;
+    color: #19693d;
+    border: 1px solid #b8e3c8;
+}
+QLabel#VoiceStatusBadge[stage="error"] {
+    background: #fff0f0;
+    color: #9a2121;
+    border: 1px solid #efb3b3;
 }
 QListWidget::item, QTreeWidget::item {
     padding: 6px;

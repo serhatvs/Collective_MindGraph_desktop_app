@@ -95,8 +95,6 @@ class SessionListPanel(QWidget):
                 if int(candidate.data(Qt.ItemDataRole.UserRole)) == selected_id:
                     item_to_select = candidate
                     break
-        if item_to_select is None and self.list_widget.count() > 0:
-            item_to_select = self.list_widget.item(0)
         if item_to_select is not None:
             self.list_widget.setCurrentItem(item_to_select)
         self.list_widget.blockSignals(False)

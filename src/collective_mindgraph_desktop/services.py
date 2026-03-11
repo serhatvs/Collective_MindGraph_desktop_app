@@ -180,6 +180,57 @@ class CollectiveMindGraphService:
     def get_app_summary(self) -> AppSummary:
         return self.sessions.summary_counts()
 
+    def ingest_transcript(
+        self,
+        transcript_text: str,
+        session_id: int | None = None,
+        device_id: str = "VOICE-MIC",
+    ) -> Session:
+        cleaned_text = " ".join(transcript_text.split())
+        if not cleaned_text:
+            raise ValueError("Transcript text is required.")
+
+        timestamp = current_timestamp()
+        session = self.sessions.get(session_id) if session_id is not None else None
+        if session is None:
+            session = self.sessions.create(
+                self._build_session_title(cleaned_text),
+                device_id.strip() or "VOICE-MIC",
+                "active",
+                timestamp,
+            )
+
+        transcript = self.transcripts.create_many(
+            session.id,
+            [TranscriptDraft(text=cleaned_text, confidence=1.0, created_at=timestamp)],
+        )[0]
+
+        existing_nodes = self.graph_nodes.list_by_session(session.id)
+        parent_node_id = existing_nodes[-1].id if existing_nodes else None
+        branch_type = "main" if existing_nodes else "root"
+
+        self.graph_nodes.create_many(
+            session.id,
+            [
+                GraphNodeDraft(
+                    transcript_id=transcript.id,
+                    parent_node_id=parent_node_id,
+                    branch_type=branch_type,
+                    branch_slot=None,
+                    node_text=self._build_node_text(cleaned_text),
+                    override_reason=None,
+                    created_at=timestamp,
+                )
+            ],
+        )
+
+        rebuilt = self.rebuild_snapshots(session.id)
+        if rebuilt:
+            refreshed_session = self.sessions.get(session.id)
+            if refreshed_session is not None:
+                return refreshed_session
+        return session
+
     def _seed_single_session(
         self,
         title: str,
@@ -237,3 +288,16 @@ class CollectiveMindGraphService:
             )
         updated_session = self.sessions.touch(session.id, created_nodes[-1].created_at)
         return updated_session or session
+
+    @staticmethod
+    def _build_session_title(transcript_text: str) -> str:
+        title = transcript_text[:60].strip()
+        if len(transcript_text) > 60:
+            title = f"{title.rstrip('. ,;:!?')}..."
+        return title or "New Voice Session"
+
+    @staticmethod
+    def _build_node_text(transcript_text: str) -> str:
+        if len(transcript_text) <= 140:
+            return transcript_text
+        return f"{transcript_text[:137].rstrip()}..."

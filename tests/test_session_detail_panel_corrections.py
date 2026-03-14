@@ -312,6 +312,47 @@ def test_session_detail_panel_renders_graph_branch_labels_and_truncated_transcri
     panel.close()
 
 
+def test_session_detail_panel_uses_fallback_text_for_graph_nodes_without_transcripts():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[],
+        graph_nodes=[
+            GraphNode(
+                id=1,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Unattached node",
+                override_reason=None,
+                created_at="2026-03-14T12:00:00Z",
+            )
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    root_item = panel.graph_tree.topLevelItem(0)
+
+    assert root_item.text(2) == "No transcript linked"
+    assert root_item.toolTip(2) == "No transcript linked"
+    panel.close()
+
+
 def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):
     panel, _detail = build_panel_with_detail(tmp_path)
 

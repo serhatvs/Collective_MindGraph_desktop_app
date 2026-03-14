@@ -101,7 +101,7 @@
 - The transcript settings surface currently edits backend URL, language, and request timeout, then persists them through `RealtimeBackendTranscriptionSettingsStore`.
 - The transcript settings surface now also lists available Qt microphone inputs so the desktop user can pick which microphone the recorder uses.
 - Session detail now depends on persisted `transcript_analyses` records stored beside local transcripts, rather than only the old flat transcript text.
-- Session detail UI regression coverage now spans transcript lists, quality summaries, speaker stats, insight lists, graph-tree states plus branch-label/tooltips/fallback transcript rendering, snapshot tables, and local correction tools.
+- Session detail UI regression coverage now spans transcript lists, quality summaries, speaker stats, insight lists, graph-tree states plus branch-label/tooltips/fallback transcript rendering and child ordering, snapshot tables, and local correction tools.
 - Transcript ingestion from backend results now creates one primary graph node from the transcript text plus up to two derived side nodes for summary/topics and decisions/action items, so the graph reflects conversation analysis more directly.
 - The sibling user-facing product lives in `companion/src/collective_mindgraph_user_app` with the same layered structure and its own `companion/pyproject.toml`.
 - The sibling realtime backend lives in `realtime_backend/app` and is organized into `api`, `pipeline`, `services`, and `utils`, with separate tests and requirements.
@@ -185,9 +185,9 @@
 
 ## Autonomous Task Board
 
-- [ ] Add `SessionDetailPanel` tests for graph child ordering between `main` and `side` branches.
 - [ ] Add `VoiceCommandPanel` tests for `Test 122949` no-op guards while another transcription task is active.
 - [ ] Add `SessionDetailPanel` tests for graph root ordering when multiple root nodes are present.
+- [ ] Add `SessionDetailPanel` tests for side-branch ordering tie-breaks when branch slots match.
 
 ## Future Tasks
 

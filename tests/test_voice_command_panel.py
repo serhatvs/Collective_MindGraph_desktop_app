@@ -372,6 +372,7 @@ def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_p
     assert not panel.test_button.isEnabled()
     assert any("Starting test transcription for 1 files from 122949 with language=en." in item for item in activity_messages)
     panel._cleanup_test_batch_worker()
+    assert panel.test_button.isEnabled()
     panel.close()
 
 

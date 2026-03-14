@@ -393,11 +393,9 @@ class VoiceCommandPanel(QWidget):
 
     def _handle_shutdown_requested(self, recognized_text: str) -> None:
         if self._workflow.state.stage == "recording":
-            self._cancel_live_stream()
-            self._capture_controller.clear_capture()
-            self._apply_state(self._workflow.clear())
+            self._handle_stop()
             self.activity_reported.emit(
-                f"Shutdown phrase detected: {recognized_text}. Active voice turn was cancelled."
+                f"Shutdown phrase detected: {recognized_text}. Recording stopped and will be transcribed."
             )
             return
         if self._workflow.state.stage == "transcribing":

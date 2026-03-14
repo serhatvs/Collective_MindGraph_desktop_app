@@ -172,4 +172,58 @@ def test_voice_command_panel_clears_retry_message_after_successful_health_retry(
     assert "Realtime Backend [ok]" in panel.provider_status_label.text()
     assert "STT: auto -> deepgram (fallback faster_whisper)" in panel.provider_status_label.text()
     assert "LLM: bedrock_auto_local -> bedrock (fallback lmstudio)" in panel.provider_status_label.text()
+    assert "LLM reachability: Amazon Bedrock is active; LM Studio is ready as fallback." in panel.provider_status_label.text()
+    panel.close()
+
+
+def test_voice_command_panel_surfaces_bedrock_fallback_activity(monkeypatch):
+    panel = build_panel(monkeypatch)
+
+    panel._handle_backend_health_finished(
+        BackendHealthStatus(
+            status="ok",
+            app_name="Realtime Backend",
+            vad_provider="silero",
+            asr_provider="auto",
+            asr_provider_resolved="faster_whisper",
+            asr_fallback_provider="mock",
+            diarizer_provider="pyannote",
+            llm_provider="bedrock_auto_local",
+            llm_provider_resolved="lmstudio",
+            llm_fallback_provider="mock",
+        )
+    )
+
+    assert "LLM: bedrock_auto_local -> lmstudio (fallback mock)" in panel.provider_status_label.text()
+    assert (
+        "LLM fallback active: Amazon Bedrock is unreachable, so LM Studio is handling corrections."
+        in panel.provider_status_label.text()
+    )
+    assert "Mock cleanup remains the last fallback." in panel.provider_status_label.text()
+    panel.close()
+
+
+def test_voice_command_panel_surfaces_auto_local_mock_fallback(monkeypatch):
+    panel = build_panel(monkeypatch)
+
+    panel._handle_backend_health_finished(
+        BackendHealthStatus(
+            status="ok",
+            app_name="Realtime Backend",
+            vad_provider="silero",
+            asr_provider="auto",
+            asr_provider_resolved="faster_whisper",
+            asr_fallback_provider="mock",
+            diarizer_provider="pyannote",
+            llm_provider="auto_local",
+            llm_provider_resolved="mock",
+            llm_fallback_provider="mock",
+        )
+    )
+
+    assert "LLM: auto_local -> mock (fallback mock)" in panel.provider_status_label.text()
+    assert (
+        "LLM fallback active: LM Studio is unreachable, so mock cleanup is handling corrections."
+        in panel.provider_status_label.text()
+    )
     panel.close()

@@ -671,9 +671,51 @@ class VoiceCommandPanel(QWidget):
         llm_status = f"{health.llm_provider} -> {health.llm_provider_resolved or '-'}"
         if health.llm_fallback_provider:
             llm_status += f" (fallback {health.llm_fallback_provider})"
-        return (
+        status_text = (
             f"{health.app_name} [{health.status}]  |  "
             f"STT: {asr_status}  |  "
             f"LLM: {llm_status}  |  "
             f"VAD: {health.vad_provider}  |  Diarizer: {health.diarizer_provider}"
         )
+        llm_detail = self._llm_reachability_text(health)
+        if llm_detail:
+            return f"{status_text}\n{llm_detail}"
+        return status_text
+
+    @staticmethod
+    def _llm_reachability_text(health: BackendHealthStatus) -> str | None:
+        resolved = (health.llm_provider_resolved or "").strip()
+        configured = (health.llm_provider or "").strip()
+        fallback = (health.llm_fallback_provider or "").strip()
+
+        if configured == "auto_local":
+            if resolved == "mock":
+                return "LLM fallback active: LM Studio is unreachable, so mock cleanup is handling corrections."
+            if resolved == "lmstudio" and fallback == "mock":
+                return "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
+
+        if configured == "bedrock_auto_local":
+            if resolved == "bedrock" and fallback:
+                return (
+                    f"LLM reachability: Amazon Bedrock is active; "
+                    f"{VoiceCommandPanel._display_provider_name(fallback)} is ready as fallback."
+                )
+            if resolved == "lmstudio":
+                detail = "LLM fallback active: Amazon Bedrock is unreachable, so LM Studio is handling corrections."
+                if fallback == "mock":
+                    detail += " Mock cleanup remains the last fallback."
+                return detail
+            if resolved == "mock":
+                return "LLM fallback active: Amazon Bedrock and LM Studio are unreachable, so mock cleanup is handling corrections."
+
+        return None
+
+    @staticmethod
+    def _display_provider_name(provider_name: str) -> str:
+        mapping = {
+            "bedrock": "Amazon Bedrock",
+            "lmstudio": "LM Studio",
+            "mock": "mock cleanup",
+            "openai_compatible": "OpenAI-compatible API",
+        }
+        return mapping.get(provider_name, provider_name.replace("_", " "))

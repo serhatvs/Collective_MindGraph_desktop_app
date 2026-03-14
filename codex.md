@@ -34,6 +34,7 @@
 - The desktop voice-command stack now also has controller-level regression coverage for `apply_config()` re-arming and worker stop/start transitions.
 - The desktop voice-command stack now also has controller-level regression coverage for unavailable-runtime startup messaging and explicit `shutdown()` stop behavior.
 - The desktop voice-command panel now also exposes a `Test 122949` button that batch-transcribes the repo-local `122949/*.flac` sample set through the backend using English language mode, and its batch report now stays visible after worker cleanup instead of being cleared immediately.
+- The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging and per-file error reporting during partial batch failures.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
@@ -193,7 +194,7 @@
 - [x] Add `SessionDetailPanel` tests for transcript-list placeholders versus populated transcript tooltips.
 - [x] Add `VoskWakePhraseController` tests for unavailable-runtime startup status and `shutdown()` stop behavior.
 - [x] Add realtime-backend API tests for `/transcribe/file` upload success and missing-upload validation behavior.
-- [ ] Add `VoiceCommandPanel` tests for `Test 122949` missing-dataset and per-file failure reporting paths.
+- [x] Add `VoiceCommandPanel` tests for `Test 122949` missing-dataset and per-file failure reporting paths.
 - [ ] Add `SessionDetailPanel` tests for graph-tree empty-state and orphan-node bucket rendering.
 
 ## Future Tasks

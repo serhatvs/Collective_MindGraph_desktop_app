@@ -1,3 +1,4 @@
+from dataclasses import replace
 import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -107,6 +108,52 @@ def build_panel_with_detail(
     panel = SessionDetailPanel()
     panel.set_detail(detail)
     return panel, detail
+
+
+def test_session_detail_panel_shows_transcript_placeholder_without_transcripts(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    service = build_service(tmp_path)
+    session = service.create_session("Empty Session", "VOICE-MIC")
+    detail = service.get_session_detail(session.id)
+
+    assert app is not None
+    assert detail is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.transcript_list.count() == 1
+    assert panel.transcript_list.item(0).text() == "No transcripts recorded for this session yet."
+    assert not panel.transcript_list.item(0).flags()
+    panel.close()
+
+
+def test_session_detail_panel_renders_transcript_tooltips_and_selects_latest(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    service = build_service(tmp_path)
+    first_result = build_transcription_result(str(tmp_path / "sample_1.wav"))
+    session = service.ingest_transcription_result(first_result)
+    second_result = replace(
+        build_transcription_result(str(tmp_path / "sample_2.wav")),
+        conversation_id="conv_panel_tools_followup",
+        text="Speaker_1: final follow up",
+        corrected_text_output="Speaker_1: Final follow up.",
+    )
+    service.ingest_transcription_result(second_result, session_id=session.id)
+    detail = service.get_session_detail(session.id)
+
+    assert app is not None
+    assert detail is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.transcript_list.count() == 2
+    assert panel.transcript_list.currentRow() == 1
+    assert "Confidence" in panel.transcript_list.item(0).text()
+    assert panel.transcript_list.item(1).toolTip() == detail.transcripts[-1].text
+    assert panel.transcript_list.item(1).data(0x0100) == detail.transcripts[-1].id
+    panel.close()
 
 
 def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):

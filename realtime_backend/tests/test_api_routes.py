@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+import pytest
 import starlette.formparsers as formparsers
 import starlette.requests as requests_module
 
@@ -133,10 +134,12 @@ class StubTranscriptionService:
         *,
         asr_provider: StubProviderInfo | None = None,
         llm_provider: StubProviderInfo | None = None,
+        transcribe_error: Exception | None = None,
     ) -> None:
         self._transcript = transcript
         self.requested_ids: list[str] = []
         self.transcribe_requests: list[dict[str, object]] = []
+        self._transcribe_error = transcribe_error
         self._pipeline = types.SimpleNamespace(
             _asr=asr_provider or StubProviderInfo(),
             _llm_postprocessor=types.SimpleNamespace(_provider=llm_provider or StubProviderInfo()),
@@ -163,6 +166,8 @@ class StubTranscriptionService:
                 "bytes": source_path.read_bytes(),
             }
         )
+        if self._transcribe_error is not None:
+            raise self._transcribe_error
         assert self._transcript is not None
         return self._transcript
 
@@ -184,12 +189,14 @@ def build_client(
     settings: object | None = None,
     asr_provider: StubProviderInfo | None = None,
     llm_provider: StubProviderInfo | None = None,
+    transcribe_error: Exception | None = None,
 ) -> tuple[TestClient, StubTranscriptionService, StubQualityService]:
     app = FastAPI()
     transcription_service = StubTranscriptionService(
         transcript,
         asr_provider=asr_provider,
         llm_provider=llm_provider,
+        transcribe_error=transcribe_error,
     )
     quality_service = StubQualityService(report)
     app.state.settings = settings or types.SimpleNamespace(
@@ -297,6 +304,54 @@ def test_transcribe_file_route_requires_upload_field():
 
     assert response.status_code == 422
     assert transcription_service.transcribe_requests == []
+
+
+def test_transcribe_file_route_cleans_up_temp_file_when_transcription_raises(tmp_path):
+    report = QualityReport(
+        conversation_id="unused",
+        segment_count=0,
+        speaker_count=0,
+        unresolved_segments=0,
+        overlap_ratio=0.0,
+        avg_asr_confidence=None,
+        avg_speaker_confidence=None,
+        word_timing_coverage=0.0,
+        corrected_change_ratio=0.0,
+        topic_count=0,
+        action_item_count=0,
+        decision_count=0,
+        question_count=0,
+        summary_present=False,
+        warnings=[],
+    )
+    client, transcription_service, _quality_service = build_client(
+        None,
+        report,
+        settings=types.SimpleNamespace(
+            app_name="Collective MindGraph Realtime Backend",
+            vad_provider="silero",
+            asr_provider="auto",
+            diarizer_provider="pyannote",
+            llm_provider="bedrock_auto_local",
+            temp_dir=tmp_path,
+        ),
+        transcribe_error=RuntimeError("transcription exploded"),
+    )
+
+    with pytest.raises(RuntimeError, match="transcription exploded"):
+        client.post(
+            "/transcribe/file",
+            files={"upload": ("sample.flac", b"fake-flac-bytes", "audio/flac")},
+            data={"language": "en"},
+        )
+
+    assert len(transcription_service.transcribe_requests) == 1
+    request = transcription_service.transcribe_requests[0]
+    assert request["bytes"] == b"fake-flac-bytes"
+    assert request["language"] == "en"
+    assert request["source"] == "upload"
+    assert request["source_path"] == tmp_path / "upload_route_test.flac"
+    assert not Path(request["source_path"]).exists()
 
 
 def test_health_route_returns_provider_and_fallback_status():

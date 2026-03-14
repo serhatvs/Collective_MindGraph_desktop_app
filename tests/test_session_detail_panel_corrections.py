@@ -243,6 +243,75 @@ def test_session_detail_panel_groups_orphan_graph_nodes_under_unlinked_bucket():
     panel.close()
 
 
+def test_session_detail_panel_renders_graph_branch_labels_and_truncated_transcript_tooltips():
+    app = QApplication.instance() or QApplication([])
+    transcript_text = (
+        "Speaker_1: This is a deliberately long transcript excerpt that should truncate in the graph "
+        "table while keeping the full text in the tooltip."
+    )
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[
+            Transcript(
+                id=1,
+                session_id=1,
+                text=transcript_text,
+                confidence=0.95,
+                created_at="2026-03-14T12:00:00Z",
+            )
+        ],
+        graph_nodes=[
+            GraphNode(
+                id=1,
+                session_id=1,
+                transcript_id=1,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node",
+                override_reason=None,
+                created_at="2026-03-14T12:00:00Z",
+            ),
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=1,
+                parent_node_id=1,
+                branch_type="side",
+                branch_slot=2,
+                node_text="Side branch node",
+                override_reason="Derived from follow-up cluster",
+                created_at="2026-03-14T12:01:00Z",
+            ),
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    root_item = panel.graph_tree.topLevelItem(0)
+    side_item = root_item.child(0)
+    expected_truncated = transcript_text[:69] + "..."
+
+    assert root_item.text(1) == "root"
+    assert side_item.text(1) == "side-2"
+    assert side_item.toolTip(1) == "side-2\nDerived from follow-up cluster"
+    assert side_item.text(2) == expected_truncated
+    assert side_item.toolTip(2) == transcript_text
+    panel.close()
+
+
 def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):
     panel, _detail = build_panel_with_detail(tmp_path)
 

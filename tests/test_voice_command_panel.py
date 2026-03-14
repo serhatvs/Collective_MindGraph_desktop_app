@@ -297,6 +297,47 @@ def test_test_dataset_transcription_worker_processes_all_flac_files_in_english(m
     assert "sample_b.flac: Speaker_1: sample_b.flac" in result.report_text
 
 
+def test_test_dataset_transcription_worker_reports_per_file_errors(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    for filename in ("sample_a.flac", "sample_b.flac"):
+        (dataset_dir / filename).write_bytes(b"fake flac")
+
+    class FakeTranscriptionService:
+        def __init__(self, config=None) -> None:
+            return
+
+        def transcribe_file(self, audio_path: str) -> TranscriptionResult:
+            if audio_path.endswith("sample_a.flac"):
+                raise RuntimeError("backend offline")
+            return TranscriptionResult(
+                text="Speaker_1: sample_b.flac",
+                model_id="realtime_backend",
+                audio_path=audio_path,
+                corrected_text_output="Speaker_1: sample_b.flac",
+            )
+
+    monkeypatch.setattr(voice_command_panel_module, "RealtimeBackendTranscriptionService", FakeTranscriptionService)
+    worker = voice_command_panel_module.TestDatasetTranscriptionWorker(
+        dataset_dir,
+        RealtimeBackendTranscriptionConfig(language=None),
+    )
+    finished_results: list[object] = []
+    failed_messages: list[str] = []
+    worker.finished.connect(finished_results.append)
+    worker.failed.connect(failed_messages.append)
+
+    worker.run()
+
+    assert failed_messages == []
+    assert len(finished_results) == 1
+    result = finished_results[0]
+    assert result.total_files == 2
+    assert result.succeeded_files == 1
+    assert "sample_a.flac: ERROR - backend offline" in result.report_text
+    assert "sample_b.flac: Speaker_1: sample_b.flac" in result.report_text
+
+
 def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_path):
     dataset_dir = tmp_path / "122949"
     dataset_dir.mkdir()
@@ -331,6 +372,22 @@ def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_p
     assert not panel.test_button.isEnabled()
     assert any("Starting test transcription for 1 files from 122949 with language=en." in item for item in activity_messages)
     panel._cleanup_test_batch_worker()
+    panel.close()
+
+
+def test_voice_command_panel_test_button_reports_missing_dataset(monkeypatch, tmp_path):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    missing_dir = tmp_path / "missing_122949"
+    panel.activity_reported.connect(activity_messages.append)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", missing_dir)
+
+    panel.test_button.click()
+
+    expected = f"No test audio files were found under {missing_dir}."
+    assert panel.transcript_output.toPlainText() == expected
+    assert activity_messages == [expected]
+    assert panel.test_button.isEnabled()
     panel.close()
 
 

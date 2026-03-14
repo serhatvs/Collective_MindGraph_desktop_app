@@ -185,9 +185,9 @@
 
 ## Autonomous Task Board
 
-- [ ] Add `SessionDetailPanel` tests for orphan buckets coexisting with sorted root nodes in the same tree.
 - [ ] Add `SessionDetailPanel` tests for empty graph versus orphan-bucket precedence when only invalid nodes exist.
-- [ ] Add `SessionDetailPanel` tests for orphan bucket placement after multiple sorted root nodes.
+- [ ] Add `VoiceCommandPanel` tests for busy-state output/history preservation when another `Test 122949` batch is already active.
+- [ ] Add `SessionDetailPanel` tests for mixed root/orphan trees preserving orphan child ordering under the final bucket.
 
 ## Future Tasks
 

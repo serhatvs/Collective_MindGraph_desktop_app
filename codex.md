@@ -32,6 +32,7 @@
 - The desktop backend-status surface now also explains LLM reachability more explicitly for `auto_local` and `bedrock_auto_local`, including when Bedrock or LM Studio has fallen back to a lower-tier provider.
 - The desktop voice-command stack now has microphone-free regression coverage for wake-controller signal routing, toggle/failure/state transitions, wake-start, wake-ignore-during-transcribing, recording stop-and-transcribe via shutdown phrase, shutdown handling while transcription is still running, live-stream finalization fallback back to file upload, live partial transcript rendering, final-result `transcript_captured` emission, backend-manager state/error surfacing, and manual health-refresh wiring.
 - The desktop voice-command stack now also has controller-level regression coverage for `apply_config()` re-arming and worker stop/start transitions.
+- The desktop voice-command panel now also exposes a `Test 122949` button that batch-transcribes the repo-local `122949/*.flac` sample set through the backend using English language mode.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
@@ -149,6 +150,7 @@
 - The user is now exploring a higher-bar voice product direction: multi-speaker conversational tracking with speaker continuity, tone/context awareness, and reliable long-recording handling rather than a simple one-shot `record -> transcribe` flow.
 - This direction should not assume only two speakers; the architecture needs dynamic speaker handling for 3+ participants, including uncertainty and correction paths.
 - For LLM correction, keep provider abstraction clean so local and API-backed models can be swapped without changing transcript pipeline orchestration.
+- For scalability going forward, keep new transcription product work and evaluation datasets English-only unless a later explicit decision re-opens multilingual scope.
 - For hackathon alignment, prefer Amazon Bedrock for the LLM correction layer instead of treating LM Studio as the primary correction path.
 - A local LM Studio GGUF model is available for experimentation: `Qwen3-VL-8B-Instruct-Q4_K_M.gguf` under `C:\Users\VICTUS\.lmstudio\models\lmstudio-community\Qwen3-VL-8B-Instruct-GGUF`.
 - For the realtime backend, LLM post-processing should stay last in the implementation order; first priority is getting the raw conversation pipeline solid end to end with capture, VAD, ASR, diarization, speaker stability, and structured transcript output.

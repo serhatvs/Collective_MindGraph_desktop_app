@@ -34,7 +34,7 @@
 - The desktop voice-command stack now also has controller-level regression coverage for `apply_config()` re-arming and worker stop/start transitions.
 - The desktop voice-command stack now also has controller-level regression coverage for unavailable-runtime startup messaging and explicit `shutdown()` stop behavior.
 - The desktop voice-command panel now also exposes a `Test 122949` button that batch-transcribes the repo-local `122949/*.flac` sample set through the backend using English language mode, and its batch report now stays visible after worker cleanup instead of being cleared immediately.
-- The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging, per-file error reporting during partial batch failures, progress activity updates, finished-summary messaging, test-button disable/re-enable lifecycle, no-op guards while other transcription work is active, and preservation of existing output when busy-state requests are ignored.
+- The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging, per-file error reporting during partial batch failures, progress activity updates, finished-summary messaging, test-button disable/re-enable lifecycle, no-op guards while other transcription work is active, and preservation of existing output/activity history when busy-state requests are ignored.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
@@ -185,9 +185,9 @@
 
 ## Autonomous Task Board
 
-- [ ] Add `VoiceCommandPanel` tests for `Test 122949` preserving existing activity history when a busy-state request is ignored.
 - [ ] Add `SessionDetailPanel` tests for orphan buckets coexisting with sorted root nodes in the same tree.
 - [ ] Add `SessionDetailPanel` tests for empty graph versus orphan-bucket precedence when only invalid nodes exist.
+- [ ] Add `SessionDetailPanel` tests for orphan bucket placement after multiple sorted root nodes.
 
 ## Future Tasks
 

@@ -454,6 +454,23 @@ def test_voice_command_panel_ignores_test_batch_request_while_batch_is_active(mo
     panel.close()
 
 
+def test_voice_command_panel_preserves_existing_output_when_busy_test_request_is_ignored(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    panel = build_panel(monkeypatch)
+    panel._transcription_thread = QThread(panel)
+    panel._transcript_output_override = "Existing transcript output."
+    panel.transcript_output.setPlainText("Existing transcript output.")
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+
+    panel._handle_test_dataset()
+
+    assert panel.transcript_output.toPlainText() == "Existing transcript output."
+    panel._transcription_thread = None
+    panel.close()
+
+
 def test_voice_command_panel_reports_test_batch_progress_activity(monkeypatch):
     panel = build_panel(monkeypatch)
     activity_messages: list[str] = []

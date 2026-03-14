@@ -7,6 +7,7 @@ from PySide6.QtCore import QItemSelectionModel
 from PySide6.QtWidgets import QApplication
 
 from collective_mindgraph_desktop.database import Database
+from collective_mindgraph_desktop.models import GraphNode, Session, SessionDetail, Transcript
 from collective_mindgraph_desktop.services import CollectiveMindGraphService
 from collective_mindgraph_desktop.transcription import TranscriptionResult
 from collective_mindgraph_desktop.ui.session_detail_panel import SessionDetailPanel
@@ -153,6 +154,92 @@ def test_session_detail_panel_renders_transcript_tooltips_and_selects_latest(tmp
     assert "Confidence" in panel.transcript_list.item(0).text()
     assert panel.transcript_list.item(1).toolTip() == detail.transcripts[-1].text
     assert panel.transcript_list.item(1).data(0x0100) == detail.transcripts[-1].id
+    panel.close()
+
+
+def test_session_detail_panel_shows_graph_placeholder_without_nodes(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    service = build_service(tmp_path)
+    session = service.create_session("Empty Session", "VOICE-MIC")
+    detail = service.get_session_detail(session.id)
+
+    assert app is not None
+    assert detail is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.graph_tree.topLevelItemCount() == 1
+    assert panel.graph_tree.topLevelItem(0).text(0) == "No graph nodes yet."
+    panel.close()
+
+
+def test_session_detail_panel_groups_orphan_graph_nodes_under_unlinked_bucket():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[
+            Transcript(
+                id=1,
+                session_id=1,
+                text="Full transcript text for orphan tooltip.",
+                confidence=0.95,
+                created_at="2026-03-14T12:00:00Z",
+            )
+        ],
+        graph_nodes=[
+            GraphNode(
+                id=1,
+                session_id=1,
+                transcript_id=1,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node",
+                override_reason=None,
+                created_at="2026-03-14T12:00:00Z",
+            ),
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=1,
+                parent_node_id=999,
+                branch_type="main",
+                branch_slot=None,
+                node_text="Orphan node",
+                override_reason=None,
+                created_at="2026-03-14T12:01:00Z",
+            ),
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.graph_tree.topLevelItemCount() == 2
+    assert panel.graph_tree.topLevelItem(0).text(0) == "Root node"
+    assert panel.graph_tree.topLevelItem(1).text(0) == "Unlinked"
+    assert (
+        panel.graph_tree.topLevelItem(1).toolTip(0)
+        == "Nodes with missing or invalid parent references."
+    )
+    assert panel.graph_tree.topLevelItem(1).childCount() == 1
+    assert panel.graph_tree.topLevelItem(1).child(0).text(0) == "Orphan node"
+    assert (
+        panel.graph_tree.topLevelItem(1).child(0).toolTip(2)
+        == "Full transcript text for orphan tooltip."
+    )
     panel.close()
 
 

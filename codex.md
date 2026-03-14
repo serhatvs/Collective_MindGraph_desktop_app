@@ -101,6 +101,7 @@
 - The transcript settings surface currently edits backend URL, language, and request timeout, then persists them through `RealtimeBackendTranscriptionSettingsStore`.
 - The transcript settings surface now also lists available Qt microphone inputs so the desktop user can pick which microphone the recorder uses.
 - Session detail now depends on persisted `transcript_analyses` records stored beside local transcripts, rather than only the old flat transcript text.
+- Session detail UI regression coverage now spans transcript lists, quality summaries, speaker stats, insight lists, graph-tree empty/orphan states, and local correction tools.
 - Transcript ingestion from backend results now creates one primary graph node from the transcript text plus up to two derived side nodes for summary/topics and decisions/action items, so the graph reflects conversation analysis more directly.
 - The sibling user-facing product lives in `companion/src/collective_mindgraph_user_app` with the same layered structure and its own `companion/pyproject.toml`.
 - The sibling realtime backend lives in `realtime_backend/app` and is organized into `api`, `pipeline`, `services`, and `utils`, with separate tests and requirements.
@@ -184,18 +185,9 @@
 
 ## Autonomous Task Board
 
-- [x] Add realtime-backend API tests for `/summary/{conversation_id}` success and missing-transcript responses.
-- [x] Add `VoskWakePhraseController` tests for detected wake/shutdown signal routing and `toggle_armed()` behavior.
-- [x] Add `SessionDetailPanel` tests for speaker-stats placeholders versus populated tooltip rendering.
-- [x] Add realtime-backend API tests for `/transcript/{conversation_id}` success and missing-transcript responses.
-- [x] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
-- [x] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
-- [x] Add realtime-backend API tests for `/health` provider and fallback fields on the status payload.
-- [x] Add `SessionDetailPanel` tests for transcript-list placeholders versus populated transcript tooltips.
-- [x] Add `VoskWakePhraseController` tests for unavailable-runtime startup status and `shutdown()` stop behavior.
-- [x] Add realtime-backend API tests for `/transcribe/file` upload success and missing-upload validation behavior.
-- [x] Add `VoiceCommandPanel` tests for `Test 122949` missing-dataset and per-file failure reporting paths.
-- [ ] Add `SessionDetailPanel` tests for graph-tree empty-state and orphan-node bucket rendering.
+- [ ] Add `SessionDetailPanel` tests for snapshot-table placeholders versus populated hash tooltip rendering.
+- [ ] Add `VoiceCommandPanel` tests for `Test 122949` progress updates and finished-summary messaging.
+- [ ] Add realtime-backend API tests for `/transcribe/file` temp-file cleanup when transcription raises.
 
 ## Future Tasks
 

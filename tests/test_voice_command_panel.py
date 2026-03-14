@@ -6,7 +6,12 @@ from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QApplication
 
 from collective_mindgraph_desktop.audio_capture import AudioInputDeviceInfo
-from collective_mindgraph_desktop.transcription import BackendHealthStatus, RealtimeBackendTranscriptionConfig
+from collective_mindgraph_desktop.transcription import (
+    BackendHealthStatus,
+    RealtimeBackendTranscriptionConfig,
+    StreamingTranscriptionUpdate,
+    TranscriptionResult,
+)
 from collective_mindgraph_desktop.wake_phrase import WakePhraseConfig
 import collective_mindgraph_desktop.ui.voice_command_panel as voice_command_panel_module
 
@@ -273,6 +278,50 @@ def test_voice_command_panel_falls_back_to_file_upload_when_live_finalize_fails(
     assert panel._live_stream_failed is True
     assert transcribe_calls == ["called"]
     assert any("Live stream dropped. Falling back to final file upload." in item for item in activity_messages)
+    panel.close()
+
+
+def test_voice_command_panel_renders_live_partial_text(monkeypatch):
+    panel = build_panel(monkeypatch)
+
+    panel._handle_live_partial_received(
+        StreamingTranscriptionUpdate(
+            conversation_id="conv_partial",
+            audio_path="C:/tmp/test.wav",
+            text="Speaker_1: partial raw",
+            corrected_text_output="Speaker_1: Partial corrected.",
+            is_final=False,
+        )
+    )
+
+    assert panel.transcript_output.toPlainText() == "Speaker_1: Partial corrected."
+    panel.close()
+
+
+def test_voice_command_panel_emits_transcript_captured_after_live_finalization(monkeypatch):
+    panel = build_panel(monkeypatch)
+    captured_results: list[TranscriptionResult] = []
+    panel.transcript_captured.connect(captured_results.append)
+    set_transcribing_state(panel)
+    panel._live_stream_attempted = True
+    panel._live_stream_failed = True
+    panel._live_stream_finalizing = True
+    result = TranscriptionResult(
+        text="Speaker_1: Final raw.",
+        model_id="realtime_backend",
+        audio_path="C:/tmp/test.wav",
+        conversation_id="conv_final",
+        corrected_text_output="Speaker_1: Final corrected.",
+    )
+
+    panel._handle_live_finalized(result)
+
+    assert panel._live_stream_attempted is False
+    assert panel._live_stream_failed is False
+    assert panel._live_stream_finalizing is False
+    assert panel._workflow.state.stage == "transcript_ready"
+    assert panel.transcript_output.toPlainText() == "Speaker_1: Final corrected."
+    assert captured_results == [result]
     panel.close()
 
 

@@ -27,6 +27,7 @@
 - The desktop voice panel can now stream the growing local WAV capture into the backend WebSocket endpoint while recording, update transcript text live, and fall back to the older final file-upload path if live streaming fails.
 - The desktop voice panel now also shows backend runtime/provider health from `/health`, including configured STT/LLM providers, resolved providers, and fallback chains.
 - When the desktop app points to the sibling loopback backend and health fails, it can now auto-start `realtime_backend` from the local `.venv` and retry health automatically.
+- The desktop voice panel now preserves its backend startup/retry status message until the follow-up health check resolves, avoiding a misleading fallback to a generic unavailable state during worker cleanup.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
 - Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
 - Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file with backend URL, language override, and request timeout; the repo-local default file has been migrated to that schema.
@@ -169,7 +170,7 @@
 ## Autonomous Task Board
 
 - [x] Add automated desktop/service coverage for transcript-analysis correction saves so segment edits are verified to update transcript text, graph-node content, and snapshots coherently.
-- [ ] Harden the desktop voice panel's backend health and auto-start UX so provider status and startup retry messaging stay accurate during the first refresh cycle.
+- [x] Harden the desktop voice panel's backend health and auto-start UX so provider status and startup retry messaging stay accurate during the first refresh cycle.
 - [ ] Surface resolved LLM provider reachability and fallback state more explicitly in the desktop UI when `auto_local` or `bedrock_auto_local` falls back.
 - [ ] Define and implement the desktop-side flow for live transcript history so streaming/final transcript text lands predictably in session creation, transcript records, and graph generation.
 - [ ] Keep `codex.md` compact and current whenever durable architecture, workflow, or preference changes land.

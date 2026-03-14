@@ -34,7 +34,7 @@
 - The desktop voice-command stack now also has controller-level regression coverage for `apply_config()` re-arming and worker stop/start transitions.
 - The desktop voice-command stack now also has controller-level regression coverage for unavailable-runtime startup messaging and explicit `shutdown()` stop behavior.
 - The desktop voice-command panel now also exposes a `Test 122949` button that batch-transcribes the repo-local `122949/*.flac` sample set through the backend using English language mode, and its batch report now stays visible after worker cleanup instead of being cleared immediately.
-- The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging and per-file error reporting during partial batch failures.
+- The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging, per-file error reporting during partial batch failures, progress activity updates, and finished-summary messaging.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
@@ -185,9 +185,9 @@
 
 ## Autonomous Task Board
 
-- [ ] Add `VoiceCommandPanel` tests for `Test 122949` progress updates and finished-summary messaging.
 - [ ] Add realtime-backend API tests for `/transcribe/file` temp-file cleanup when transcription raises.
 - [ ] Add `SessionDetailPanel` tests for graph-node branch labels, override-reason tooltips, and transcript-text truncation behavior.
+- [ ] Add `VoiceCommandPanel` tests for `Test 122949` button disable/re-enable behavior across worker lifecycle.
 
 ## Future Tasks
 

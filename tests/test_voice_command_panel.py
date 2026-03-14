@@ -391,8 +391,21 @@ def test_voice_command_panel_test_button_reports_missing_dataset(monkeypatch, tm
     panel.close()
 
 
+def test_voice_command_panel_reports_test_batch_progress_activity(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+
+    panel._handle_test_batch_progress("Test batch 1/2: transcribing sample_a.flac")
+
+    assert activity_messages == ["Test batch 1/2: transcribing sample_a.flac"]
+    panel.close()
+
+
 def test_voice_command_panel_keeps_test_batch_report_visible_after_worker_cleanup(monkeypatch):
     panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
     panel._test_batch_thread = QThread(panel)
     panel._test_batch_worker = QObject(panel)
 
@@ -406,6 +419,7 @@ def test_voice_command_panel_keeps_test_batch_report_visible_after_worker_cleanu
 
     panel._cleanup_test_batch_worker()
 
+    assert "Test batch finished: 1/1 files transcribed." in activity_messages
     assert panel.transcript_output.toPlainText() == (
         "Test batch completed: 1/1 files transcribed successfully.\n\nsample.flac: ready"
     )

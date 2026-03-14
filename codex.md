@@ -25,6 +25,7 @@
 - The desktop microphone workflow now also watches the growing local WAV file for sustained silence after speech and auto-stops the recording without requiring the user to press `Stop`.
 - The desktop app now also supports an optional VOSK-based wake trigger on the main voice panel: `command wake` starts hands-free recording and `command shut` cancels the current voice turn while the listener stays armed, with extra alias matching for VOSK outputs such as `command wake up`, dropped leading `i`, or merged `shutdown`/`wakeup`.
 - The desktop voice panel can now stream the growing local WAV capture into the backend WebSocket endpoint while recording, update transcript text live, and fall back to the older final file-upload path if live streaming fails.
+- Stream-final transcript results now use the same desktop ingestion path as file uploads and are covered explicitly through the main-window flow for both new-session and append-to-selected-session cases.
 - The desktop voice panel now also shows backend runtime/provider health from `/health`, including configured STT/LLM providers, resolved providers, and fallback chains.
 - When the desktop app points to the sibling loopback backend and health fails, it can now auto-start `realtime_backend` from the local `.venv` and retry health automatically.
 - The desktop voice panel now preserves its backend startup/retry status message until the follow-up health check resolves, avoiding a misleading fallback to a generic unavailable state during worker cleanup.
@@ -173,7 +174,7 @@
 - [x] Add automated desktop/service coverage for transcript-analysis correction saves so segment edits are verified to update transcript text, graph-node content, and snapshots coherently.
 - [x] Harden the desktop voice panel's backend health and auto-start UX so provider status and startup retry messaging stay accurate during the first refresh cycle.
 - [x] Surface resolved LLM provider reachability and fallback state more explicitly in the desktop UI when `auto_local` or `bedrock_auto_local` falls back.
-- [ ] Define and implement the desktop-side flow for live transcript history so streaming/final transcript text lands predictably in session creation, transcript records, and graph generation.
+- [x] Define and implement the desktop-side flow for live transcript history so streaming/final transcript text lands predictably in session creation, transcript records, and graph generation.
 - [ ] Keep `codex.md` compact and current whenever durable architecture, workflow, or preference changes land.
 
 ## Future Tasks

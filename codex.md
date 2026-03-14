@@ -37,7 +37,7 @@
 - The desktop app now persists backend transcript-analysis data per transcript, including segments, speaker stats, summary, topics, decisions, action items, and quality-report metadata.
 - The session detail UI now exposes a `Conversation Analysis` surface for the selected transcript and allows manual correction of speaker labels and corrected segment text, with those edits flowing back into local transcript and graph-node storage.
 - The session detail correction UX now also supports bulk speaker rename/merge, per-selection speaker reassignment, segment reordering, and merge-with-next operations before saving.
-- Automated tests cover schema creation, session create/list/search, demo seeding, snapshot hash determinism, and export payload structure.
+- Automated tests now also cover transcript-analysis correction saves, including persisted transcript text, graph-node updates, snapshot rebuild coherence, and session-detail save emission.
 - Root-level repo memory is now defined through `AGENTS.md` plus this `codex.md` file.
 - This workspace is now a git repository and has been pushed to `https://github.com/serhatvs/Collective_MindGraph_desktop_app.git`.
 - A separate end-user application concept is now in scope as a sibling product to the current AI or reasoning-facing desktop app.
@@ -168,7 +168,7 @@
 
 ## Autonomous Task Board
 
-- [ ] Add automated desktop/service coverage for transcript-analysis correction saves so segment edits are verified to update transcript text, graph-node content, and snapshots coherently.
+- [x] Add automated desktop/service coverage for transcript-analysis correction saves so segment edits are verified to update transcript text, graph-node content, and snapshots coherently.
 - [ ] Harden the desktop voice panel's backend health and auto-start UX so provider status and startup retry messaging stay accurate during the first refresh cycle.
 - [ ] Surface resolved LLM provider reachability and fallback state more explicitly in the desktop UI when `auto_local` or `bedrock_auto_local` falls back.
 - [ ] Define and implement the desktop-side flow for live transcript history so streaming/final transcript text lands predictably in session creation, transcript records, and graph generation.

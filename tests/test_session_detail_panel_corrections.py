@@ -19,6 +19,9 @@ def build_transcription_result(
     audio_path: str,
     quality_report: dict[str, object] | None = None,
     speaker_stats: list[dict[str, object]] | None = None,
+    topics: list[dict[str, object]] | None = None,
+    decisions: list[str] | None = None,
+    action_items: list[str] | None = None,
 ) -> TranscriptionResult:
     return TranscriptionResult(
         text="Speaker_1: first idea\nSpeaker_2: second note\nSpeaker_1: third follow up",
@@ -68,6 +71,9 @@ def build_transcription_result(
                 "notes": [],
             },
         ],
+        topics=topics or [],
+        decisions=decisions or [],
+        action_items=action_items or [],
         speaker_stats=speaker_stats or [],
         quality_report=quality_report,
     )
@@ -77,6 +83,9 @@ def build_panel_with_detail(
     tmp_path,
     quality_report: dict[str, object] | None = None,
     speaker_stats: list[dict[str, object]] | None = None,
+    topics: list[dict[str, object]] | None = None,
+    decisions: list[str] | None = None,
+    action_items: list[str] | None = None,
 ):
     app = QApplication.instance() or QApplication([])
     service = build_service(tmp_path)
@@ -85,6 +94,9 @@ def build_panel_with_detail(
             str(tmp_path / "sample.wav"),
             quality_report=quality_report,
             speaker_stats=speaker_stats,
+            topics=topics,
+            decisions=decisions,
+            action_items=action_items,
         )
     )
     detail = service.get_session_detail(session.id)
@@ -170,6 +182,30 @@ def test_session_detail_panel_renders_speaker_stats_text_and_tooltip(tmp_path):
         "Speaker_1\nSegments: 2\nSpeaking seconds: 2.000\nOverlap segments: 1"
     )
     assert panel.speaker_stats_list.item(1).text() == "Speaker_2  |  1 segments  |  1.0s spoken"
+    panel.close()
+
+
+def test_session_detail_panel_shows_insight_placeholder_without_topics_or_actions(tmp_path):
+    panel, _detail = build_panel_with_detail(tmp_path)
+
+    assert panel.insight_list.count() == 1
+    assert panel.insight_list.item(0).text() == "No topics, decisions, or action items available."
+    assert not panel.insight_list.item(0).flags()
+    panel.close()
+
+
+def test_session_detail_panel_renders_topics_decisions_and_actions_in_order(tmp_path):
+    panel, _detail = build_panel_with_detail(
+        tmp_path,
+        topics=[{"label": "Planning", "start": 0.0, "end": 1.5}],
+        decisions=["Ship Friday"],
+        action_items=["Speaker_1: Send recap"],
+    )
+
+    assert panel.insight_list.count() == 3
+    assert panel.insight_list.item(0).text() == "Topic: Planning (00:00.000 - 00:01.500)"
+    assert panel.insight_list.item(1).text() == "Decision: Ship Friday"
+    assert panel.insight_list.item(2).text() == "Action: Speaker_1: Send recap"
     panel.close()
 
 

@@ -34,6 +34,7 @@
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
+- The `SessionDetailPanel` analysis surface now also has UI regression coverage for insight-list placeholders plus topic/decision/action rendering order.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
 - Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
 - Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file with backend URL, language override, and request timeout; the repo-local default file has been migrated to that schema.
@@ -181,7 +182,7 @@
 - [x] Add `VoskWakePhraseController` tests for detected wake/shutdown signal routing and `toggle_armed()` behavior.
 - [x] Add `SessionDetailPanel` tests for speaker-stats placeholders versus populated tooltip rendering.
 - [x] Add realtime-backend API tests for `/transcript/{conversation_id}` success and missing-transcript responses.
-- [ ] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
+- [x] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
 - [ ] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
 
 ## Future Tasks

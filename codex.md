@@ -66,7 +66,7 @@
 - Streaming now honors a bounded partial window and compacts old PCM buffer data after flushes, reducing memory growth during long live sessions.
 - The realtime backend summary layer now extracts heuristic topics, decisions, and action items more explicitly instead of relying only on a very shallow first/last-line summary.
 - The realtime backend now exposes `/quality/{id}` intrinsic transcript-quality reporting for unresolved speakers, overlap rate, confidence coverage, correction ratio, and related warnings.
-- The realtime backend now also has route-level regression coverage for `/transcript/{conversation_id}`, `/summary/{conversation_id}`, and `/quality/{conversation_id}` success and missing-transcript responses without requiring full pipeline startup.
+- The realtime backend now also has route-level regression coverage for `/health`, `/transcript/{conversation_id}`, `/summary/{conversation_id}`, and `/quality/{conversation_id}` payloads without requiring full pipeline startup.
 - The realtime backend `/health` surface now also exposes the resolved ASR provider plus any local fallback so `auto` mode can be inspected at runtime.
 - The LLM post-processing layer is now context-aware across batch boundaries and defaults to `bedrock_auto_local`, which tries Amazon Bedrock Nova first and falls back safely to local LM Studio/mock cleanup if AWS is unavailable.
 - The local backend environment has now been provisioned under `realtime_backend/.venv` on Python 3.12 with `torch 2.8.0+cu128`, `torchaudio 2.8.0+cu128`, `numpy`, `faster-whisper`, `silero-vad`, and `pyannote.audio` installed successfully.
@@ -185,7 +185,7 @@
 - [x] Add realtime-backend API tests for `/transcript/{conversation_id}` success and missing-transcript responses.
 - [x] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
 - [x] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
-- [ ] Add realtime-backend API tests for `/health` provider and fallback fields on the status payload.
+- [x] Add realtime-backend API tests for `/health` provider and fallback fields on the status payload.
 - [ ] Add `SessionDetailPanel` tests for transcript-list placeholders versus populated transcript tooltips.
 - [ ] Add `VoskWakePhraseController` tests for unavailable-runtime startup status and `shutdown()` stop behavior.
 

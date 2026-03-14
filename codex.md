@@ -33,6 +33,7 @@
 - The desktop voice-command stack now has microphone-free regression coverage for wake-controller signal routing, toggle/failure/state transitions, wake-start, wake-ignore-during-transcribing, recording cancellation via shutdown phrase, shutdown handling while transcription is still running, live-stream finalization fallback back to file upload, live partial transcript rendering, final-result `transcript_captured` emission, backend-manager state/error surfacing, and manual health-refresh wiring.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
+- The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
 - Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
 - Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file with backend URL, language override, and request timeout; the repo-local default file has been migrated to that schema.
@@ -178,7 +179,10 @@
 
 - [x] Add realtime-backend API tests for `/summary/{conversation_id}` success and missing-transcript responses.
 - [x] Add `VoskWakePhraseController` tests for detected wake/shutdown signal routing and `toggle_armed()` behavior.
-- [ ] Add `SessionDetailPanel` tests for speaker-stats placeholders versus populated tooltip rendering.
+- [x] Add `SessionDetailPanel` tests for speaker-stats placeholders versus populated tooltip rendering.
+- [ ] Add realtime-backend API tests for `/transcript/{conversation_id}` success and missing-transcript responses.
+- [ ] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
+- [ ] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
 
 ## Future Tasks
 

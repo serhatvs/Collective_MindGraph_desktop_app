@@ -15,7 +15,7 @@ def build_service(tmp_path) -> CollectiveMindGraphService:
     return CollectiveMindGraphService(Database(tmp_path / "collective_mindgraph.sqlite3"))
 
 
-def build_transcription_result(audio_path: str) -> TranscriptionResult:
+def build_transcription_result(audio_path: str, quality_report: dict[str, object] | None = None) -> TranscriptionResult:
     return TranscriptionResult(
         text="Speaker_1: first idea\nSpeaker_2: second note\nSpeaker_1: third follow up",
         model_id="realtime_backend",
@@ -64,13 +64,16 @@ def build_transcription_result(audio_path: str) -> TranscriptionResult:
                 "notes": [],
             },
         ],
+        quality_report=quality_report,
     )
 
 
-def build_panel_with_detail(tmp_path):
+def build_panel_with_detail(tmp_path, quality_report: dict[str, object] | None = None):
     app = QApplication.instance() or QApplication([])
     service = build_service(tmp_path)
-    session = service.ingest_transcription_result(build_transcription_result(str(tmp_path / "sample.wav")))
+    session = service.ingest_transcription_result(
+        build_transcription_result(str(tmp_path / "sample.wav"), quality_report=quality_report)
+    )
     detail = service.get_session_detail(session.id)
 
     assert app is not None
@@ -79,6 +82,41 @@ def build_panel_with_detail(tmp_path):
     panel = SessionDetailPanel()
     panel.set_detail(detail)
     return panel, detail
+
+
+def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):
+    panel, _detail = build_panel_with_detail(tmp_path)
+
+    assert panel._analysis_labels["quality"].text() == "No quality report available."
+    panel.close()
+
+
+def test_session_detail_panel_renders_quality_summary_with_warnings(tmp_path):
+    panel, _detail = build_panel_with_detail(
+        tmp_path,
+        quality_report={
+            "segment_count": 3,
+            "speaker_count": 2,
+            "unresolved_segments": 1,
+            "overlap_ratio": 0.25,
+            "avg_asr_confidence": 0.93,
+            "avg_speaker_confidence": 0.88,
+            "word_timing_coverage": 0.75,
+            "corrected_change_ratio": 0.12,
+            "topic_count": 0,
+            "action_item_count": 0,
+            "decision_count": 0,
+            "question_count": 0,
+            "summary_present": False,
+            "warnings": ["Low confidence", "Unresolved speaker"],
+        },
+    )
+
+    assert (
+        panel._analysis_labels["quality"].text()
+        == "2 speakers  |  overlap 0.25  |  coverage 0.75  |  Low confidence | Unresolved speaker"
+    )
+    panel.close()
 
 
 def test_session_detail_panel_bulk_speaker_tools_update_rows(tmp_path):

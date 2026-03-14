@@ -194,3 +194,110 @@ def test_summary_route_returns_404_when_transcript_is_missing():
     assert response.status_code == 404
     assert response.json() == {"detail": "Transcript not found."}
     assert transcription_service.requested_ids == ["missing"]
+
+
+def test_transcript_route_returns_renderings_and_speaker_stats():
+    transcript = ConversationTranscript(
+        conversation_id="conv_transcript_route",
+        source="test",
+        segments=[
+            TranscriptSegment(
+                segment_id="seg_1",
+                start=0.0,
+                end=1.25,
+                speaker="Speaker_1",
+                raw_text="hello there",
+                corrected_text="Hello there.",
+            ),
+            TranscriptSegment(
+                segment_id="seg_2",
+                start=1.5,
+                end=2.0,
+                speaker="Speaker_2",
+                raw_text="ready now",
+                corrected_text="Ready now.",
+                overlap=True,
+            ),
+        ],
+    )
+    report = QualityReport(
+        conversation_id="conv_transcript_route",
+        segment_count=2,
+        speaker_count=2,
+        unresolved_segments=0,
+        overlap_ratio=0.5,
+        avg_asr_confidence=None,
+        avg_speaker_confidence=None,
+        word_timing_coverage=0.0,
+        corrected_change_ratio=0.0,
+        topic_count=0,
+        action_item_count=0,
+        decision_count=0,
+        question_count=0,
+        summary_present=False,
+        warnings=[],
+    )
+    client, transcription_service, _quality_service = build_client(transcript, report)
+
+    response = client.get("/transcript/conv_transcript_route")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "transcript": transcript.model_dump(mode="json"),
+        "renderings": {
+            "raw_text_output": (
+                "[00:00.000 - 00:01.250] Speaker_1: hello there\n"
+                "[00:01.500 - 00:02.000] Speaker_2: ready now"
+            ),
+            "corrected_text_output": (
+                "[00:00.000 - 00:01.250] Speaker_1: Hello there.\n"
+                "[00:01.500 - 00:02.000] Speaker_2: Ready now."
+            ),
+        },
+        "speaker_stats": [
+            {
+                "speaker": "Speaker_1",
+                "segment_count": 1,
+                "speaking_seconds": 1.25,
+                "overlap_segments": 0,
+                "first_start": 0.0,
+                "last_end": 1.25,
+            },
+            {
+                "speaker": "Speaker_2",
+                "segment_count": 1,
+                "speaking_seconds": 0.5,
+                "overlap_segments": 1,
+                "first_start": 1.5,
+                "last_end": 2.0,
+            },
+        ],
+    }
+    assert transcription_service.requested_ids == ["conv_transcript_route"]
+
+
+def test_transcript_route_returns_404_when_transcript_is_missing():
+    report = QualityReport(
+        conversation_id="unused",
+        segment_count=0,
+        speaker_count=0,
+        unresolved_segments=0,
+        overlap_ratio=0.0,
+        avg_asr_confidence=None,
+        avg_speaker_confidence=None,
+        word_timing_coverage=0.0,
+        corrected_change_ratio=0.0,
+        topic_count=0,
+        action_item_count=0,
+        decision_count=0,
+        question_count=0,
+        summary_present=False,
+        warnings=[],
+    )
+    client, transcription_service, _quality_service = build_client(None, report)
+
+    response = client.get("/transcript/missing")
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Transcript not found."}
+    assert transcription_service.requested_ids == ["missing"]

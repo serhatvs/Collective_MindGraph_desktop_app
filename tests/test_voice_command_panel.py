@@ -245,6 +245,95 @@ def test_voice_command_panel_shutdown_request_during_transcribing_keeps_state(mo
     panel.close()
 
 
+def test_test_dataset_transcription_worker_processes_all_flac_files_in_english(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    for filename in ("sample_a.flac", "sample_b.flac"):
+        (dataset_dir / filename).write_bytes(b"fake flac")
+
+    configured_languages: list[str | None] = []
+    transcribed_files: list[str] = []
+
+    class FakeTranscriptionService:
+        def __init__(self, config) -> None:
+            configured_languages.append(config.language)
+
+        def transcribe_file(self, audio_path: str) -> TranscriptionResult:
+            transcribed_files.append(audio_path)
+            name = audio_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
+            return TranscriptionResult(
+                text=f"Speaker_1: {name}",
+                model_id="realtime_backend",
+                audio_path=audio_path,
+                corrected_text_output=f"Speaker_1: {name}",
+            )
+
+    monkeypatch.setattr(voice_command_panel_module, "RealtimeBackendTranscriptionService", FakeTranscriptionService)
+    worker = voice_command_panel_module.TestDatasetTranscriptionWorker(
+        dataset_dir,
+        RealtimeBackendTranscriptionConfig(language=None),
+    )
+    progress_messages: list[str] = []
+    finished_results: list[object] = []
+    failed_messages: list[str] = []
+    worker.progress.connect(progress_messages.append)
+    worker.finished.connect(finished_results.append)
+    worker.failed.connect(failed_messages.append)
+
+    worker.run()
+
+    assert failed_messages == []
+    assert configured_languages == ["en"]
+    assert [path.rsplit("\\", 1)[-1] for path in transcribed_files] == ["sample_a.flac", "sample_b.flac"]
+    assert progress_messages == [
+        "Test batch 1/2: transcribing sample_a.flac",
+        "Test batch 2/2: transcribing sample_b.flac",
+    ]
+    assert len(finished_results) == 1
+    result = finished_results[0]
+    assert result.total_files == 2
+    assert result.succeeded_files == 2
+    assert "sample_a.flac: Speaker_1: sample_a.flac" in result.report_text
+    assert "sample_b.flac: Speaker_1: sample_b.flac" in result.report_text
+
+
+def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    created_workers: list[QObject] = []
+
+    class FakeBatchWorker(QObject):
+        progress = Signal(str)
+        finished = Signal(object)
+        failed = Signal(str)
+
+        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
+            super().__init__(parent)
+            self.source_dir = source_dir
+            self.config = config
+            created_workers.append(self)
+
+        def run(self) -> None:
+            return
+
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
+    monkeypatch.setattr(voice_command_panel_module.QThread, "start", lambda self: None)
+
+    panel.test_button.click()
+
+    assert len(created_workers) == 1
+    assert created_workers[0].source_dir == dataset_dir
+    assert not panel.test_button.isEnabled()
+    assert any("Starting test transcription for 1 files from 122949 with language=en." in item for item in activity_messages)
+    panel._cleanup_test_batch_worker()
+    panel.close()
+
+
 def test_voice_command_panel_finalizes_live_stream_on_capture_stop(monkeypatch):
     panel = build_panel(
         monkeypatch,

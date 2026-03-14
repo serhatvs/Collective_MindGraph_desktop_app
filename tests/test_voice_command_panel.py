@@ -471,6 +471,23 @@ def test_voice_command_panel_preserves_existing_output_when_busy_test_request_is
     panel.close()
 
 
+def test_voice_command_panel_preserves_existing_activity_when_busy_test_request_is_ignored(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    panel = build_panel(monkeypatch)
+    activity_messages = ["Existing activity entry."]
+    panel.activity_reported.connect(activity_messages.append)
+    panel._transcription_thread = QThread(panel)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+
+    panel._handle_test_dataset()
+
+    assert activity_messages == ["Existing activity entry."]
+    panel._transcription_thread = None
+    panel.close()
+
+
 def test_voice_command_panel_reports_test_batch_progress_activity(monkeypatch):
     panel = build_panel(monkeypatch)
     activity_messages: list[str] = []

@@ -15,7 +15,11 @@ def build_service(tmp_path) -> CollectiveMindGraphService:
     return CollectiveMindGraphService(Database(tmp_path / "collective_mindgraph.sqlite3"))
 
 
-def build_transcription_result(audio_path: str, quality_report: dict[str, object] | None = None) -> TranscriptionResult:
+def build_transcription_result(
+    audio_path: str,
+    quality_report: dict[str, object] | None = None,
+    speaker_stats: list[dict[str, object]] | None = None,
+) -> TranscriptionResult:
     return TranscriptionResult(
         text="Speaker_1: first idea\nSpeaker_2: second note\nSpeaker_1: third follow up",
         model_id="realtime_backend",
@@ -64,15 +68,24 @@ def build_transcription_result(audio_path: str, quality_report: dict[str, object
                 "notes": [],
             },
         ],
+        speaker_stats=speaker_stats or [],
         quality_report=quality_report,
     )
 
 
-def build_panel_with_detail(tmp_path, quality_report: dict[str, object] | None = None):
+def build_panel_with_detail(
+    tmp_path,
+    quality_report: dict[str, object] | None = None,
+    speaker_stats: list[dict[str, object]] | None = None,
+):
     app = QApplication.instance() or QApplication([])
     service = build_service(tmp_path)
     session = service.ingest_transcription_result(
-        build_transcription_result(str(tmp_path / "sample.wav"), quality_report=quality_report)
+        build_transcription_result(
+            str(tmp_path / "sample.wav"),
+            quality_report=quality_report,
+            speaker_stats=speaker_stats,
+        )
     )
     detail = service.get_session_detail(session.id)
 
@@ -116,6 +129,47 @@ def test_session_detail_panel_renders_quality_summary_with_warnings(tmp_path):
         panel._analysis_labels["quality"].text()
         == "2 speakers  |  overlap 0.25  |  coverage 0.75  |  Low confidence | Unresolved speaker"
     )
+    panel.close()
+
+
+def test_session_detail_panel_shows_speaker_stats_placeholder_without_backend_stats(tmp_path):
+    panel, _detail = build_panel_with_detail(tmp_path)
+
+    assert panel.speaker_stats_list.count() == 1
+    assert panel.speaker_stats_list.item(0).text() == "No speaker stats available."
+    assert not panel.speaker_stats_list.item(0).flags()
+    panel.close()
+
+
+def test_session_detail_panel_renders_speaker_stats_text_and_tooltip(tmp_path):
+    panel, _detail = build_panel_with_detail(
+        tmp_path,
+        speaker_stats=[
+            {
+                "speaker": "Speaker_1",
+                "segment_count": 2,
+                "speaking_seconds": 2.0,
+                "overlap_segments": 1,
+                "first_start": 0.0,
+                "last_end": 3.0,
+            },
+            {
+                "speaker": "Speaker_2",
+                "segment_count": 1,
+                "speaking_seconds": 1.0,
+                "overlap_segments": 0,
+                "first_start": 1.0,
+                "last_end": 2.0,
+            },
+        ],
+    )
+
+    assert panel.speaker_stats_list.count() == 2
+    assert panel.speaker_stats_list.item(0).text() == "Speaker_1  |  2 segments  |  2.0s spoken"
+    assert panel.speaker_stats_list.item(0).toolTip() == (
+        "Speaker_1\nSegments: 2\nSpeaking seconds: 2.000\nOverlap segments: 1"
+    )
+    assert panel.speaker_stats_list.item(1).text() == "Speaker_2  |  1 segments  |  1.0s spoken"
     panel.close()
 
 

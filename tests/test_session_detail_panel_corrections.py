@@ -278,6 +278,42 @@ def test_session_detail_panel_renders_quality_summary_with_warnings(tmp_path):
     panel.close()
 
 
+def test_session_detail_panel_shows_snapshot_placeholder_without_snapshots(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    service = build_service(tmp_path)
+    session = service.create_session("Empty Session", "VOICE-MIC")
+    detail = service.get_session_detail(session.id)
+
+    assert app is not None
+    assert detail is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.snapshot_table.rowCount() == 1
+    assert panel.snapshot_table.item(0, 0).text() == "No snapshots available."
+    assert panel.snapshot_table.item(0, 1).text() == ""
+    panel.close()
+
+
+def test_session_detail_panel_renders_snapshot_hash_text_and_tooltips(tmp_path):
+    panel, detail = build_panel_with_detail(tmp_path)
+
+    assert detail.snapshots
+
+    latest_snapshot = detail.snapshots[0]
+    short_hash = f"{latest_snapshot.hash_sha256[:12]}..."
+
+    assert panel.snapshot_table.rowCount() == 1
+    assert panel.snapshot_table.item(0, 0).text() == latest_snapshot.created_at
+    assert panel.snapshot_table.item(0, 1).text() == str(latest_snapshot.node_count)
+    assert panel.snapshot_table.item(0, 2).text() == short_hash
+    assert panel.snapshot_table.item(0, 2).toolTip() == latest_snapshot.hash_sha256
+    assert panel.snapshot_table.item(0, 3).text() == latest_snapshot.hash_sha256
+    assert panel.snapshot_table.item(0, 3).toolTip() == latest_snapshot.hash_sha256
+    panel.close()
+
+
 def test_session_detail_panel_shows_speaker_stats_placeholder_without_backend_stats(tmp_path):
     panel, _detail = build_panel_with_detail(tmp_path)
 

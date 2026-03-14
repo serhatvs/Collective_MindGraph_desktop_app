@@ -31,6 +31,7 @@ class FakeCaptureController(QObject):
             is_default=True,
         )
         self.start_calls = 0
+        self.stop_calls = 0
         self.clear_calls = 0
 
     def available_audio_inputs(self) -> list[AudioInputDeviceInfo]:
@@ -48,6 +49,10 @@ class FakeCaptureController(QObject):
     def start_recording(self) -> None:
         self.start_calls += 1
         self.recording_started.emit("C:/tmp/test.wav")
+
+    def stop_recording(self) -> None:
+        self.stop_calls += 1
+        self.recording_stopped.emit("C:/tmp/test.wav")
 
     def clear_capture(self) -> None:
         self.clear_calls += 1
@@ -207,17 +212,22 @@ def test_voice_command_panel_wake_request_is_ignored_while_transcribing(monkeypa
     panel.close()
 
 
-def test_voice_command_panel_shutdown_request_cancels_active_recording(monkeypatch):
+def test_voice_command_panel_shutdown_request_stops_and_transcribes_active_recording(monkeypatch):
     panel = build_panel(monkeypatch)
     activity_messages: list[str] = []
+    transcribe_calls: list[str] = []
     panel.activity_reported.connect(activity_messages.append)
+    monkeypatch.setattr(voice_command_panel_module.QTimer, "singleShot", lambda _delay, callback: callback())
+    panel._handle_transcribe = lambda: transcribe_calls.append("called")  # type: ignore[method-assign]
     panel._handle_start()
 
     panel._handle_shutdown_requested("command shut")
 
-    assert panel._capture_controller.clear_calls == 1
-    assert panel._workflow.state.stage == "idle"
-    assert any("Active voice turn was cancelled." in item for item in activity_messages)
+    assert panel._capture_controller.stop_calls == 1
+    assert panel._capture_controller.clear_calls == 0
+    assert panel._workflow.state.stage == "audio_ready"
+    assert transcribe_calls == ["called"]
+    assert any("Recording stopped and will be transcribed." in item for item in activity_messages)
     panel.close()
 
 

@@ -160,6 +160,7 @@ class VoiceCommandPanel(QWidget):
         self._transcription_worker: BackendTranscriptionWorker | None = None
         self._test_batch_thread: QThread | None = None
         self._test_batch_worker: TestDatasetTranscriptionWorker | None = None
+        self._transcript_output_override: str | None = None
         self._health_thread: QThread | None = None
         self._health_worker: BackendHealthWorker | None = None
         self._backend_health: BackendHealthStatus | None = None
@@ -314,6 +315,7 @@ class VoiceCommandPanel(QWidget):
     def _handle_start(self) -> None:
         if self._transcription_thread is not None or self._test_batch_thread is not None:
             return
+        self._transcript_output_override = None
         self._live_stream_attempted = False
         self._live_stream_failed = False
         self._live_stream_finalizing = False
@@ -339,6 +341,7 @@ class VoiceCommandPanel(QWidget):
         if self._transcription_thread is not None or self._test_batch_thread is not None:
             return
 
+        self._transcript_output_override = None
         self._apply_state(self._workflow.transcribe())
         self._transcription_thread = QThread(self)
         self._transcription_worker = BackendTranscriptionWorker(audio_path, self._transcription_config)
@@ -358,13 +361,15 @@ class VoiceCommandPanel(QWidget):
         audio_files = sorted(dataset_dir.glob("*.flac"))
         if not audio_files:
             message = f"No test audio files were found under {dataset_dir}."
+            self._transcript_output_override = message
             self.transcript_output.setPlainText(message)
             self.activity_reported.emit(message)
             return
 
-        self.transcript_output.setPlainText(
+        self._transcript_output_override = (
             f"Starting test batch for {len(audio_files)} files from {dataset_dir.name} with language=en..."
         )
+        self.transcript_output.setPlainText(self._transcript_output_override)
         self._test_batch_thread = QThread(self)
         self._test_batch_worker = TestDatasetTranscriptionWorker(dataset_dir, self._transcription_config)
         self._test_batch_worker.moveToThread(self._test_batch_thread)
@@ -391,6 +396,7 @@ class VoiceCommandPanel(QWidget):
     def _handle_clear(self) -> None:
         if self._transcription_thread is not None or self._test_batch_thread is not None:
             return
+        self._transcript_output_override = None
         self._cancel_live_stream()
         self._capture_controller.clear_capture()
         self._apply_state(self._workflow.clear())
@@ -421,7 +427,7 @@ class VoiceCommandPanel(QWidget):
         self.guidance_label.setText(state.guidance_text)
         self.capture_path_label.setText(state.audio_path or "No audio clip captured yet.")
         self._refresh_config_summary()
-        self.transcript_output.setPlainText(state.transcript_text)
+        self.transcript_output.setPlainText(state.transcript_text or self._transcript_output_override or "")
         self.processing_hint_label.setText(self._processing_hint(state))
         self.wake_status_label.setText(self._wake_phrase_controller.status_text())
         self.provider_status_label.setText(self._backend_status_text())
@@ -529,6 +535,7 @@ class VoiceCommandPanel(QWidget):
     def _handle_live_partial_received(self, update: StreamingTranscriptionUpdate) -> None:
         live_text = update.corrected_text_output or update.text
         if live_text:
+            self._transcript_output_override = None
             self.transcript_output.setPlainText(live_text)
 
     def _handle_live_finalized(self, result: TranscriptionResult) -> None:
@@ -591,12 +598,14 @@ class VoiceCommandPanel(QWidget):
         self.activity_reported.emit(message)
 
     def _handle_test_batch_finished(self, result: TestBatchTranscriptionResult) -> None:
+        self._transcript_output_override = result.report_text
         self.transcript_output.setPlainText(result.report_text)
         self.activity_reported.emit(
             f"Test batch finished: {result.succeeded_files}/{result.total_files} files transcribed."
         )
 
     def _handle_test_batch_failed(self, message: str) -> None:
+        self._transcript_output_override = message
         self.transcript_output.setPlainText(message)
         self.activity_reported.emit(message)
 
@@ -777,6 +786,7 @@ class VoiceCommandPanel(QWidget):
 
     def _complete_transcription_result(self, result: TranscriptionResult) -> None:
         transcript_text = result.text
+        self._transcript_output_override = None
         self._apply_state(self._workflow.complete_transcription(transcript_text))
         self.transcript_output.setPlainText(result.corrected_text_output or transcript_text)
         self.transcript_captured.emit(result)

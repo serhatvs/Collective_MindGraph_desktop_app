@@ -334,6 +334,27 @@ def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_p
     panel.close()
 
 
+def test_voice_command_panel_keeps_test_batch_report_visible_after_worker_cleanup(monkeypatch):
+    panel = build_panel(monkeypatch)
+    panel._test_batch_thread = QThread(panel)
+    panel._test_batch_worker = QObject(panel)
+
+    panel._handle_test_batch_finished(
+        voice_command_panel_module.TestBatchTranscriptionResult(
+            report_text="Test batch completed: 1/1 files transcribed successfully.\n\nsample.flac: ready",
+            total_files=1,
+            succeeded_files=1,
+        )
+    )
+
+    panel._cleanup_test_batch_worker()
+
+    assert panel.transcript_output.toPlainText() == (
+        "Test batch completed: 1/1 files transcribed successfully.\n\nsample.flac: ready"
+    )
+    panel.close()
+
+
 def test_voice_command_panel_finalizes_live_stream_on_capture_stop(monkeypatch):
     panel = build_panel(
         monkeypatch,

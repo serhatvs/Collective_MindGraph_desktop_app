@@ -31,6 +31,7 @@
 - The desktop voice panel now preserves its backend startup/retry status message until the follow-up health check resolves, avoiding a misleading fallback to a generic unavailable state during worker cleanup.
 - The desktop backend-status surface now also explains LLM reachability more explicitly for `auto_local` and `bedrock_auto_local`, including when Bedrock or LM Studio has fallen back to a lower-tier provider.
 - The desktop voice-command stack now has microphone-free regression coverage for wake-controller signal routing, toggle/failure/state transitions, wake-start, wake-ignore-during-transcribing, recording cancellation via shutdown phrase, shutdown handling while transcription is still running, live-stream finalization fallback back to file upload, live partial transcript rendering, final-result `transcript_captured` emission, backend-manager state/error surfacing, and manual health-refresh wiring.
+- The desktop voice-command stack now also has controller-level regression coverage for `apply_config()` re-arming and worker stop/start transitions.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
@@ -183,7 +184,10 @@
 - [x] Add `SessionDetailPanel` tests for speaker-stats placeholders versus populated tooltip rendering.
 - [x] Add realtime-backend API tests for `/transcript/{conversation_id}` success and missing-transcript responses.
 - [x] Add `SessionDetailPanel` tests for insight-list placeholders versus populated topic/decision/action rendering.
-- [ ] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
+- [x] Add `VoskWakePhraseController` tests for `apply_config()` re-arming and worker lifecycle transitions.
+- [ ] Add realtime-backend API tests for `/health` provider and fallback fields on the status payload.
+- [ ] Add `SessionDetailPanel` tests for transcript-list placeholders versus populated transcript tooltips.
+- [ ] Add `VoskWakePhraseController` tests for unavailable-runtime startup status and `shutdown()` stop behavior.
 
 ## Future Tasks
 

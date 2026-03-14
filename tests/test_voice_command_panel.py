@@ -392,6 +392,68 @@ def test_voice_command_panel_test_button_reports_missing_dataset(monkeypatch, tm
     panel.close()
 
 
+def test_voice_command_panel_ignores_test_batch_request_while_transcription_is_active(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    created_workers: list[QObject] = []
+    activity_messages: list[str] = []
+
+    class FakeBatchWorker(QObject):
+        progress = Signal(str)
+        finished = Signal(object)
+        failed = Signal(str)
+
+        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
+            super().__init__(parent)
+            created_workers.append(self)
+
+    panel = build_panel(monkeypatch)
+    panel.activity_reported.connect(activity_messages.append)
+    panel._transcription_thread = QThread(panel)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
+
+    panel._handle_test_dataset()
+
+    assert created_workers == []
+    assert panel.transcript_output.toPlainText() == ""
+    assert activity_messages == []
+    panel._transcription_thread = None
+    panel.close()
+
+
+def test_voice_command_panel_ignores_test_batch_request_while_batch_is_active(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    created_workers: list[QObject] = []
+    activity_messages: list[str] = []
+
+    class FakeBatchWorker(QObject):
+        progress = Signal(str)
+        finished = Signal(object)
+        failed = Signal(str)
+
+        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
+            super().__init__(parent)
+            created_workers.append(self)
+
+    panel = build_panel(monkeypatch)
+    panel.activity_reported.connect(activity_messages.append)
+    panel._test_batch_thread = QThread(panel)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
+
+    panel._handle_test_dataset()
+
+    assert created_workers == []
+    assert panel.transcript_output.toPlainText() == ""
+    assert activity_messages == []
+    panel._test_batch_thread = None
+    panel.close()
+
+
 def test_voice_command_panel_reports_test_batch_progress_activity(monkeypatch):
     panel = build_panel(monkeypatch)
     activity_messages: list[str] = []

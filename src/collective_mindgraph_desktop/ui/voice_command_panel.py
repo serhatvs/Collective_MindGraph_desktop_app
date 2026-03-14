@@ -386,7 +386,7 @@ class VoiceCommandPanel(QWidget):
     def _handle_wake_requested(self, recognized_text: str) -> None:
         if self._transcription_thread is not None:
             return
-        if self._workflow.state.stage == "recording":
+        if self._workflow.state.stage in {"recording", "transcribing"}:
             return
         self.activity_reported.emit(f"Wake phrase detected: {recognized_text}")
         self._handle_start()

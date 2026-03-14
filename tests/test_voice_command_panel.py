@@ -25,6 +25,8 @@ class FakeCaptureController(QObject):
             label="Test Mic",
             is_default=True,
         )
+        self.start_calls = 0
+        self.clear_calls = 0
 
     def available_audio_inputs(self) -> list[AudioInputDeviceInfo]:
         return [self._selected_input]
@@ -38,7 +40,12 @@ class FakeCaptureController(QObject):
     def set_auto_stop_config(self, _config) -> None:
         return
 
+    def start_recording(self) -> None:
+        self.start_calls += 1
+        self.recording_started.emit("C:/tmp/test.wav")
+
     def clear_capture(self) -> None:
+        self.clear_calls += 1
         self.capture_cleared.emit()
 
 
@@ -134,6 +141,12 @@ def build_panel(monkeypatch):
     return panel
 
 
+def set_transcribing_state(panel):
+    panel._apply_state(panel._workflow.start_recording())
+    panel._apply_state(panel._workflow.stop_recording("C:/tmp/test.wav"))
+    panel._apply_state(panel._workflow.transcribe())
+
+
 def test_voice_command_panel_preserves_startup_retry_message_during_cleanup(monkeypatch):
     panel = build_panel(monkeypatch)
     panel._health_thread = QThread(panel)
@@ -146,6 +159,62 @@ def test_voice_command_panel_preserves_startup_retry_message_during_cleanup(monk
     panel._cleanup_health_worker()
 
     assert panel.provider_status_label.text() == "Starting local backend and retrying health check..."
+    panel.close()
+
+
+def test_voice_command_panel_wake_request_starts_recording_when_idle(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+
+    panel._handle_wake_requested("command wake")
+
+    assert panel._capture_controller.start_calls == 1
+    assert panel._workflow.state.stage == "recording"
+    assert "Wake phrase detected: command wake" in activity_messages
+    panel.close()
+
+
+def test_voice_command_panel_wake_request_is_ignored_while_transcribing(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+    set_transcribing_state(panel)
+    start_calls_before = panel._capture_controller.start_calls
+
+    panel._handle_wake_requested("command wake")
+
+    assert panel._capture_controller.start_calls == start_calls_before
+    assert panel._workflow.state.stage == "transcribing"
+    assert "Wake phrase detected: command wake" not in activity_messages
+    panel.close()
+
+
+def test_voice_command_panel_shutdown_request_cancels_active_recording(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+    panel._handle_start()
+
+    panel._handle_shutdown_requested("command shut")
+
+    assert panel._capture_controller.clear_calls == 1
+    assert panel._workflow.state.stage == "idle"
+    assert any("Active voice turn was cancelled." in item for item in activity_messages)
+    panel.close()
+
+
+def test_voice_command_panel_shutdown_request_during_transcribing_keeps_state(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+    set_transcribing_state(panel)
+
+    panel._handle_shutdown_requested("command shut")
+
+    assert panel._capture_controller.clear_calls == 0
+    assert panel._workflow.state.stage == "transcribing"
+    assert any("Current transcription will finish" in item for item in activity_messages)
     panel.close()
 
 

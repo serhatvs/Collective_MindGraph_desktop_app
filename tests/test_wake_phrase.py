@@ -239,3 +239,67 @@ def test_wake_phrase_controller_toggle_armed_switches_worker_state(monkeypatch):
     assert controller.is_armed is True
     assert ensure_calls == ["ensure", "ensure"]
     assert states[-1].startswith("Wake trigger armed.")
+
+
+def test_wake_phrase_controller_apply_config_rearms_and_starts_worker(monkeypatch):
+    build_app()
+    stop_calls: list[str | None] = []
+    ensure_calls: list[str | None] = []
+    states: list[str] = []
+
+    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        VoskWakePhraseController,
+        "_ensure_worker",
+        lambda self: ensure_calls.append(self.config.input_device),
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController,
+        "_stop_worker",
+        lambda self: stop_calls.append(self.config.input_device),
+    )
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(enabled=False, model_path="stub-model"))
+    controller.state_changed.connect(states.append)
+    ensure_calls.clear()
+    stop_calls.clear()
+
+    controller.apply_config(WakePhraseConfig(enabled=True, model_path="stub-model", input_device="Desk Mic"))
+
+    assert controller.is_armed is True
+    assert controller.config.input_device == "Desk Mic"
+    assert ensure_calls == ["Desk Mic"]
+    assert stop_calls == []
+    assert states == ["Wake trigger armed. Say 'command wake' to start and 'command shut' to cancel the active voice turn."]
+
+
+def test_wake_phrase_controller_apply_config_disarms_and_stops_worker(monkeypatch):
+    build_app()
+    stop_calls: list[str | None] = []
+    ensure_calls: list[str | None] = []
+    states: list[str] = []
+
+    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        VoskWakePhraseController,
+        "_ensure_worker",
+        lambda self: ensure_calls.append(self.config.input_device),
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController,
+        "_stop_worker",
+        lambda self: stop_calls.append(self.config.input_device),
+    )
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model", input_device="Desk Mic"))
+    controller.state_changed.connect(states.append)
+    ensure_calls.clear()
+    stop_calls.clear()
+
+    controller.apply_config(WakePhraseConfig(enabled=False, model_path="stub-model", input_device="USB Mic"))
+
+    assert controller.is_armed is False
+    assert controller.config.input_device == "USB Mic"
+    assert ensure_calls == []
+    assert stop_calls == ["USB Mic"]
+    assert states == ["Wake trigger is off. Use the button to re-arm it."]

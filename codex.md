@@ -43,6 +43,7 @@
 - The session detail UI now exposes a `Conversation Analysis` surface for the selected transcript and allows manual correction of speaker labels and corrected segment text, with those edits flowing back into local transcript and graph-node storage.
 - The session detail correction UX now also supports bulk speaker rename/merge, per-selection speaker reassignment, segment reordering, and merge-with-next operations before saving.
 - Automated tests now also cover transcript-analysis correction saves, including persisted transcript text, graph-node updates, snapshot rebuild coherence, and session-detail save emission.
+- Automated tests now also cover transcript-analysis correction-save quality-report recalculation when unresolved speakers are introduced or later resolved.
 - Root-level repo memory is now defined through `AGENTS.md` plus this `codex.md` file.
 - This workspace is now a git repository and has been pushed to `https://github.com/serhatvs/Collective_MindGraph_desktop_app.git`.
 - A separate end-user application concept is now in scope as a sibling product to the current AI or reasoning-facing desktop app.
@@ -173,9 +174,9 @@
 
 ## Autonomous Task Board
 
-- [x] Add `VoiceCommandPanel` tests for live partial/final transcript rendering and `transcript_captured` emission without backend or microphone dependencies.
-- [x] Add `VoiceCommandPanel` tests for backend-manager state/error events and manual health-refresh messaging.
-- [ ] Add service coverage for transcript-analysis correction quality-report recalculation when unresolved speakers are introduced or removed.
+- [ ] Add `VoskWakePhraseController` tests for worker failure handling, armed/suspended state transitions, and input-device restart behavior.
+- [ ] Add realtime-backend API tests for `/quality/{conversation_id}` success and missing-transcript responses.
+- [ ] Add `SessionDetailPanel` tests for quality-summary rendering and no-report empty-state text.
 
 ## Future Tasks
 

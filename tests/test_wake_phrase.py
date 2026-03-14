@@ -194,3 +194,48 @@ def test_wake_phrase_controller_restarts_worker_after_input_device_change(monkey
 
     assert ensure_calls == [None, "Desk Mic"]
     assert controller._worker_thread is not None
+
+
+def test_wake_phrase_controller_routes_detected_wake_and_shutdown_signals(monkeypatch):
+    build_app()
+    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: None)
+    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: None)
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
+    wake_requests: list[str] = []
+    shutdown_requests: list[str] = []
+    controller.wake_requested.connect(wake_requests.append)
+    controller.shutdown_requested.connect(shutdown_requests.append)
+
+    controller._handle_detected_phrase("wake", "command wake")
+    controller._handle_detected_phrase("shutdown", "command shut")
+
+    assert wake_requests == ["command wake"]
+    assert shutdown_requests == ["command shut"]
+
+
+def test_wake_phrase_controller_toggle_armed_switches_worker_state(monkeypatch):
+    build_app()
+    stop_calls: list[str] = []
+    ensure_calls: list[str] = []
+    states: list[str] = []
+
+    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure"))
+    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop"))
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
+    controller.state_changed.connect(states.append)
+
+    controller.toggle_armed()
+
+    assert controller.is_armed is False
+    assert stop_calls == ["stop"]
+    assert states == ["Wake trigger is off. Use the button to re-arm it."]
+
+    controller.toggle_armed()
+
+    assert controller.is_armed is True
+    assert ensure_calls == ["ensure", "ensure"]
+    assert states[-1].startswith("Wake trigger armed.")

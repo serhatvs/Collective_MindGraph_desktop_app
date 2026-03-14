@@ -159,6 +159,23 @@ def test_wake_phrase_controller_reports_failure_and_disarms(monkeypatch):
     assert controller.status_text() == "VOSK wake trigger failed: device missing"
 
 
+def test_wake_phrase_controller_reports_unavailable_runtime_status_at_startup(monkeypatch):
+    build_app()
+    monkeypatch.setattr(
+        wake_phrase_module,
+        "_check_runtime_availability",
+        lambda _config: (False, "VOSK wake trigger is unavailable in test."),
+    )
+    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: None)
+    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: None)
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
+
+    assert controller.is_available is False
+    assert controller.is_armed is True
+    assert controller.status_text() == "VOSK wake trigger is unavailable in test."
+
+
 def test_wake_phrase_controller_restarts_worker_after_input_device_change(monkeypatch):
     build_app()
     stop_calls: list[str | None] = []
@@ -303,3 +320,23 @@ def test_wake_phrase_controller_apply_config_disarms_and_stops_worker(monkeypatc
     assert ensure_calls == []
     assert stop_calls == ["USB Mic"]
     assert states == ["Wake trigger is off. Use the button to re-arm it."]
+
+
+def test_wake_phrase_controller_shutdown_stops_worker_and_clears_desired_running(monkeypatch):
+    build_app()
+    stop_calls: list[str] = []
+    ensure_calls: list[str] = []
+
+    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure"))
+    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop"))
+
+    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
+    ensure_calls.clear()
+    stop_calls.clear()
+
+    controller.shutdown()
+
+    assert controller._desired_running is False
+    assert stop_calls == ["stop"]
+    assert ensure_calls == []

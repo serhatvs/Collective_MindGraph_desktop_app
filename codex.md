@@ -62,6 +62,7 @@
 - Streaming now honors a bounded partial window and compacts old PCM buffer data after flushes, reducing memory growth during long live sessions.
 - The realtime backend summary layer now extracts heuristic topics, decisions, and action items more explicitly instead of relying only on a very shallow first/last-line summary.
 - The realtime backend now exposes `/quality/{id}` intrinsic transcript-quality reporting for unresolved speakers, overlap rate, confidence coverage, correction ratio, and related warnings.
+- The realtime backend now also has route-level regression coverage for `/quality/{conversation_id}` success and missing-transcript responses without requiring full pipeline startup.
 - The realtime backend `/health` surface now also exposes the resolved ASR provider plus any local fallback so `auto` mode can be inspected at runtime.
 - The LLM post-processing layer is now context-aware across batch boundaries and defaults to `bedrock_auto_local`, which tries Amazon Bedrock Nova first and falls back safely to local LM Studio/mock cleanup if AWS is unavailable.
 - The local backend environment has now been provisioned under `realtime_backend/.venv` on Python 3.12 with `torch 2.8.0+cu128`, `torchaudio 2.8.0+cu128`, `numpy`, `faster-whisper`, `silero-vad`, and `pyannote.audio` installed successfully.
@@ -175,7 +176,7 @@
 ## Autonomous Task Board
 
 - [x] Add `VoskWakePhraseController` tests for worker failure handling, armed/suspended state transitions, and input-device restart behavior.
-- [ ] Add realtime-backend API tests for `/quality/{conversation_id}` success and missing-transcript responses.
+- [x] Add realtime-backend API tests for `/quality/{conversation_id}` success and missing-transcript responses.
 - [ ] Add `SessionDetailPanel` tests for quality-summary rendering and no-report empty-state text.
 
 ## Future Tasks

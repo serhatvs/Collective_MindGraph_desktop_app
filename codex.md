@@ -30,7 +30,7 @@
 - When the desktop app points to the sibling loopback backend and health fails, it can now auto-start `realtime_backend` from the local `.venv` and retry health automatically.
 - The desktop voice panel now preserves its backend startup/retry status message until the follow-up health check resolves, avoiding a misleading fallback to a generic unavailable state during worker cleanup.
 - The desktop backend-status surface now also explains LLM reachability more explicitly for `auto_local` and `bedrock_auto_local`, including when Bedrock or LM Studio has fallen back to a lower-tier provider.
-- The `VoiceCommandPanel` now has microphone-free regression coverage for wake-start, wake-ignore-during-transcribing, recording cancellation via shutdown phrase, and shutdown handling while transcription is still running.
+- The `VoiceCommandPanel` now has microphone-free regression coverage for wake-start, wake-ignore-during-transcribing, recording cancellation via shutdown phrase, shutdown handling while transcription is still running, and live-stream finalization fallback back to file upload.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
 - Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
@@ -173,13 +173,9 @@
 
 ## Autonomous Task Board
 
-- [x] Add automated desktop/service coverage for transcript-analysis correction saves so segment edits are verified to update transcript text, graph-node content, and snapshots coherently.
-- [x] Harden the desktop voice panel's backend health and auto-start UX so provider status and startup retry messaging stay accurate during the first refresh cycle.
-- [x] Surface resolved LLM provider reachability and fallback state more explicitly in the desktop UI when `auto_local` or `bedrock_auto_local` falls back.
-- [x] Define and implement the desktop-side flow for live transcript history so streaming/final transcript text lands predictably in session creation, transcript records, and graph generation.
-- [x] Add UI regression coverage for `SessionDetailPanel` correction tools, including bulk rename, selection apply, segment reorder, merge-with-next, and save emission.
-- [x] Add `VoiceCommandPanel` tests for wake and shutdown command handling without microphone dependencies.
-- [ ] Add `VoiceCommandPanel` tests for live-stream finalization failure so fallback-to-file-upload behavior stays deterministic.
+- [ ] Add `VoiceCommandPanel` tests for live partial/final transcript rendering and `transcript_captured` emission without backend or microphone dependencies.
+- [ ] Add `VoiceCommandPanel` tests for backend-manager state/error events and manual health-refresh messaging.
+- [ ] Add service coverage for transcript-analysis correction quality-report recalculation when unresolved speakers are introduced or removed.
 
 ## Future Tasks
 

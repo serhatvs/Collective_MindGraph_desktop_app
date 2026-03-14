@@ -96,8 +96,19 @@ class FakeLiveTranscriptStreamController(QObject):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.is_active = False
+        self.start_calls = 0
+        self.finalize_calls = 0
+        self.cancel_calls = 0
+
+    def start(self, _output_path: str, _config) -> None:
+        self.start_calls += 1
+        self.is_active = True
+
+    def finalize(self) -> None:
+        self.finalize_calls += 1
 
     def cancel(self) -> None:
+        self.cancel_calls += 1
         self.is_active = False
 
 
@@ -120,7 +131,7 @@ class FakeBackendManager(QObject):
         return
 
 
-def build_panel(monkeypatch):
+def build_panel(monkeypatch, *, transcription_config: RealtimeBackendTranscriptionConfig | None = None):
     app = QApplication.instance() or QApplication([])
     monkeypatch.setattr(voice_command_panel_module, "VoskWakePhraseController", FakeWakePhraseController)
     monkeypatch.setattr(voice_command_panel_module, "LiveTranscriptStreamController", FakeLiveTranscriptStreamController)
@@ -132,7 +143,8 @@ def build_panel(monkeypatch):
     )
     panel = voice_command_panel_module.VoiceCommandPanel(
         capture_controller=FakeCaptureController(),
-        transcription_config=RealtimeBackendTranscriptionConfig(
+        transcription_config=transcription_config
+        or RealtimeBackendTranscriptionConfig(
             stream_live_transcription=False,
             wake_trigger_enabled=False,
         ),
@@ -215,6 +227,52 @@ def test_voice_command_panel_shutdown_request_during_transcribing_keeps_state(mo
     assert panel._capture_controller.clear_calls == 0
     assert panel._workflow.state.stage == "transcribing"
     assert any("Current transcription will finish" in item for item in activity_messages)
+    panel.close()
+
+
+def test_voice_command_panel_finalizes_live_stream_on_capture_stop(monkeypatch):
+    panel = build_panel(
+        monkeypatch,
+        transcription_config=RealtimeBackendTranscriptionConfig(
+            stream_live_transcription=True,
+            wake_trigger_enabled=False,
+        ),
+    )
+    transcribe_calls: list[str] = []
+    panel._handle_transcribe = lambda: transcribe_calls.append("called")  # type: ignore[method-assign]
+    panel._handle_start()
+    panel._handle_capture_stopped("C:/tmp/test.wav")
+
+    assert panel._live_stream_controller.start_calls == 1
+    assert panel._live_stream_controller.finalize_calls == 1
+    assert panel._live_stream_finalizing is True
+    assert panel._workflow.state.stage == "transcribing"
+    assert transcribe_calls == []
+    panel.close()
+
+
+def test_voice_command_panel_falls_back_to_file_upload_when_live_finalize_fails(monkeypatch):
+    panel = build_panel(
+        monkeypatch,
+        transcription_config=RealtimeBackendTranscriptionConfig(
+            stream_live_transcription=True,
+            wake_trigger_enabled=False,
+        ),
+    )
+    activity_messages: list[str] = []
+    transcribe_calls: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+    monkeypatch.setattr(voice_command_panel_module.QTimer, "singleShot", lambda _delay, callback: callback())
+    panel._handle_transcribe = lambda: transcribe_calls.append("called")  # type: ignore[method-assign]
+    panel._handle_start()
+    panel._handle_capture_stopped("C:/tmp/test.wav")
+
+    panel._handle_live_failed("Live stream dropped.")
+
+    assert panel._live_stream_finalizing is False
+    assert panel._live_stream_failed is True
+    assert transcribe_calls == ["called"]
+    assert any("Live stream dropped. Falling back to final file upload." in item for item in activity_messages)
     panel.close()
 
 

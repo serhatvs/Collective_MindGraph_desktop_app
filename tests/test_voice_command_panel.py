@@ -325,6 +325,30 @@ def test_voice_command_panel_emits_transcript_captured_after_live_finalization(m
     panel.close()
 
 
+def test_voice_command_panel_surfaces_backend_manager_state_and_error_events(monkeypatch):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    panel.activity_reported.connect(activity_messages.append)
+
+    panel._backend_manager.state_changed.emit("Started local backend.")
+    panel._backend_manager.error_occurred.emit("Local backend crashed.")
+
+    assert "Started local backend." in activity_messages
+    assert "Local backend crashed." in activity_messages
+    panel.close()
+
+
+def test_voice_command_panel_refresh_button_requests_backend_health_with_autostart(monkeypatch):
+    panel = build_panel(monkeypatch)
+    refresh_calls: list[bool] = []
+    panel._refresh_backend_health = lambda auto_start=False: refresh_calls.append(auto_start)  # type: ignore[method-assign]
+
+    panel.refresh_backend_button.click()
+
+    assert refresh_calls == [True]
+    panel.close()
+
+
 def test_voice_command_panel_clears_retry_message_after_successful_health_retry(monkeypatch):
     panel = build_panel(monkeypatch)
 

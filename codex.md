@@ -185,9 +185,9 @@
 
 ## Autonomous Task Board
 
-- [ ] Add `SessionDetailPanel` tests for side-branch ordering tie-breaks when branch slots match.
 - [ ] Add `VoiceCommandPanel` tests for `Test 122949` preserving existing transcript output when a busy-state request is ignored.
 - [ ] Add `SessionDetailPanel` tests for orphan bucket ordering when multiple unlinked nodes are present.
+- [ ] Add `SessionDetailPanel` tests for orphan bucket tie-break ordering when branch slots match.
 
 ## Future Tasks
 

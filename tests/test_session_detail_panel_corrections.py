@@ -495,6 +495,83 @@ def test_session_detail_panel_orders_root_nodes_by_id():
     panel.close()
 
 
+def test_session_detail_panel_orders_equal_slot_side_children_by_id():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[],
+        graph_nodes=[
+            GraphNode(
+                id=1,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node",
+                override_reason=None,
+                created_at="2026-03-14T12:00:00Z",
+            ),
+            GraphNode(
+                id=5,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=1,
+                branch_type="side",
+                branch_slot=1,
+                node_text="Side branch 5",
+                override_reason=None,
+                created_at="2026-03-14T12:05:00Z",
+            ),
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=1,
+                branch_type="side",
+                branch_slot=1,
+                node_text="Side branch 2",
+                override_reason=None,
+                created_at="2026-03-14T12:02:00Z",
+            ),
+            GraphNode(
+                id=3,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=1,
+                branch_type="side",
+                branch_slot=1,
+                node_text="Side branch 3",
+                override_reason=None,
+                created_at="2026-03-14T12:03:00Z",
+            ),
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    root_item = panel.graph_tree.topLevelItem(0)
+
+    assert [root_item.child(index).text(0) for index in range(root_item.childCount())] == [
+        "Side branch 2",
+        "Side branch 3",
+        "Side branch 5",
+    ]
+    panel.close()
+
+
 def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):
     panel, _detail = build_panel_with_detail(tmp_path)
 

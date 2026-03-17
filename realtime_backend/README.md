@@ -3,6 +3,7 @@
 Production-style Python backend for long-form, near-real-time speech-to-text with:
 
 - file/WebSocket ingestion on the backend plus microphone/file client scripts
+- online-first ASR via Deepgram with local `faster-whisper` fallback
 - VAD
 - ASR
 - speaker diarization
@@ -12,6 +13,7 @@ Production-style Python backend for long-form, near-real-time speech-to-text wit
 - LLM-based transcript correction
 - JSON + readable transcript output
 - optional summary, topics, decisions, and action-item extraction
+- Amazon Bedrock Nova-based transcript correction with local fallback
 
 ## What Is Fully Implemented
 
@@ -25,7 +27,7 @@ Production-style Python backend for long-form, near-real-time speech-to-text wit
 - heuristic summary/topic/decision/action extraction
 - transcript quality reporting endpoint
 - incremental stream session handling with overlap-based tail replacement
-- mock/no-op LLM providers for testing and local development
+- Amazon Bedrock-first transcript correction with LM Studio/mock fallback behavior for local development
 - client scripts for microphone streaming and file upload
 
 ## What Is Approximate In The MVP
@@ -57,6 +59,7 @@ Notes:
 - `pyannote.audio 3.4.0` currently works cleanly here with `torch/torchaudio 2.8.0+cu128`; newer `torchaudio 2.9+` builds break `AudioMetaData` used by pyannote.
 - `huggingface-hub` is intentionally kept below `1.0` because `pyannote.audio 3.4.0` still uses the older `use_auth_token` API path.
 - Real diarization still requires accepting the gated model terms, but token loading is now automatic from `CMG_RT_PYANNOTE_TOKEN`, `HF_TOKEN`, Hugging Face login cache, or `realtime_backend/.env`.
+- The default ASR mode is now `auto`: if `CMG_RT_DEEPGRAM_API_KEY` exists, the backend uses Deepgram Nova-3 first and falls back to local `faster-whisper` if the online call fails.
 
 ## Run
 
@@ -89,23 +92,30 @@ Useful flags:
 
 ## Key Environment Variables
 
+- `CMG_RT_ASR_PROVIDER=auto|deepgram|faster_whisper|mock`
 - `CMG_RT_ASR_MODEL=large-v3-turbo`
 - `CMG_RT_ASR_DEVICE=cuda`
 - `CMG_RT_ASR_COMPUTE_TYPE=float16`
+- `CMG_RT_DEEPGRAM_API_KEY=...`
+- `CMG_RT_DEEPGRAM_MODEL=nova-3`
+- `CMG_RT_DEEPGRAM_DETECT_LANGUAGE=true`
 - `CMG_RT_DIARIZER_PROVIDER=pyannote`
 - `CMG_RT_PYANNOTE_TOKEN=...`
 - `CMG_RT_PIPELINE_MAX_WINDOW_SECONDS=90`
 - `CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS=2`
-- `CMG_RT_LLM_PROVIDER=mock|none|ollama|openai_compatible|lmstudio`
-- `CMG_RT_LLM_ENDPOINT=http://127.0.0.1:11434/api/generate`
-- `CMG_RT_LLM_MODEL=llama3.1`
+- `CMG_RT_LLM_PROVIDER=bedrock_auto_local|bedrock|auto_local|none|mock|ollama|openai_compatible|lmstudio`
+- `CMG_RT_BEDROCK_REGION=us-east-1`
+- `CMG_RT_BEDROCK_MODEL_ID=us.amazon.nova-2-lite-v1:0`
+- `CMG_RT_BEDROCK_PROFILE=default`
+- `CMG_RT_LLM_ENDPOINT=http://127.0.0.1:1234/v1`
+- `CMG_RT_LLM_MODEL=auto`
 - `CMG_RT_LLM_CONTEXT_SEGMENTS=4`
 - `CMG_RT_STREAM_BUFFER_RETENTION_SECONDS=24`
 
 ## HTTP API
 
 ### `GET /health`
-Returns provider configuration health.
+Returns provider configuration health, including resolved ASR/LLM providers and local fallbacks when `auto` modes are used.
 
 ### `POST /transcribe/file`
 Multipart form upload.
@@ -238,9 +248,11 @@ Final transcript events also include:
 
 ## Suggested RTX 4060 Settings
 
+- ASR mode: `CMG_RT_ASR_PROVIDER=auto` with Deepgram API key if you want online-first behavior
 - ASR model: `large-v3-turbo`
 - compute type: `float16`
 - diarization on GPU if PyTorch CUDA is installed
+- LLM mode: `CMG_RT_LLM_PROVIDER=bedrock_auto_local` with AWS credentials if you want Amazon-first correction
 - keep stream partial windows around `8-12s`
 
 ## Test

@@ -1,5 +1,17 @@
 {
   "base_url": "http://127.0.0.1:8080",
   "language": null,
-  "request_timeout_seconds": 240
+  "request_timeout_seconds": 3600,
+  "stream_live_transcription": true,
+  "stream_flush_interval_ms": 1200,
+  "audio_input_device_id": "{0.0.1.00000000}.{638c280d-7e66-4b58-bf4c-3b3676275d6a}",
+  "audio_input_device_label": "Mikrofon Dizisi (Dijital Mikrofonlar i\u00e7in Intel\u00ae Smart Sound Teknolojisi)",
+  "auto_stop_enabled": true,
+  "auto_stop_min_speech_seconds": 0.35,
+  "auto_stop_silence_seconds": 1.25,
+  "auto_stop_silence_threshold": 0.01,
+  "wake_trigger_enabled": true,
+  "wake_phrase": "command wake",
+  "shutdown_phrase": "command shut",
+  "wake_cooldown_seconds": 2.0
 }

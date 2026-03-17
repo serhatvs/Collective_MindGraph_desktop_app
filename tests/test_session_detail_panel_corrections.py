@@ -770,6 +770,192 @@ def test_session_detail_panel_places_orphan_bucket_after_sorted_roots():
     panel.close()
 
 
+def test_session_detail_panel_orders_orphans_under_final_bucket_in_mixed_root_tree():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[],
+        graph_nodes=[
+            GraphNode(
+                id=7,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node 7",
+                override_reason=None,
+                created_at="2026-03-14T12:07:00Z",
+            ),
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node 2",
+                override_reason=None,
+                created_at="2026-03-14T12:02:00Z",
+            ),
+            GraphNode(
+                id=6,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=999,
+                branch_type="side",
+                branch_slot=2,
+                node_text="Orphan side 2",
+                override_reason=None,
+                created_at="2026-03-14T12:06:00Z",
+            ),
+            GraphNode(
+                id=5,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=999,
+                branch_type="main",
+                branch_slot=None,
+                node_text="Orphan main",
+                override_reason=None,
+                created_at="2026-03-14T12:05:00Z",
+            ),
+            GraphNode(
+                id=4,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=999,
+                branch_type="side",
+                branch_slot=1,
+                node_text="Orphan side 1",
+                override_reason=None,
+                created_at="2026-03-14T12:04:00Z",
+            ),
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert [panel.graph_tree.topLevelItem(index).text(0) for index in range(panel.graph_tree.topLevelItemCount())] == [
+        "Root node 2",
+        "Root node 7",
+        "Unlinked",
+    ]
+    orphan_bucket = panel.graph_tree.topLevelItem(2)
+    assert [orphan_bucket.child(index).text(0) for index in range(orphan_bucket.childCount())] == [
+        "Orphan main",
+        "Orphan side 1",
+        "Orphan side 2",
+    ]
+    panel.close()
+
+
+def test_session_detail_panel_prefers_orphan_bucket_over_empty_placeholder_for_invalid_nodes():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[],
+        graph_nodes=[
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="main",
+                branch_slot=None,
+                node_text="Invalid main node",
+                override_reason=None,
+                created_at="2026-03-14T12:02:00Z",
+            )
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.graph_tree.topLevelItemCount() == 1
+    assert panel.graph_tree.topLevelItem(0).text(0) == "Unlinked"
+    assert panel.graph_tree.topLevelItem(0).childCount() == 1
+    assert panel.graph_tree.topLevelItem(0).child(0).text(0) == "Invalid main node"
+    panel.close()
+
+
+def test_session_detail_panel_mixed_roots_and_invalid_non_root_nodes_still_skip_empty_placeholder():
+    app = QApplication.instance() or QApplication([])
+    detail = SessionDetail(
+        session=Session(
+            id=1,
+            title="Synthetic Session",
+            device_id="VOICE-MIC",
+            status="active",
+            created_at="2026-03-14T12:00:00Z",
+            updated_at="2026-03-14T12:00:00Z",
+        ),
+        transcripts=[],
+        graph_nodes=[
+            GraphNode(
+                id=5,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="root",
+                branch_slot=None,
+                node_text="Root node 5",
+                override_reason=None,
+                created_at="2026-03-14T12:05:00Z",
+            ),
+            GraphNode(
+                id=2,
+                session_id=1,
+                transcript_id=None,
+                parent_node_id=None,
+                branch_type="main",
+                branch_slot=None,
+                node_text="Invalid main node",
+                override_reason=None,
+                created_at="2026-03-14T12:02:00Z",
+            ),
+        ],
+        snapshots=[],
+        transcript_analyses={},
+    )
+
+    assert app is not None
+
+    panel = SessionDetailPanel()
+    panel.set_detail(detail)
+
+    assert panel.graph_tree.topLevelItemCount() == 2
+    assert panel.graph_tree.topLevelItem(0).text(0) == "Root node 5"
+    assert panel.graph_tree.topLevelItem(1).text(0) == "Unlinked"
+    assert panel.graph_tree.topLevelItem(1).childCount() == 1
+    assert panel.graph_tree.topLevelItem(1).child(0).text(0) == "Invalid main node"
+    panel.close()
+
+
 def test_session_detail_panel_shows_placeholder_when_quality_report_is_missing(tmp_path):
     panel, _detail = build_panel_with_detail(tmp_path)
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import wave
 from abc import ABC, abstractmethod
@@ -103,7 +104,10 @@ class EnergyVAD(BaseVAD):
 class SileroVAD(BaseVAD):
     def __init__(self, settings: Settings) -> None:
         try:
-            from silero_vad import get_speech_timestamps, load_silero_vad, read_audio
+            silero_vad = importlib.import_module("silero_vad")
+            get_speech_timestamps = getattr(silero_vad, "get_speech_timestamps")
+            load_silero_vad = getattr(silero_vad, "load_silero_vad")
+            read_audio = getattr(silero_vad, "read_audio")
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise RuntimeError("silero-vad is not installed.") from exc
 

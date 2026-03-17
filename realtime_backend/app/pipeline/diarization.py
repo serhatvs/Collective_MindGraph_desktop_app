@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -28,14 +29,15 @@ class BaseDiarizer(ABC):
 class PyAnnoteDiarizer(BaseDiarizer):
     def __init__(self, settings: Settings) -> None:
         try:
-            import torch
-            from pyannote.audio import Pipeline
+            torch = importlib.import_module("torch")
+            pyannote_audio = importlib.import_module("pyannote.audio")
+            pipeline_cls = getattr(pyannote_audio, "Pipeline")
         except ImportError as exc:  # pragma: no cover - optional dependency
             raise RuntimeError("pyannote.audio is not installed.") from exc
 
         self._torch = torch
         _enable_pyannote_checkpoint_compat(torch)
-        self._pipeline = Pipeline.from_pretrained(
+        self._pipeline = pipeline_cls.from_pretrained(
             settings.diarizer_model_name,
             use_auth_token=settings.diarizer_auth_token,
         )
@@ -131,9 +133,9 @@ def _enable_pyannote_checkpoint_compat(torch_module) -> None:
     torch_version_cls = getattr(torch_module.torch_version, "TorchVersion", None)
     specifications_cls = None
     try:
-        from pyannote.audio.core.task import Specifications
+        specifications_module = importlib.import_module("pyannote.audio.core.task")
 
-        specifications_cls = Specifications
+        specifications_cls = getattr(specifications_module, "Specifications", None)
     except Exception:  # pragma: no cover - best effort compatibility
         specifications_cls = None
 

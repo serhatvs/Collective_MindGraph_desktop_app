@@ -3,8 +3,18 @@ from __future__ import annotations
 import wave
 from pathlib import Path
 
+from app.config import Settings
 from app.models import ASRSegment, SpeechRegion
-from app.pipeline.asr import MockASR, _dedupe_segments, _extract_wav_region, _regions_for_asr
+from app.pipeline import asr as asr_module
+from app.pipeline.asr import (
+    FallbackASR,
+    MockASR,
+    _dedupe_segments,
+    _deepgram_request_params,
+    _deepgram_segments_from_payload,
+    _extract_wav_region,
+    _regions_for_asr,
+)
 
 
 def test_regions_for_asr_add_padding_and_merge_overlaps():
@@ -63,6 +73,124 @@ def test_mock_asr_emits_segments_per_vad_region():
     assert len(segments) == 2
     assert segments[0].start == 0.0
     assert segments[1].end == 1.7
+
+
+def test_deepgram_request_params_enable_language_detection_when_language_absent():
+    settings = Settings(deepgram_api_key="dg_key")
+
+    params = _deepgram_request_params(settings, language=None)
+
+    assert params["model"] == "nova-3"
+    assert params["detect_language"] == "true"
+    assert "language" not in params
+
+
+def test_deepgram_request_params_prefer_explicit_language():
+    settings = Settings(deepgram_api_key="dg_key")
+
+    params = _deepgram_request_params(settings, language="tr")
+
+    assert params["language"] == "tr"
+    assert "detect_language" not in params
+
+
+def test_deepgram_payload_parses_utterances_with_word_offsets():
+    payload = {
+        "results": {
+            "utterances": [
+                {
+                    "start": 0.5,
+                    "end": 2.0,
+                    "confidence": 0.97,
+                    "transcript": "Merhaba nasilsin?",
+                    "words": [
+                        {"start": 0.5, "end": 0.9, "word": "Merhaba", "confidence": 0.99},
+                        {"start": 1.0, "end": 2.0, "punctuated_word": "nasilsin?", "confidence": 0.95},
+                    ],
+                }
+            ]
+        }
+    }
+
+    segments = _deepgram_segments_from_payload(payload, offset_seconds=4.0)
+
+    assert len(segments) == 1
+    assert segments[0].start == 4.5
+    assert segments[0].end == 6.0
+    assert segments[0].text == "Merhaba nasilsin?"
+    assert segments[0].words[1].word == "nasilsin?"
+
+
+def test_deepgram_payload_falls_back_to_channel_alternative_words():
+    payload = {
+        "results": {
+            "channels": [
+                {
+                    "alternatives": [
+                        {
+                            "transcript": "Selam dunya",
+                            "confidence": 0.83,
+                            "words": [
+                                {"start": 0.1, "end": 0.4, "word": "Selam", "confidence": 0.8},
+                                {"start": 0.5, "end": 0.9, "word": "dunya", "confidence": 0.86},
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+    segments = _deepgram_segments_from_payload(payload, offset_seconds=0.0)
+
+    assert len(segments) == 1
+    assert segments[0].start == 0.1
+    assert segments[0].end == 0.9
+    assert segments[0].text == "Selam dunya"
+
+
+def test_build_asr_auto_prefers_local_when_no_deepgram_key(monkeypatch):
+    created: list[str] = []
+
+    class FakeLocalASR:
+        def __init__(self, settings):
+            created.append("local")
+
+    monkeypatch.setattr(asr_module, "FasterWhisperASR", FakeLocalASR)
+
+    provider = asr_module.build_asr(Settings(deepgram_api_key=None))
+
+    assert created == ["local"]
+    assert isinstance(provider, FakeLocalASR)
+
+
+def test_build_asr_auto_wraps_deepgram_with_local_fallback(monkeypatch):
+    class FakeLocalASR:
+        def __init__(self, settings):
+            self.name = "local"
+
+    class FakeDeepgramASR:
+        def __init__(self, settings):
+            self.name = "deepgram"
+
+    monkeypatch.setattr(asr_module, "FasterWhisperASR", FakeLocalASR)
+    monkeypatch.setattr(asr_module, "DeepgramASR", FakeDeepgramASR)
+
+    provider = asr_module.build_asr(Settings(deepgram_api_key="dg_key"))
+
+    assert isinstance(provider, FallbackASR)
+
+
+def test_build_asr_auto_falls_back_to_mock_when_local_unavailable(monkeypatch):
+    class BrokenLocalASR:
+        def __init__(self, settings):
+            raise RuntimeError("missing local runtime")
+
+    monkeypatch.setattr(asr_module, "FasterWhisperASR", BrokenLocalASR)
+
+    provider = asr_module.build_asr(Settings(deepgram_api_key=None))
+
+    assert isinstance(provider, MockASR)
 
 
 def _write_constant_wav(path: Path, sample_rate: int, duration_seconds: float) -> None:

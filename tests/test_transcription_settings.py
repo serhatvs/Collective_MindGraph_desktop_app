@@ -1,43 +1,9 @@
 import json
 
 from collective_mindgraph_desktop.transcription import (
-    AmazonNovaTranscriptionConfig,
-    AmazonNovaTranscriptionSettingsStore,
     RealtimeBackendTranscriptionConfig,
     RealtimeBackendTranscriptionSettingsStore,
 )
-
-
-def test_transcription_settings_store_round_trips_config(tmp_path):
-    settings_path = tmp_path / "transcription_settings.json"
-    store = AmazonNovaTranscriptionSettingsStore(settings_path)
-    config = AmazonNovaTranscriptionConfig(
-        model_id="us.amazon.nova-lite-v1:0",
-        region_name="us-east-1",
-        max_tokens=2048,
-        temperature=0.2,
-        top_p=0.8,
-        prompt_text="Return only transcript text.",
-    )
-
-    saved_path = store.save(config)
-    loaded = store.load()
-
-    assert saved_path == settings_path.resolve()
-    assert loaded == config
-    payload = json.loads(settings_path.read_text(encoding="utf-8"))
-    assert payload["region_name"] == "us-east-1"
-    assert payload["model_id"] == "us.amazon.nova-lite-v1:0"
-
-
-def test_transcription_settings_store_falls_back_to_env_defaults_when_missing(tmp_path):
-    settings_path = tmp_path / "missing_transcription_settings.json"
-    store = AmazonNovaTranscriptionSettingsStore(settings_path)
-
-    loaded = store.load()
-
-    assert isinstance(loaded, AmazonNovaTranscriptionConfig)
-    assert loaded.model_id
 
 
 def test_realtime_backend_settings_store_round_trips_config(tmp_path):
@@ -47,6 +13,18 @@ def test_realtime_backend_settings_store_round_trips_config(tmp_path):
         base_url="http://127.0.0.1:8080",
         language="tr",
         request_timeout_seconds=180,
+        stream_live_transcription=True,
+        stream_flush_interval_ms=900,
+        audio_input_device_id="{device-id}",
+        audio_input_device_label="USB Microphone",
+        auto_stop_enabled=True,
+        auto_stop_min_speech_seconds=0.4,
+        auto_stop_silence_seconds=1.5,
+        auto_stop_silence_threshold=0.02,
+        wake_trigger_enabled=True,
+        wake_phrase="command wake",
+        shutdown_phrase="command shut",
+        wake_cooldown_seconds=2.5,
     )
 
     saved_path = store.save(config)
@@ -56,6 +34,11 @@ def test_realtime_backend_settings_store_round_trips_config(tmp_path):
     assert loaded == config
     payload = json.loads(settings_path.read_text(encoding="utf-8"))
     assert payload["base_url"] == "http://127.0.0.1:8080"
+    assert payload["audio_input_device_id"] == "{device-id}"
+    assert payload["audio_input_device_label"] == "USB Microphone"
+    assert payload["stream_live_transcription"] is True
+    assert payload["wake_phrase"] == "command wake"
+    assert payload["auto_stop_silence_seconds"] == 1.5
 
 
 def test_realtime_backend_settings_store_ignores_old_nova_payload_shape(tmp_path):
@@ -76,3 +59,6 @@ def test_realtime_backend_settings_store_ignores_old_nova_payload_shape(tmp_path
 
     assert isinstance(loaded, RealtimeBackendTranscriptionConfig)
     assert loaded.base_url
+    assert loaded.audio_input_device_id is None
+    assert loaded.wake_phrase
+    assert loaded.shutdown_phrase

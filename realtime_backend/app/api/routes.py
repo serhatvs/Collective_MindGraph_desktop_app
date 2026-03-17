@@ -15,13 +15,19 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:
     settings = request.app.state.settings
+    asr_provider = request.app.state.transcription_service._pipeline._asr
+    llm_provider = request.app.state.transcription_service._pipeline._llm_postprocessor._provider
     return HealthResponse(
         status="ok",
         app_name=settings.app_name,
         vad_provider=settings.vad_provider,
         asr_provider=settings.asr_provider,
+        asr_provider_resolved=getattr(asr_provider, "provider_name", None),
+        asr_fallback_provider=getattr(asr_provider, "fallback_provider_name", None),
         diarizer_provider=settings.diarizer_provider,
         llm_provider=settings.llm_provider,
+        llm_provider_resolved=getattr(llm_provider, "provider_name", None),
+        llm_fallback_provider=getattr(llm_provider, "fallback_provider_name", None),
     )
 
 

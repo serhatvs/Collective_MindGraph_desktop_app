@@ -28,6 +28,10 @@
 - Stream-final transcript results now use the same desktop ingestion path as file uploads and are covered explicitly through the main-window flow for both new-session and append-to-selected-session cases.
 - The desktop voice panel now also shows backend runtime/provider health from `/health`, including configured STT/LLM providers, resolved providers, and fallback chains.
 - When the desktop app points to the sibling loopback backend and health fails, it can now auto-start `realtime_backend` from the local `.venv` and retry health automatically.
+- A Windows onefile packaging path now exists through `CollectiveMindGraph.spec` plus `scripts/build_windows_exe.ps1`, and a local build on 2026-03-17 produced `dist/CollectiveMindGraph.exe`.
+- The frozen build now routes loopback backend startup back into the same executable via `--backend`, while source/dev mode still launches the sibling `realtime_backend` project directly.
+- To stay under PyInstaller's 4 GiB onefile limit, the bundled backend intentionally omits the heavy local `torch`/`pyannote`/`silero` stack and instead forces `energy` VAD plus `fallback` diarization inside the packaged runtime.
+- The packaged backend now also treats missing local ASR as a non-fatal condition: with a Deepgram key it uses Deepgram directly, and without one it falls back to `MockASR` instead of crashing.
 - The desktop voice panel now preserves its backend startup/retry status message until the follow-up health check resolves, avoiding a misleading fallback to a generic unavailable state during worker cleanup.
 - The desktop backend-status surface now also explains LLM reachability more explicitly for `auto_local` and `bedrock_auto_local`, including when Bedrock or LM Studio has fallen back to a lower-tier provider.
 - The desktop voice-command stack now has microphone-free regression coverage for wake-controller signal routing, toggle/failure/state transitions, wake-start, wake-ignore-during-transcribing, recording stop-and-transcribe via shutdown phrase, shutdown handling while transcription is still running, live-stream finalization fallback back to file upload, live partial transcript rendering, final-result `transcript_captured` emission, backend-manager state/error surfacing, and manual health-refresh wiring.
@@ -35,14 +39,16 @@
 - The desktop voice-command stack now also has controller-level regression coverage for unavailable-runtime startup messaging and explicit `shutdown()` stop behavior.
 - The desktop voice-command panel now also exposes a `Test 122949` button that batch-transcribes the repo-local `122949/*.flac` sample set through the backend using English language mode, and its batch report now stays visible after worker cleanup instead of being cleared immediately.
 - The `Test 122949` desktop batch path now also has regression coverage for missing-dataset messaging, per-file error reporting during partial batch failures, progress activity updates, finished-summary messaging, test-button disable/re-enable lifecycle, no-op guards while other transcription work is active, and preservation of existing output/activity history when busy-state requests are ignored.
+- The desktop voice-command panel now also exposes a `Test Video MP3` button that loads the first repo-local `video/*.mp3` file as if it were freshly captured audio, then sends it through the normal desktop transcription and session-ingestion path.
 - The `SessionDetailPanel` correction tools now have UI-level regression coverage for bulk speaker rename, selection apply, segment reorder, merge-with-next, and save emission order.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for quality-summary rendering, including missing-report placeholder text and warning formatting.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for speaker-stats placeholders and populated tooltip rendering.
 - The `SessionDetailPanel` analysis surface now also has UI regression coverage for insight-list placeholders plus topic/decision/action rendering order.
 - The `SessionDetailPanel` transcript list now also has UI regression coverage for the empty placeholder row, latest-transcript auto-selection, and full-text tooltip rendering.
 - The MVP target environment is a laptop-first workflow that uses the built-in laptop microphone as the primary audio input device.
-- Recorded voice-command clips are now stored in a root-level `recordings/` folder inside the project workspace instead of the user's AppData directory.
-- Transcript settings are now editable from the voice-command UI and stored locally in a root-level `transcription_settings.json` file with backend URL, language override, and request timeout; the repo-local default file has been migrated to that schema.
+- Recorded voice-command clips stay in the repo-local `recordings/` folder during source/dev runs, but frozen builds now store them under `%LOCALAPPDATA%\\CollectiveMindGraph\\recordings`.
+- Repo-local media/output folders `video/`, `recordings/`, and `realtime_backend/realtime_backend_temp/` are now git-ignored so local samples and transient audio artifacts do not get committed by default.
+- Transcript settings are now editable from the voice-command UI and stored locally in repo-root `transcription_settings.json` during source/dev runs, while frozen builds move that file under `%LOCALAPPDATA%\\CollectiveMindGraph\\transcription_settings.json`.
 - The voice-command settings flow now also persists the selected microphone input device in `transcription_settings.json`, and both the recorder and the VOSK wake listener now try to follow that saved device when it is still available.
 - The transcript settings dialog now also exposes live-stream enablement, wake phrases, wake cooldown, wake-trigger startup state, and auto-stop tuning values such as required silence seconds and the silence threshold.
 - Transcript completion is now wired into a local session flow: if no session is explicitly selected, the next transcript starts a new session automatically; if a session is selected, the transcript is appended to that session.
@@ -81,6 +87,9 @@
 - The local backend environment now has a working Hugging Face token source, and `PyAnnoteDiarizer` can be instantiated successfully on this machine instead of falling back immediately.
 - `tests/README.md` now contains the original project README for comparison: the original product was a Docker-first distributed multi-agent reasoning demo with MQTT, Postgres, agents, and a browser dashboard.
 - The companion UI has been realigned again so the selected session is the center of the experience, with a readable session flow and a session-centered mindgraph derived from notes, template choice, branch context, and related sessions.
+- Local validation on 2026-03-15 confirmed the current workspace test suites are green: desktop/root `tests` passed with 101 tests, `realtime_backend/tests` passed with 53 tests, and `companion/tests` passed with 8 tests.
+- Local validation on 2026-03-17 confirmed the current worktree passes `pytest -q` at repo root with 104 tests and `pytest -q realtime_backend/tests` with 52 tests passing plus 1 skipped `test_vad.py` case because `numpy` was unavailable in that test environment.
+- A live backend smoke check on 2026-03-15 succeeded on the default loopback URL `http://127.0.0.1:8080`: `/health` returned `ok`, the sample file `122949/422-122949-0000.flac` was transcribed successfully through `/transcribe/file`, and the repo-local `video/DRUTUTT & RATIRL DUO CAN'T LOSE.mp3` sample was also transcribed successfully through the same endpoint during a controlled backend run.
 
 ## Architecture
 
@@ -94,11 +103,11 @@
 - A dedicated `voice_command.py` workflow module now owns the UI-facing voice state transitions, while `audio_capture.py` owns real microphone recording to local files through QtMultimedia.
 - A separate `wake_phrase.py` module now owns optional continuous microphone listening for fixed wake/shutdown phrases through VOSK; the listener no longer suspends during recording/transcription, uses phrase-grammar aliases for more tolerant long-command detection, and follows the selected microphone when it can map the saved device label onto a sounddevice input.
 - A new `live_transcription.py` Qt WebSocket client now tails the active WAV capture, sends incremental PCM bytes into `/transcribe/stream`, emits partial transcript updates, and requests finalization on stop.
-- A new `backend_runtime.py` helper now owns local sibling-backend launch detection and startup via the verified `realtime_backend/.venv` Python plus `uvicorn app.main:app`.
+- A new `backend_runtime.py` helper now owns local backend launch detection and startup, using the sibling `realtime_backend/.venv` plus `uvicorn app.main:app` in source/dev mode and the same frozen executable with `--backend` in packaged mode.
 - `transcription.py` now only contains the active realtime-backend adapter used by the desktop UI; the old direct Nova path has been removed from the runnable desktop product.
 - The MVP audio-capture path should assume a single-user laptop setup and prefer the default built-in microphone unless a later settings surface adds device selection.
-- The audio capture default output path is now `Path.cwd() / "recordings"`, so recordings stay alongside the project files during MVP development.
-- The transcript settings surface currently edits backend URL, language, and request timeout, then persists them through `RealtimeBackendTranscriptionSettingsStore`.
+- The audio capture default output path remains repo-local during source/dev runs, but frozen builds redirect recordings into `%LOCALAPPDATA%\\CollectiveMindGraph\\recordings`.
+- The transcript settings surface currently edits backend URL, language, and request timeout, then persists them through `RealtimeBackendTranscriptionSettingsStore`, which now switches to `%LOCALAPPDATA%\\CollectiveMindGraph` automatically in frozen builds.
 - The transcript settings surface now also lists available Qt microphone inputs so the desktop user can pick which microphone the recorder uses.
 - Session detail now depends on persisted `transcript_analyses` records stored beside local transcripts, rather than only the old flat transcript text.
 - Session detail UI regression coverage now spans transcript lists, quality summaries, speaker stats, insight lists, graph-tree states plus root/child/orphan ordering, branch-label/tooltips/fallback transcript rendering, snapshot tables, and local correction tools.
@@ -179,19 +188,22 @@
 - The default local LLM path now assumes LM Studio may be present, but correction quality will fall back to a lightweight mock cleanup if no local model server is reachable.
 - The default correction path now assumes Amazon Bedrock may be available; if AWS credentials or Bedrock access are missing, correction falls back locally instead of failing the pipeline.
 - The new realtime backend is production-style at the module boundary, but true live diarization quality still depends on heavy external dependencies (`faster-whisper`, `pyannote.audio`, `silero-vad`, ffmpeg, CUDA-ready PyTorch) being installed and validated on the target machine.
+- The packaged onefile build avoids those heavy local speech dependencies on purpose; packaged STT quality now depends on Deepgram availability unless `MockASR` is acceptable for the distribution/demo scenario.
 - Package installation is now complete locally, but real diarization is still effectively in fallback mode until Hugging Face access to the gated pyannote diarization model is configured.
 - Local package installation and gated-model access are now sufficient for `PyAnnoteDiarizer` to load, but a code-level compatibility workaround remains necessary because newer PyTorch defaults otherwise break pyannote checkpoint loading.
 - The remaining manual step is no longer exporting env vars; it is only obtaining/accepting gated-model access itself if the token is not already available locally.
+- The git worktree is currently dirty with many modified tracked files plus untracked local data/temp directories, so new edits should continue assuming in-progress user changes are present.
+- Long repo-local `video/*.mp3` transcription is now functionally wired into the desktop through `Test Video MP3`, but runtime stability is still uneven on this machine: one full controlled backend run transcribed the 23m49s sample successfully, while later repeat runs against long-lived/local test servers sometimes dropped the connection or hit the 600s client timeout.
+- A 2026-03-17 packaged-binary smoke check produced the onefile exe successfully, but embedded-backend `/health` verification from the frozen binary still needs manual confirmation because the GUI build does not surface startup errors cleanly from automated shell runs.
 
 ## Autonomous Task Board
 
-- [ ] Add `SessionDetailPanel` tests for empty graph versus orphan-bucket precedence when only invalid nodes exist.
-- [ ] Add `VoiceCommandPanel` tests for busy-state output/history preservation when another `Test 122949` batch is already active.
-- [ ] Add `SessionDetailPanel` tests for mixed root/orphan trees preserving orphan child ordering under the final bucket.
+- No open autonomous tasks are currently recorded.
 
 ## Future Tasks
 
 - Run real desktop-to-backend smoke tests so the new UI integration is exercised against the live FastAPI service, not only through unit tests.
+- Run `dist/CollectiveMindGraph.exe` manually on a clean Windows machine and verify that the embedded `--backend` path really reaches `/health`, then confirm whether the packaged Deepgram-or-mock fallback profile is acceptable for distribution.
 - Validate the new session-detail correction flow on real transcripts, especially that saved segment edits update transcript text, node text, and snapshots coherently.
 - Validate a real Deepgram API key path end to end, then decide later whether diarization should also move online or remain local with pyannote.
 - With AWS and Deepgram deferred for now, the immediate next work should return to local pipeline validation, UI clarity, and desktop-side streaming/product behavior.

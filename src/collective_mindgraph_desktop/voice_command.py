@@ -37,8 +37,8 @@ class VoiceCommandWorkflow:
             stage="recording",
             status_label="Recording",
             guidance_text=(
-                "Listening for a spoken command through the active microphone. Stop recording when "
-                "the command is complete."
+                "Listening for a spoken command through the active microphone. You can stop manually, "
+                "or just pause and let the recorder auto-stop after a short silence."
             ),
             transcript_text="",
             audio_path=None,
@@ -53,10 +53,28 @@ class VoiceCommandWorkflow:
         if self._state.stage != "recording" or not audio_path:
             return self._state
 
+        return self.load_audio_file(
+            audio_path,
+            guidance_text=(
+                "Recording is saved locally. The next step is sending this audio clip to the local "
+                "transcription backend."
+            ),
+        )
+
+    def load_audio_file(
+        self,
+        audio_path: str | None,
+        *,
+        guidance_text: str | None = None,
+    ) -> VoiceCommandState:
+        if not audio_path:
+            return self._state
+
         self._state = VoiceCommandState(
             stage="audio_ready",
             status_label="Audio Ready",
-            guidance_text=(
+            guidance_text=guidance_text
+            or (
                 "Recording is saved locally. The next step is sending this audio clip to the local "
                 "transcription backend."
             ),
@@ -128,8 +146,8 @@ class VoiceCommandWorkflow:
             stage="idle",
             status_label="Idle",
             guidance_text=(
-                "Input starts as a spoken command. Microphone capture is now wired; the next pipeline "
-                "step after recording is local-backend transcription."
+                "Input starts as a spoken command. Say 'command wake' for hands-free capture, "
+                "then pause briefly to auto-stop and launch local-backend transcription."
             ),
             transcript_text="",
             audio_path=None,

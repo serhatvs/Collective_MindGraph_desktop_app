@@ -7,6 +7,7 @@ import mimetypes
 import os
 from dataclasses import asdict
 from dataclasses import dataclass
+from dataclasses import field
 import json
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -14,37 +15,14 @@ from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-import boto3
-from botocore.config import Config
-from botocore.exceptions import BotoCoreError, ClientError, NoCredentialsError, NoRegionError
+from .audio_capture import AutoStopConfig
+from .runtime_paths import default_transcription_settings_path, is_frozen_build
+from .wake_phrase import DEFAULT_SHUTDOWN_PHRASE, DEFAULT_WAKE_PHRASE
 
-DIRECT_AUDIO_UPLOAD_LIMIT_BYTES = 25 * 1024 * 1024
-DEFAULT_MODEL_ID = "us.amazon.nova-2-lite-v1:0"
+
 DEFAULT_REALTIME_BACKEND_URL = "http://127.0.0.1:8080"
 DEFAULT_REALTIME_TIMEOUT_SECONDS = 240
-DEFAULT_TRANSCRIPTION_PROMPT = (
-    "Transcribe this audio recording exactly. Return only the transcript text. "
-    "Do not summarize, explain, or add markdown."
-)
-
-_AUDIO_FORMATS_BY_SUFFIX = {
-    ".aac": "aac",
-    ".flac": "flac",
-    ".m4a": "m4a",
-    ".mka": "mka",
-    ".mkv": "mkv",
-    ".mp3": "mp3",
-    ".mp4": "mp4",
-    ".mpa": "mpeg",
-    ".mpeg": "mpeg",
-    ".mpga": "mpga",
-    ".ogg": "ogg",
-    ".opus": "opus",
-    ".pcm": "pcm",
-    ".wav": "wav",
-    ".webm": "webm",
-    ".xaac": "x-aac",
-}
+DEFAULT_STREAM_FLUSH_INTERVAL_MS = 1200
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +34,40 @@ class TranscriptionResult:
     raw_text_output: str | None = None
     corrected_text_output: str | None = None
     speaker_count: int | None = None
+    summary: str | None = None
+    topics: list[dict[str, object]] = field(default_factory=list)
+    action_items: list[str] = field(default_factory=list)
+    decisions: list[str] = field(default_factory=list)
+    speaker_stats: list[dict[str, object]] = field(default_factory=list)
+    segments: list[dict[str, object]] = field(default_factory=list)
+    quality_report: dict[str, object] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class StreamingTranscriptionUpdate:
+    conversation_id: str | None
+    audio_path: str
+    text: str
+    raw_text_output: str | None = None
+    corrected_text_output: str | None = None
+    speaker_count: int | None = None
+    speaker_stats: list[dict[str, object]] = field(default_factory=list)
+    segments: list[dict[str, object]] = field(default_factory=list)
+    is_final: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class BackendHealthStatus:
+    status: str
+    app_name: str
+    vad_provider: str
+    asr_provider: str
+    asr_provider_resolved: str | None = None
+    asr_fallback_provider: str | None = None
+    diarizer_provider: str = ""
+    llm_provider: str = ""
+    llm_provider_resolved: str | None = None
+    llm_fallback_provider: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +75,18 @@ class RealtimeBackendTranscriptionConfig:
     base_url: str = DEFAULT_REALTIME_BACKEND_URL
     language: str | None = None
     request_timeout_seconds: int = DEFAULT_REALTIME_TIMEOUT_SECONDS
+    stream_live_transcription: bool = True
+    stream_flush_interval_ms: int = DEFAULT_STREAM_FLUSH_INTERVAL_MS
+    audio_input_device_id: str | None = None
+    audio_input_device_label: str | None = None
+    auto_stop_enabled: bool = True
+    auto_stop_min_speech_seconds: float = 0.35
+    auto_stop_silence_seconds: float = 1.25
+    auto_stop_silence_threshold: float = 0.012
+    wake_trigger_enabled: bool = True
+    wake_phrase: str = DEFAULT_WAKE_PHRASE
+    shutdown_phrase: str = DEFAULT_SHUTDOWN_PHRASE
+    wake_cooldown_seconds: float = 2.0
 
     @classmethod
     def from_env(cls) -> "RealtimeBackendTranscriptionConfig":
@@ -76,6 +100,22 @@ class RealtimeBackendTranscriptionConfig:
             ).rstrip("/"),
             language=(os.getenv("CMG_TRANSCRIPTION_LANGUAGE") or "").strip() or None,
             request_timeout_seconds=timeout_seconds,
+            stream_live_transcription=_parse_bool(os.getenv("CMG_TRANSCRIPTION_STREAM_LIVE"), True),
+            stream_flush_interval_ms=int(
+                os.getenv("CMG_TRANSCRIPTION_STREAM_FLUSH_INTERVAL_MS") or DEFAULT_STREAM_FLUSH_INTERVAL_MS
+            ),
+            audio_input_device_id=(os.getenv("CMG_AUDIO_INPUT_DEVICE_ID") or "").strip() or None,
+            audio_input_device_label=(os.getenv("CMG_AUDIO_INPUT_DEVICE_LABEL") or "").strip() or None,
+            auto_stop_enabled=_parse_bool(os.getenv("CMG_AUTO_STOP_ENABLED"), True),
+            auto_stop_min_speech_seconds=float(os.getenv("CMG_AUTO_STOP_MIN_SPEECH_SECONDS") or 0.35),
+            auto_stop_silence_seconds=float(os.getenv("CMG_AUTO_STOP_SILENCE_SECONDS") or 1.25),
+            auto_stop_silence_threshold=float(os.getenv("CMG_AUTO_STOP_SILENCE_THRESHOLD") or 0.012),
+            wake_trigger_enabled=_parse_bool(os.getenv("CMG_WAKE_TRIGGER_ENABLED"), True),
+            wake_phrase=(os.getenv("CMG_WAKE_PHRASE") or DEFAULT_WAKE_PHRASE).strip() or DEFAULT_WAKE_PHRASE,
+            shutdown_phrase=(
+                os.getenv("CMG_SHUTDOWN_PHRASE") or DEFAULT_SHUTDOWN_PHRASE
+            ).strip() or DEFAULT_SHUTDOWN_PHRASE,
+            wake_cooldown_seconds=float(os.getenv("CMG_WAKE_COOLDOWN_SECONDS") or 2.0),
         )
 
     @classmethod
@@ -84,21 +124,109 @@ class RealtimeBackendTranscriptionConfig:
         base_url = str(payload.get("base_url") or payload.get("backend_url") or base.base_url).strip().rstrip("/")
         language_value = payload.get("language")
         timeout_value = payload.get("request_timeout_seconds")
+        stream_live_value = payload.get("stream_live_transcription")
+        stream_flush_interval_value = payload.get("stream_flush_interval_ms")
+        audio_input_device_id = payload.get("audio_input_device_id")
+        audio_input_device_label = payload.get("audio_input_device_label")
+        auto_stop_enabled_value = payload.get("auto_stop_enabled")
+        auto_stop_min_speech_value = payload.get("auto_stop_min_speech_seconds")
+        auto_stop_silence_value = payload.get("auto_stop_silence_seconds")
+        auto_stop_threshold_value = payload.get("auto_stop_silence_threshold")
+        wake_trigger_enabled_value = payload.get("wake_trigger_enabled")
+        wake_phrase_value = payload.get("wake_phrase")
+        shutdown_phrase_value = payload.get("shutdown_phrase")
+        wake_cooldown_value = payload.get("wake_cooldown_seconds")
         return cls(
             base_url=base_url or base.base_url,
             language=str(language_value).strip() or None if language_value is not None else base.language,
             request_timeout_seconds=(
                 int(timeout_value) if timeout_value is not None else base.request_timeout_seconds
             ),
+            stream_live_transcription=(
+                _parse_bool(stream_live_value, base.stream_live_transcription)
+                if stream_live_value is not None
+                else base.stream_live_transcription
+            ),
+            stream_flush_interval_ms=(
+                int(stream_flush_interval_value)
+                if stream_flush_interval_value is not None
+                else base.stream_flush_interval_ms
+            ),
+            audio_input_device_id=(
+                str(audio_input_device_id).strip() or None
+                if audio_input_device_id is not None
+                else base.audio_input_device_id
+            ),
+            audio_input_device_label=(
+                str(audio_input_device_label).strip() or None
+                if audio_input_device_label is not None
+                else base.audio_input_device_label
+            ),
+            auto_stop_enabled=(
+                _parse_bool(auto_stop_enabled_value, base.auto_stop_enabled)
+                if auto_stop_enabled_value is not None
+                else base.auto_stop_enabled
+            ),
+            auto_stop_min_speech_seconds=(
+                float(auto_stop_min_speech_value)
+                if auto_stop_min_speech_value is not None
+                else base.auto_stop_min_speech_seconds
+            ),
+            auto_stop_silence_seconds=(
+                float(auto_stop_silence_value)
+                if auto_stop_silence_value is not None
+                else base.auto_stop_silence_seconds
+            ),
+            auto_stop_silence_threshold=(
+                float(auto_stop_threshold_value)
+                if auto_stop_threshold_value is not None
+                else base.auto_stop_silence_threshold
+            ),
+            wake_trigger_enabled=(
+                _parse_bool(wake_trigger_enabled_value, base.wake_trigger_enabled)
+                if wake_trigger_enabled_value is not None
+                else base.wake_trigger_enabled
+            ),
+            wake_phrase=(
+                str(wake_phrase_value).strip() or base.wake_phrase
+                if wake_phrase_value is not None
+                else base.wake_phrase
+            ),
+            shutdown_phrase=(
+                str(shutdown_phrase_value).strip() or base.shutdown_phrase
+                if shutdown_phrase_value is not None
+                else base.shutdown_phrase
+            ),
+            wake_cooldown_seconds=(
+                float(wake_cooldown_value)
+                if wake_cooldown_value is not None
+                else base.wake_cooldown_seconds
+            ),
         )
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
 
+    def to_auto_stop_config(self) -> AutoStopConfig:
+        return AutoStopConfig(
+            enabled=self.auto_stop_enabled,
+            min_speech_seconds=self.auto_stop_min_speech_seconds,
+            silence_seconds=self.auto_stop_silence_seconds,
+            silence_threshold=self.auto_stop_silence_threshold,
+        )
+
+    def websocket_stream_url(self) -> str:
+        base = self.base_url.rstrip("/")
+        if base.startswith("https://"):
+            base = "wss://" + base[len("https://") :]
+        elif base.startswith("http://"):
+            base = "ws://" + base[len("http://") :]
+        return f"{base}/transcribe/stream"
+
 
 class RealtimeBackendTranscriptionSettingsStore:
     def __init__(self, path: Path | None = None) -> None:
-        self._path = (path or Path.cwd() / "transcription_settings.json").resolve()
+        self._path = (path or default_transcription_settings_path()).resolve()
 
     @property
     def path(self) -> Path:
@@ -148,45 +276,146 @@ class RealtimeBackendTranscriptionService:
             },
         )
         try:
-            with self._request_opener(request, timeout=self._config.request_timeout_seconds) as response:
-                response_body = response.read().decode("utf-8")
+            response_payload = self._read_json_response(request)
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace").strip()
             raise ValueError(
                 f"Realtime transcription backend request failed: {detail or exc.reason or exc.code}"
             ) from exc
         except URLError as exc:
-            raise ValueError(
-                "Realtime transcription backend is not reachable. "
-                f"Start `realtime_backend` at {self._config.base_url} and try again."
-            ) from exc
+            raise ValueError(_backend_unreachable_message(self._config.base_url)) from exc
         except TimeoutError as exc:
             raise ValueError("Realtime transcription backend request timed out.") from exc
 
-        try:
-            response_payload = json.loads(response_body)
-        except json.JSONDecodeError as exc:
-            raise ValueError("Realtime transcription backend returned an invalid JSON response.") from exc
+        return self.result_from_payload(response_payload, audio_path=path)
 
-        transcript_text = self._extract_text(response_payload)
+    def fetch_health(self) -> BackendHealthStatus:
+        request = Request(
+            urljoin(f"{self._config.base_url}/", "health"),
+            method="GET",
+            headers={"Accept": "application/json"},
+        )
+        try:
+            payload = self._read_json_response(request)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace").strip()
+            raise ValueError(f"Backend health request failed: {detail or exc.reason or exc.code}") from exc
+        except URLError as exc:
+            raise ValueError("Realtime transcription backend is not reachable.") from exc
+        except TimeoutError as exc:
+            raise ValueError("Realtime transcription backend health request timed out.") from exc
+
+        return BackendHealthStatus(
+            status=self._extract_string(payload, "status") or "unknown",
+            app_name=self._extract_string(payload, "app_name") or "Realtime Backend",
+            vad_provider=self._extract_string(payload, "vad_provider") or "-",
+            asr_provider=self._extract_string(payload, "asr_provider") or "-",
+            asr_provider_resolved=self._extract_string(payload, "asr_provider_resolved"),
+            asr_fallback_provider=self._extract_string(payload, "asr_fallback_provider"),
+            diarizer_provider=self._extract_string(payload, "diarizer_provider") or "-",
+            llm_provider=self._extract_string(payload, "llm_provider") or "-",
+            llm_provider_resolved=self._extract_string(payload, "llm_provider_resolved"),
+            llm_fallback_provider=self._extract_string(payload, "llm_fallback_provider"),
+        )
+
+    def result_from_payload(self, payload: dict[str, object], audio_path: str | Path) -> TranscriptionResult:
+        transcript_text = self._extract_text(payload)
         if not transcript_text:
             raise ValueError("Realtime transcription backend returned an empty transcript.")
 
-        transcript_payload = response_payload.get("transcript")
+        normalized_audio_path = str(Path(audio_path).expanduser().resolve())
+        transcript_payload = payload.get("transcript")
         if not isinstance(transcript_payload, dict):
             transcript_payload = {}
 
-        speaker_stats = response_payload.get("speaker_stats")
-        speaker_count = len(speaker_stats) if isinstance(speaker_stats, list) else None
+        speaker_stats = payload.get("speaker_stats")
+        normalized_speaker_stats = speaker_stats if isinstance(speaker_stats, list) else []
+        segments = transcript_payload.get("segments") if transcript_payload else payload.get("segments")
+        normalized_segments = segments if isinstance(segments, list) else []
+        conversation_id = self._extract_string(transcript_payload, "conversation_id") or self._extract_string(
+            payload,
+            "conversation_id",
+        )
+        summary_payload: dict[str, object] = payload if self._extract_string(payload, "summary") else {}
+        quality_payload: dict[str, object] | None = payload.get("quality_report") if isinstance(
+            payload.get("quality_report"),
+            dict,
+        ) else None
+        if conversation_id:
+            if not summary_payload:
+                summary_payload = self._fetch_optional_json(f"summary/{conversation_id}") or {}
+            if quality_payload is None:
+                quality_payload = self._fetch_optional_json(f"quality/{conversation_id}")
+
         return TranscriptionResult(
             text=transcript_text,
             model_id="realtime_backend",
-            audio_path=str(path),
-            conversation_id=self._extract_string(transcript_payload, "conversation_id"),
-            raw_text_output=self._extract_string(response_payload, "raw_text_output"),
-            corrected_text_output=self._extract_string(response_payload, "corrected_text_output"),
-            speaker_count=speaker_count,
+            audio_path=normalized_audio_path,
+            conversation_id=conversation_id,
+            raw_text_output=self._extract_string(payload, "raw_text_output"),
+            corrected_text_output=self._extract_string(payload, "corrected_text_output"),
+            speaker_count=len(normalized_speaker_stats) or None,
+            summary=self._extract_string(summary_payload, "summary"),
+            topics=self._extract_list(summary_payload, "topics"),
+            action_items=self._extract_string_list(summary_payload, "action_items"),
+            decisions=self._extract_string_list(summary_payload, "decisions"),
+            speaker_stats=[item for item in normalized_speaker_stats if isinstance(item, dict)],
+            segments=[item for item in normalized_segments if isinstance(item, dict)],
+            quality_report=quality_payload,
         )
+
+    def stream_update_from_payload(
+        self,
+        payload: dict[str, object],
+        audio_path: str | Path,
+    ) -> StreamingTranscriptionUpdate:
+        normalized_audio_path = str(Path(audio_path).expanduser().resolve())
+        segments = payload.get("segments")
+        speaker_stats = payload.get("speaker_stats")
+        normalized_speaker_stats = [item for item in speaker_stats if isinstance(item, dict)] if isinstance(
+            speaker_stats,
+            list,
+        ) else []
+        return StreamingTranscriptionUpdate(
+            conversation_id=self._extract_string(payload, "conversation_id"),
+            audio_path=normalized_audio_path,
+            text=self._extract_text(payload),
+            raw_text_output=self._extract_string(payload, "raw_text_output"),
+            corrected_text_output=self._extract_string(payload, "corrected_text_output"),
+            speaker_count=len(normalized_speaker_stats) or None,
+            speaker_stats=normalized_speaker_stats,
+            segments=[item for item in segments if isinstance(item, dict)] if isinstance(segments, list) else [],
+            is_final=bool(payload.get("is_final") or False),
+        )
+
+    def _read_json_response(self, request: Request) -> dict[str, object]:
+        try:
+            with self._request_opener(request, timeout=self._config.request_timeout_seconds) as response:
+                response_body = response.read().decode("utf-8")
+        except HTTPError:
+            raise
+        except URLError:
+            raise
+        except TimeoutError:
+            raise
+        try:
+            payload = json.loads(response_body)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Realtime transcription backend returned an invalid JSON response.") from exc
+        if not isinstance(payload, dict):
+            raise ValueError("Realtime transcription backend returned an unexpected JSON payload.")
+        return payload
+
+    def _fetch_optional_json(self, path: str) -> dict[str, object] | None:
+        request = Request(
+            urljoin(f"{self._config.base_url}/", path),
+            method="GET",
+            headers={"Accept": "application/json"},
+        )
+        try:
+            return self._read_json_response(request)
+        except (ValueError, HTTPError, URLError, TimeoutError):
+            return None
 
     def _build_multipart_payload(self, audio_path: Path) -> tuple[bytes, str]:
         boundary = f"----CollectiveMindGraphBoundary{uuid4().hex}"
@@ -249,176 +478,37 @@ class RealtimeBackendTranscriptionService:
             return value.strip()
         return None
 
-
-@dataclass(frozen=True, slots=True)
-class AmazonNovaTranscriptionConfig:
-    model_id: str = DEFAULT_MODEL_ID
-    region_name: str | None = None
-    max_tokens: int = 4000
-    temperature: float = 0.0
-    top_p: float = 0.1
-    prompt_text: str = DEFAULT_TRANSCRIPTION_PROMPT
-
-    @classmethod
-    def from_env(cls) -> "AmazonNovaTranscriptionConfig":
-        region_name = os.getenv("CMG_AWS_REGION") or os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION")
-        model_id = os.getenv("CMG_BEDROCK_MODEL_ID") or DEFAULT_MODEL_ID
-        prompt_text = os.getenv("CMG_TRANSCRIPTION_PROMPT") or DEFAULT_TRANSCRIPTION_PROMPT
-        return cls(
-            model_id=model_id,
-            region_name=region_name,
-            prompt_text=prompt_text,
-        )
-
-    @classmethod
-    def from_dict(cls, payload: dict[str, object]) -> "AmazonNovaTranscriptionConfig":
-        base = cls.from_env()
-        return cls(
-            model_id=str(payload.get("model_id") or base.model_id),
-            region_name=str(payload["region_name"]).strip() if payload.get("region_name") else base.region_name,
-            max_tokens=int(payload.get("max_tokens") or base.max_tokens),
-            temperature=float(payload.get("temperature") if payload.get("temperature") is not None else base.temperature),
-            top_p=float(payload.get("top_p") if payload.get("top_p") is not None else base.top_p),
-            prompt_text=str(payload.get("prompt_text") or base.prompt_text),
-        )
-
-    def to_dict(self) -> dict[str, object]:
-        return asdict(self)
-
-
-class AmazonNovaTranscriptionSettingsStore:
-    def __init__(self, path: Path | None = None) -> None:
-        self._path = (path or Path.cwd() / "transcription_settings.json").resolve()
-
-    @property
-    def path(self) -> Path:
-        return self._path
-
-    def load(self) -> AmazonNovaTranscriptionConfig:
-        if not self._path.exists():
-            return AmazonNovaTranscriptionConfig.from_env()
-
-        payload = json.loads(self._path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            raise ValueError("Transcription settings file is invalid.")
-        return AmazonNovaTranscriptionConfig.from_dict(payload)
-
-    def save(self, config: AmazonNovaTranscriptionConfig) -> Path:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(json.dumps(config.to_dict(), indent=2), encoding="utf-8")
-        return self._path
-
-
-class AmazonNovaTranscriptionService:
-    def __init__(
-        self,
-        config: AmazonNovaTranscriptionConfig | None = None,
-        client: object | None = None,
-    ) -> None:
-        self._config = config or AmazonNovaTranscriptionConfig.from_env()
-        self._client = client
-
-    def transcribe_file(self, audio_path: str | Path) -> TranscriptionResult:
-        path = Path(audio_path).expanduser().resolve()
-        if not path.exists():
-            raise ValueError(f"Audio file was not found: {path}")
-
-        file_size = path.stat().st_size
-        if file_size <= 0:
-            raise ValueError("Audio file is empty.")
-        if file_size > DIRECT_AUDIO_UPLOAD_LIMIT_BYTES:
-            raise ValueError(
-                "Audio file exceeds Amazon Nova's 25 MB direct upload limit. "
-                "S3-based upload is not implemented in this app yet."
-            )
-
-        audio_format = self._detect_audio_format(path)
-        audio_bytes = path.read_bytes()
-
-        try:
-            response = self._bedrock_client().converse(
-                modelId=self._config.model_id,
-                system=[{"text": "You are a speech-to-text transcription engine."}],
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "audio": {
-                                    "format": audio_format,
-                                    "source": {"bytes": audio_bytes},
-                                }
-                            },
-                            {
-                                "text": self._config.prompt_text,
-                            },
-                        ],
-                    }
-                ],
-                inferenceConfig={
-                    "maxTokens": self._config.max_tokens,
-                    "temperature": self._config.temperature,
-                    "topP": self._config.top_p,
-                },
-            )
-        except NoRegionError as exc:
-            raise ValueError(
-                "AWS region is not configured. Set CMG_AWS_REGION, AWS_REGION, or AWS_DEFAULT_REGION."
-            ) from exc
-        except NoCredentialsError as exc:
-            raise ValueError(
-                "AWS credentials were not found. Configure an AWS profile or access keys before using Amazon Nova transcription."
-            ) from exc
-        except ClientError as exc:
-            message = exc.response.get("Error", {}).get("Message", str(exc))
-            raise ValueError(f"Amazon Nova request failed: {message}") from exc
-        except BotoCoreError as exc:
-            raise ValueError(f"Amazon Nova request failed: {exc}") from exc
-
-        transcript_text = self._extract_text(response)
-        if not transcript_text:
-            raise ValueError("Amazon Nova returned an empty transcription response.")
-
-        return TranscriptionResult(
-            text=transcript_text,
-            model_id=self._config.model_id,
-            audio_path=str(path),
-        )
-
-    def _bedrock_client(self):
-        if self._client is None:
-            session = boto3.Session(region_name=self._config.region_name)
-            self._client = session.client(
-                "bedrock-runtime",
-                config=Config(
-                    connect_timeout=3600,
-                    read_timeout=3600,
-                    retries={"max_attempts": 1},
-                ),
-            )
-        return self._client
+    @staticmethod
+    def _extract_list(payload: dict[str, object], key: str) -> list[dict[str, object]]:
+        value = payload.get(key)
+        return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
     @staticmethod
-    def _detect_audio_format(path: Path) -> str:
-        format_name = _AUDIO_FORMATS_BY_SUFFIX.get(path.suffix.lower())
-        if format_name is None:
-            supported = ", ".join(sorted(_AUDIO_FORMATS_BY_SUFFIX))
-            raise ValueError(f"Unsupported audio format '{path.suffix}'. Supported formats: {supported}")
-        return format_name
+    def _extract_string_list(payload: dict[str, object], key: str) -> list[str]:
+        value = payload.get(key)
+        return [str(item) for item in value] if isinstance(value, list) else []
 
-    @staticmethod
-    def _extract_text(response: dict[str, object]) -> str:
-        output = response.get("output")
-        if not isinstance(output, dict):
-            return ""
 
-        message = output.get("message")
-        if not isinstance(message, dict):
-            return ""
+def _parse_bool(value: object, default: bool) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return default
 
-        content = message.get("content")
-        if not isinstance(content, list):
-            return ""
 
-        text_blocks = [item.get("text", "").strip() for item in content if isinstance(item, dict) and item.get("text")]
-        return "\n".join(block for block in text_blocks if block).strip()
+def _backend_unreachable_message(base_url: str) -> str:
+    if is_frozen_build() and base_url.startswith(("http://127.0.0.1", "http://localhost")):
+        return (
+            "Realtime transcription backend is not reachable. "
+            "Use `Refresh Backend` or restart the app to re-launch the bundled local backend."
+        )
+    return (
+        "Realtime transcription backend is not reachable. "
+        f"Start `realtime_backend` at {base_url} and try again."
+    )

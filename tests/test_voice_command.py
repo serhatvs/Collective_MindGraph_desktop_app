@@ -44,6 +44,20 @@ def test_voice_command_workflow_invalid_transitions_are_noops():
     assert workflow.state.clear_enabled is False
 
 
+def test_voice_command_workflow_can_load_external_audio_for_transcription():
+    workflow = VoiceCommandWorkflow()
+
+    audio_ready_state = workflow.load_audio_file(
+        "C:/tmp/imported_test_audio.mp3",
+        guidance_text="Imported test audio is ready for backend transcription.",
+    )
+
+    assert audio_ready_state.stage == "audio_ready"
+    assert audio_ready_state.audio_path == "C:/tmp/imported_test_audio.mp3"
+    assert audio_ready_state.transcribe_enabled is True
+    assert audio_ready_state.guidance_text == "Imported test audio is ready for backend transcription."
+
+
 def test_voice_command_workflow_exposes_error_state_and_recovery():
     workflow = VoiceCommandWorkflow()
 

@@ -392,6 +392,41 @@ def test_voice_command_panel_test_button_reports_missing_dataset(monkeypatch, tm
     panel.close()
 
 
+def test_voice_command_panel_video_test_button_loads_mp3_and_starts_transcription(monkeypatch, tmp_path):
+    video_dir = tmp_path / "video"
+    video_dir.mkdir()
+    sample_path = video_dir / "sample.mp3"
+    sample_path.write_bytes(b"fake mp3")
+    panel = build_panel(monkeypatch)
+    transcribe_calls: list[str] = []
+    panel._handle_transcribe = lambda: transcribe_calls.append("called")  # type: ignore[method-assign]
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_VIDEO_AUDIO_DIR", video_dir)
+
+    panel.video_test_button.click()
+
+    assert panel._workflow.state.stage == "audio_ready"
+    assert panel._workflow.state.audio_path == str(sample_path)
+    assert "sample.mp3" in panel.transcript_output.toPlainText()
+    assert transcribe_calls == ["called"]
+    panel.close()
+
+
+def test_voice_command_panel_video_test_button_reports_missing_mp3(monkeypatch, tmp_path):
+    panel = build_panel(monkeypatch)
+    activity_messages: list[str] = []
+    missing_dir = tmp_path / "missing_video"
+    panel.activity_reported.connect(activity_messages.append)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_VIDEO_AUDIO_DIR", missing_dir)
+
+    panel.video_test_button.click()
+
+    expected = f"No test video audio files were found under {missing_dir}."
+    assert panel.transcript_output.toPlainText() == expected
+    assert activity_messages == [expected]
+    assert panel.video_test_button.isEnabled()
+    panel.close()
+
+
 def test_voice_command_panel_ignores_test_batch_request_while_transcription_is_active(monkeypatch, tmp_path):
     dataset_dir = tmp_path / "122949"
     dataset_dir.mkdir()
@@ -485,6 +520,40 @@ def test_voice_command_panel_preserves_existing_activity_when_busy_test_request_
 
     assert activity_messages == ["Existing activity entry."]
     panel._transcription_thread = None
+    panel.close()
+
+
+def test_voice_command_panel_preserves_existing_output_when_busy_batch_request_is_ignored(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    panel = build_panel(monkeypatch)
+    panel._test_batch_thread = QThread(panel)
+    panel._transcript_output_override = "Existing batch report."
+    panel.transcript_output.setPlainText("Existing batch report.")
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+
+    panel._handle_test_dataset()
+
+    assert panel.transcript_output.toPlainText() == "Existing batch report."
+    panel._test_batch_thread = None
+    panel.close()
+
+
+def test_voice_command_panel_preserves_existing_activity_when_busy_batch_request_is_ignored(monkeypatch, tmp_path):
+    dataset_dir = tmp_path / "122949"
+    dataset_dir.mkdir()
+    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
+    panel = build_panel(monkeypatch)
+    activity_messages = ["Existing batch activity entry."]
+    panel.activity_reported.connect(activity_messages.append)
+    panel._test_batch_thread = QThread(panel)
+    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
+
+    panel._handle_test_dataset()
+
+    assert activity_messages == ["Existing batch activity entry."]
+    panel._test_batch_thread = None
     panel.close()
 
 

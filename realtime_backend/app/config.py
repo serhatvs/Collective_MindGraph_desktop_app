@@ -137,7 +137,7 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_VAD_ENERGY_THRESHOLD", 0.015)
     )
 
-    asr_provider: str = field(default_factory=lambda: _env("CMG_RT_ASR_PROVIDER", "faster_whisper"))
+    asr_provider: str = field(default_factory=lambda: _env("CMG_RT_ASR_PROVIDER", "auto"))
     asr_model_name: str = field(
         default_factory=lambda: _env("CMG_RT_ASR_MODEL", "large-v3-turbo")
     )
@@ -148,6 +148,28 @@ class Settings:
     asr_beam_size: int = field(default_factory=lambda: _env_int("CMG_RT_ASR_BEAM_SIZE", 5))
     asr_region_padding_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_ASR_REGION_PADDING_SECONDS", 0.10)
+    )
+    deepgram_api_key: str | None = field(default_factory=lambda: os.getenv("CMG_RT_DEEPGRAM_API_KEY") or None)
+    deepgram_endpoint: str = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_ENDPOINT", "https://api.deepgram.com/v1/listen")
+    )
+    deepgram_model_name: str = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_MODEL", "nova-3")
+    )
+    deepgram_smart_format: bool = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_SMART_FORMAT", "true").lower() == "true"
+    )
+    deepgram_punctuate: bool = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_PUNCTUATE", "true").lower() == "true"
+    )
+    deepgram_utterances: bool = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_UTTERANCES", "true").lower() == "true"
+    )
+    deepgram_detect_language: bool = field(
+        default_factory=lambda: _env("CMG_RT_DEEPGRAM_DETECT_LANGUAGE", "true").lower() == "true"
+    )
+    deepgram_timeout_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_DEEPGRAM_TIMEOUT_SECONDS", 45.0)
     )
 
     diarizer_provider: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_PROVIDER", "pyannote"))
@@ -178,17 +200,25 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS", 2.0)
     )
 
-    llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "mock"))
-    llm_model_name: str = field(default_factory=lambda: _env("CMG_RT_LLM_MODEL", "mock"))
-    llm_endpoint: str | None = field(default_factory=lambda: os.getenv("CMG_RT_LLM_ENDPOINT") or None)
+    llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "bedrock_auto_local"))
+    llm_model_name: str = field(default_factory=lambda: _env("CMG_RT_LLM_MODEL", "auto"))
+    llm_endpoint: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_LLM_ENDPOINT") or "http://127.0.0.1:1234/v1"
+    )
     llm_api_key: str | None = field(default_factory=lambda: os.getenv("CMG_RT_LLM_API_KEY") or None)
     llm_timeout_seconds: float = field(
-        default_factory=lambda: _env_float("CMG_RT_LLM_TIMEOUT_SECONDS", 30.0)
+        default_factory=lambda: _env_float("CMG_RT_LLM_TIMEOUT_SECONDS", 8.0)
     )
     llm_batch_size: int = field(default_factory=lambda: _env_int("CMG_RT_LLM_BATCH_SIZE", 12))
     llm_context_segments: int = field(
         default_factory=lambda: _env_int("CMG_RT_LLM_CONTEXT_SEGMENTS", 4)
     )
+    bedrock_region: str = field(default_factory=lambda: _env("CMG_RT_BEDROCK_REGION", "us-east-1"))
+    bedrock_model_id: str = field(
+        default_factory=lambda: _env("CMG_RT_BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
+    )
+    bedrock_profile: str | None = field(default_factory=lambda: os.getenv("CMG_RT_BEDROCK_PROFILE") or None)
+    bedrock_max_tokens: int = field(default_factory=lambda: _env_int("CMG_RT_BEDROCK_MAX_TOKENS", 1024))
 
     enable_summary: bool = field(
         default_factory=lambda: _env("CMG_RT_ENABLE_SUMMARY", "true").lower() == "true"

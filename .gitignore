@@ -9,6 +9,10 @@ venv/
 .env
 realtime_backend/run_logs/
 realtime_backend/realtime_backend_data/
+realtime_backend/realtime_backend_temp/
+wake_phrase_models/
+recordings/
+video/
 dist/
 build/
 *.egg-info/

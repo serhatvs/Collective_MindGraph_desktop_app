@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -11,14 +13,21 @@ import httpx
 from ..config import Settings
 from ..models import CorrectionRequest, CorrectionResult, TranscriptSegment
 
+LOGGER = logging.getLogger(__name__)
+
 
 class BaseLLMProvider(ABC):
+    provider_name: str = "base"
+    fallback_provider_name: str | None = None
+
     @abstractmethod
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         raise NotImplementedError
 
 
 class NoOpLLMProvider(BaseLLMProvider):
+    provider_name = "none"
+
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         return [
             CorrectionResult(segment_id=item.segment_id, corrected_text=item.raw_text)
@@ -27,6 +36,8 @@ class NoOpLLMProvider(BaseLLMProvider):
 
 
 class MockLLMProvider(BaseLLMProvider):
+    provider_name = "mock"
+
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         corrected: list[CorrectionResult] = []
         for item in request.segments:
@@ -42,6 +53,8 @@ class MockLLMProvider(BaseLLMProvider):
 
 
 class OllamaLLMProvider(BaseLLMProvider):
+    provider_name = "ollama"
+
     def __init__(self, settings: Settings) -> None:
         self._model = settings.llm_model_name
         self._endpoint = settings.llm_endpoint or "http://127.0.0.1:11434/api/generate"
@@ -60,6 +73,8 @@ class OllamaLLMProvider(BaseLLMProvider):
 
 
 class OpenAICompatibleLLMProvider(BaseLLMProvider):
+    provider_name = "openai_compatible"
+
     def __init__(self, settings: Settings) -> None:
         if not settings.llm_endpoint:
             raise ValueError("CMG_RT_LLM_ENDPOINT must be set for API-based LLM providers.")
@@ -68,18 +83,39 @@ class OpenAICompatibleLLMProvider(BaseLLMProvider):
         self._model = settings.llm_model_name
         self._timeout = settings.llm_timeout_seconds
 
+    async def _resolve_model(self) -> str:
+        if self._model and self._model != "auto":
+            return self._model
+
+        headers: dict[str, str] = {}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.get(f"{self._endpoint}/models", headers=headers)
+            response.raise_for_status()
+        payload = response.json()
+        data = payload.get("data", [])
+        if not isinstance(data, list) or not data:
+            raise ValueError("No LLM models are available at the configured endpoint.")
+        first = data[0]
+        if not isinstance(first, dict) or not first.get("id"):
+            raise ValueError("Configured LLM endpoint returned models without ids.")
+        self._model = str(first["id"])
+        return self._model
+
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         prompt = _build_prompt(request)
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
+        model_name = await self._resolve_model()
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
                 f"{self._endpoint}/chat/completions",
                 headers=headers,
                 json={
-                    "model": self._model,
+                    "model": model_name,
                     "response_format": {"type": "json_object"},
                     "temperature": 0,
                     "messages": [
@@ -98,6 +134,107 @@ class OpenAICompatibleLLMProvider(BaseLLMProvider):
         payload = response.json()
         content = payload["choices"][0]["message"]["content"]
         return _parse_json_results(content, request.segments)
+
+
+class LMStudioLLMProvider(OpenAICompatibleLLMProvider):
+    provider_name = "lmstudio"
+
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings)
+        self._endpoint = (settings.llm_endpoint or "http://127.0.0.1:1234/v1").rstrip("/")
+
+
+class AutoLocalLLMProvider(BaseLLMProvider):
+    provider_name = "lmstudio"
+    fallback_provider_name = "mock"
+
+    def __init__(self, settings: Settings) -> None:
+        self._remote_provider = LMStudioLLMProvider(settings)
+        self._fallback_provider = MockLLMProvider()
+        self._remote_available: bool | None = None
+
+    async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
+        if self._remote_available is False:
+            return await self._fallback_provider.correct(request)
+        try:
+            corrected = await self._remote_provider.correct(request)
+        except (httpx.HTTPError, ValueError):
+            self._remote_available = False
+            return await self._fallback_provider.correct(request)
+        self._remote_available = True
+        return corrected
+
+
+class BedrockLLMProvider(BaseLLMProvider):
+    provider_name = "bedrock"
+
+    def __init__(self, settings: Settings) -> None:
+        try:
+            import boto3
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError("boto3 is required for Bedrock LLM provider.") from exc
+
+        session_kwargs: dict[str, str] = {}
+        if settings.bedrock_profile:
+            session_kwargs["profile_name"] = settings.bedrock_profile
+        session = boto3.session.Session(**session_kwargs)
+        self._client = session.client("bedrock-runtime", region_name=settings.bedrock_region)
+        self._model_id = settings.bedrock_model_id
+        self._max_tokens = settings.bedrock_max_tokens
+
+    async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
+        prompt = _build_prompt(request)
+        payload = await asyncio.to_thread(
+            self._client.converse,
+            modelId=self._model_id,
+            system=[
+                {
+                    "text": (
+                        "You repair diarized transcripts. Preserve meaning, timestamps, and speaker structure. "
+                        "Never invent content. Return JSON only."
+                    )
+                }
+            ],
+            messages=[
+                {
+                    "role": "user",
+                    "content": [{"text": prompt}],
+                }
+            ],
+            inferenceConfig={
+                "temperature": 0,
+                "maxTokens": self._max_tokens,
+            },
+        )
+        content = _extract_bedrock_text(payload)
+        return _parse_json_results(content, request.segments)
+
+
+class BedrockAutoLocalLLMProvider(BaseLLMProvider):
+    provider_name = "bedrock"
+    fallback_provider_name = "lmstudio"
+
+    def __init__(self, settings: Settings) -> None:
+        self._fallback_provider = AutoLocalLLMProvider(settings)
+        self._remote_available: bool | None = None
+        try:
+            self._remote_provider: BaseLLMProvider | None = BedrockLLMProvider(settings)
+        except Exception as exc:
+            LOGGER.warning("Bedrock LLM unavailable during initialization, falling back locally: %s", exc)
+            self._remote_provider = None
+            self._remote_available = False
+
+    async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
+        if self._remote_provider is None or self._remote_available is False:
+            return await self._fallback_provider.correct(request)
+        try:
+            corrected = await self._remote_provider.correct(request)
+        except Exception as exc:
+            LOGGER.warning("Bedrock LLM failed, falling back locally: %s", exc)
+            self._remote_available = False
+            return await self._fallback_provider.correct(request)
+        self._remote_available = True
+        return corrected
 
 
 class LLMPostProcessor:
@@ -153,11 +290,19 @@ class LLMPostProcessor:
 def build_llm_postprocessor(settings: Settings) -> LLMPostProcessor:
     if settings.llm_provider == "none":
         provider: BaseLLMProvider = NoOpLLMProvider()
+    elif settings.llm_provider == "bedrock_auto_local":
+        provider = BedrockAutoLocalLLMProvider(settings)
+    elif settings.llm_provider == "bedrock":
+        provider = BedrockLLMProvider(settings)
+    elif settings.llm_provider == "auto_local":
+        provider = AutoLocalLLMProvider(settings)
     elif settings.llm_provider == "mock":
         provider = MockLLMProvider()
     elif settings.llm_provider == "ollama":
         provider = OllamaLLMProvider(settings)
-    elif settings.llm_provider in {"openai_compatible", "lmstudio"}:
+    elif settings.llm_provider == "lmstudio":
+        provider = LMStudioLLMProvider(settings)
+    elif settings.llm_provider == "openai_compatible":
         provider = OpenAICompatibleLLMProvider(settings)
     else:
         provider = OpenAICompatibleLLMProvider(settings)
@@ -243,6 +388,20 @@ def _local_cleanup(text: str) -> str:
     if cleaned:
         cleaned = cleaned[:1].upper() + cleaned[1:]
     return cleaned
+
+
+def _extract_bedrock_text(payload: dict[str, Any]) -> str:
+    output = payload.get("output") or {}
+    message = output.get("message") or {}
+    content = message.get("content") or []
+    fragments: list[str] = []
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            fragments.append(text)
+    return "".join(fragments).strip()
 
 
 def _normalize_correction(original: str, corrected: str | None) -> str:

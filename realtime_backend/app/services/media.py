@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import wave
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 
 @dataclass(slots=True)
@@ -23,7 +25,7 @@ class FFmpegAudioNormalizer:
 
     def normalize_to_wav(self, source_path: Path, target_path: Path) -> NormalizedAudio:
         command = [
-            "ffmpeg",
+            _ffmpeg_executable(),
             "-y",
             "-i",
             str(source_path),
@@ -70,3 +72,18 @@ class FFmpegAudioNormalizer:
             channels=channels,
             duration_seconds=duration_seconds,
         )
+
+
+def _ffmpeg_executable() -> str:
+    env_value = (os.getenv("CMG_RT_FFMPEG_PATH") or os.getenv("CMG_FFMPEG_EXE") or "").strip()
+    if env_value:
+        return env_value
+
+    if getattr(sys, "frozen", False):
+        bundle_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        executable_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+        candidate = bundle_root / executable_name
+        if candidate.exists():
+            return str(candidate)
+
+    return "ffmpeg"

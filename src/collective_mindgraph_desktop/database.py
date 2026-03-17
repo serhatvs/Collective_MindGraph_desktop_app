@@ -80,12 +80,31 @@ class Database:
             FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS transcript_analyses (
+            transcript_id INTEGER PRIMARY KEY,
+            source_provider TEXT NOT NULL,
+            backend_conversation_id TEXT,
+            raw_text_output TEXT NOT NULL,
+            corrected_text_output TEXT NOT NULL,
+            summary TEXT,
+            topics_json TEXT NOT NULL,
+            action_items_json TEXT NOT NULL,
+            decisions_json TEXT NOT NULL,
+            speaker_stats_json TEXT NOT NULL,
+            segments_json TEXT NOT NULL,
+            quality_report_json TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (transcript_id) REFERENCES transcripts(id) ON DELETE CASCADE
+        );
+
         CREATE INDEX IF NOT EXISTS idx_sessions_updated_at ON sessions(updated_at DESC);
         CREATE INDEX IF NOT EXISTS idx_sessions_search_title ON sessions(title);
         CREATE INDEX IF NOT EXISTS idx_sessions_search_device ON sessions(device_id);
         CREATE INDEX IF NOT EXISTS idx_transcripts_session ON transcripts(session_id, created_at);
         CREATE INDEX IF NOT EXISTS idx_graph_nodes_session ON graph_nodes(session_id, created_at);
         CREATE INDEX IF NOT EXISTS idx_snapshots_session ON snapshots(session_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_transcript_analyses_conversation_id ON transcript_analyses(backend_conversation_id);
         """
         with self.connect() as connection:
             connection.executescript(schema)

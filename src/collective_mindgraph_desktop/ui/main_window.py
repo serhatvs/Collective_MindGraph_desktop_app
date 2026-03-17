@@ -18,7 +18,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ..models import TranscriptAnalysisSegment
 from ..services import CollectiveMindGraphService
+from ..transcription import TranscriptionResult
 from .session_detail_panel import SessionDetailPanel
 from .session_list_panel import SessionListPanel
 from .voice_command_panel import VoiceCommandPanel
@@ -121,8 +123,13 @@ class MainWindow(QMainWindow):
             lambda message: self.statusBar().showMessage(message, 5000)
         )
         self.voice_command_panel.transcript_captured.connect(
-            lambda transcript_text: self._run_guarded(
-                lambda: self._ingest_transcript(transcript_text)
+            lambda result: self._run_guarded(
+                lambda: self._ingest_transcript(result)
+            )
+        )
+        self.session_detail_panel.analysis_corrections_requested.connect(
+            lambda transcript_id, segments: self._run_guarded(
+                lambda: self._save_analysis_corrections(transcript_id, segments)
             )
         )
 
@@ -221,16 +228,35 @@ class MainWindow(QMainWindow):
         self._service.export_session(detail.session.id, file_path)
         self.statusBar().showMessage(f"Exported session to {file_path}", 5000)
 
-    def _ingest_transcript(self, transcript_text: str) -> None:
+    def _ingest_transcript(self, result: TranscriptionResult) -> None:
         had_selection = self._selected_session_id is not None
-        session = self._service.ingest_transcript(transcript_text, self._selected_session_id)
+        session = self._service.ingest_transcription_result(result, self._selected_session_id)
         self.session_list_panel.set_search_text("")
         self._refresh_summary()
         self._refresh_sessions(selected_id=session.id)
         if had_selection:
-            self.statusBar().showMessage(f"Added transcript to '{session.title}'", 5000)
+            self.statusBar().showMessage(
+                f"Added transcript to '{session.title}'"
+                + (f" ({result.speaker_count} speakers)" if result.speaker_count else ""),
+                5000,
+            )
             return
-        self.statusBar().showMessage(f"Started new session '{session.title}' from transcript", 5000)
+        self.statusBar().showMessage(
+            f"Started new session '{session.title}' from transcript"
+            + (f" ({result.speaker_count} speakers)" if result.speaker_count else ""),
+            5000,
+        )
+
+    def _save_analysis_corrections(
+        self,
+        transcript_id: int,
+        segments: list[TranscriptAnalysisSegment],
+    ) -> None:
+        self._service.save_transcript_analysis_corrections(transcript_id, segments)
+        selected_id = self._selected_session_id
+        self._refresh_summary()
+        self._refresh_sessions(selected_id=selected_id)
+        self.statusBar().showMessage("Transcript corrections saved.", 5000)
 
     def _show_about(self) -> None:
         QMessageBox.about(

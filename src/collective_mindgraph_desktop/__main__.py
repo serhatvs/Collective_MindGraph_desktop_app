@@ -1,6 +1,6 @@
 """Module entrypoint for Collective MindGraph."""
 
-from .app import run
+from .launcher import run
 
 
 if __name__ == "__main__":

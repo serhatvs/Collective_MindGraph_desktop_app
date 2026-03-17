@@ -1,7 +1,9 @@
 import json
 
 from collective_mindgraph_desktop.database import Database
+from collective_mindgraph_desktop.models import TranscriptAnalysisSegment
 from collective_mindgraph_desktop.services import CollectiveMindGraphService, SnapshotHasher
+from collective_mindgraph_desktop.transcription import TranscriptionResult
 
 
 def build_service(tmp_path) -> CollectiveMindGraphService:
@@ -67,7 +69,7 @@ def test_export_session_payload(tmp_path):
     exported_payload = json.loads(export_path.read_text(encoding="utf-8"))
 
     assert export_path.exists()
-    assert set(payload) == {"session", "transcripts", "graph_nodes", "snapshots"}
+    assert set(payload) == {"session", "transcripts", "graph_nodes", "snapshots", "transcript_analyses"}
     assert payload == exported_payload
     assert payload["session"]["id"] == session.id
     assert payload["transcripts"]
@@ -111,3 +113,136 @@ def test_ingest_transcript_appends_to_the_selected_session(tmp_path):
     assert detail.graph_nodes[0].branch_type == "root"
     assert detail.graph_nodes[1].branch_type == "main"
     assert detail.graph_nodes[1].parent_node_id == detail.graph_nodes[0].id
+
+
+def test_ingest_transcription_result_persists_backend_analysis(tmp_path):
+    service = build_service(tmp_path)
+
+    session = service.ingest_transcription_result(
+        TranscriptionResult(
+            text="Speaker_1: merhaba\nSpeaker_2: selam",
+            model_id="realtime_backend",
+            audio_path=str(tmp_path / "sample.wav"),
+            conversation_id="conv_123",
+            raw_text_output="[00:00.000 - 00:01.000] Speaker_1: merhaba",
+            corrected_text_output="[00:00.000 - 00:01.000] Speaker_1: Merhaba.",
+            speaker_count=2,
+            summary="Iki kisilik kisa selamlama.",
+            topics=[{"label": "Selamlama", "start": 0.0, "end": 1.0}],
+            action_items=["Takibe devam et"],
+            decisions=["Gorusmeyi surdur"],
+            speaker_stats=[
+                {
+                    "speaker": "Speaker_1",
+                    "segment_count": 1,
+                    "speaking_seconds": 1.0,
+                    "overlap_segments": 0,
+                    "first_start": 0.0,
+                    "last_end": 1.0,
+                }
+            ],
+            segments=[
+                {
+                    "segment_id": "seg_1",
+                    "start": 0.0,
+                    "end": 1.0,
+                    "speaker": "Speaker_1",
+                    "raw_text": "merhaba",
+                    "corrected_text": "Merhaba.",
+                    "confidence": 0.9,
+                    "speaker_confidence": 1.0,
+                    "overlap": False,
+                    "notes": ["cleaned"],
+                }
+            ],
+            quality_report={
+                "segment_count": 1,
+                "speaker_count": 1,
+                "unresolved_segments": 0,
+                "overlap_ratio": 0.0,
+                "avg_asr_confidence": 0.9,
+                "avg_speaker_confidence": 1.0,
+                "word_timing_coverage": 1.0,
+                "corrected_change_ratio": 0.2,
+                "topic_count": 1,
+                "action_item_count": 1,
+                "decision_count": 1,
+                "question_count": 0,
+                "summary_present": True,
+                "warnings": [],
+            },
+        )
+    )
+
+    detail = service.get_session_detail(session.id)
+
+    assert detail is not None
+    transcript = detail.transcripts[-1]
+    analysis = detail.transcript_analyses[transcript.id]
+    assert analysis.backend_conversation_id == "conv_123"
+    assert analysis.summary == "Iki kisilik kisa selamlama."
+    assert analysis.segments[0].corrected_text == "Merhaba."
+    assert analysis.action_items == ["Takibe devam et"]
+    assert len(detail.graph_nodes) == 3
+    assert detail.graph_nodes[1].branch_type == "side"
+    assert detail.graph_nodes[2].branch_type == "side"
+    assert "Summary:" in detail.graph_nodes[1].node_text
+    assert "Decision:" in detail.graph_nodes[2].node_text
+
+
+def test_save_transcript_analysis_corrections_updates_transcript_and_graph_node(tmp_path):
+    service = build_service(tmp_path)
+    session = service.ingest_transcription_result(
+        TranscriptionResult(
+            text="Speaker_1: merhaba",
+            model_id="realtime_backend",
+            audio_path=str(tmp_path / "sample.wav"),
+            conversation_id="conv_abc",
+            corrected_text_output="[00:00.000 - 00:01.000] Speaker_1: Merhaba.",
+            segments=[
+                {
+                    "segment_id": "seg_1",
+                    "start": 0.0,
+                    "end": 1.0,
+                    "speaker": "Speaker_1",
+                    "raw_text": "merhaba",
+                    "corrected_text": "Merhaba.",
+                    "confidence": 0.9,
+                    "speaker_confidence": 1.0,
+                    "overlap": False,
+                    "notes": [],
+                }
+            ],
+        )
+    )
+    detail = service.get_session_detail(session.id)
+    assert detail is not None
+    transcript = detail.transcripts[-1]
+    analysis = detail.transcript_analyses[transcript.id]
+
+    service.save_transcript_analysis_corrections(
+        transcript.id,
+        [
+            TranscriptAnalysisSegment(
+                segment_id=analysis.segments[0].segment_id,
+                start=analysis.segments[0].start,
+                end=analysis.segments[0].end,
+                speaker="Hasan",
+                raw_text=analysis.segments[0].raw_text,
+                corrected_text="Merhaba dunya.",
+                confidence=analysis.segments[0].confidence,
+                speaker_confidence=analysis.segments[0].speaker_confidence,
+                overlap=analysis.segments[0].overlap,
+                notes=analysis.segments[0].notes,
+            )
+        ],
+    )
+
+    refreshed_detail = service.get_session_detail(session.id)
+
+    assert refreshed_detail is not None
+    assert refreshed_detail.transcripts[-1].text == "Hasan: Merhaba dunya."
+    assert refreshed_detail.graph_nodes[-1].node_text == "Hasan: Merhaba dunya."
+    refreshed_analysis = refreshed_detail.transcript_analyses[transcript.id]
+    assert refreshed_analysis.segments[0].speaker == "Hasan"
+    assert refreshed_analysis.corrected_text_output.endswith("Hasan: Merhaba dunya.")

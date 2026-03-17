@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from ..audio_capture import AudioCaptureController
 from ..backend_runtime import LocalBackendManager
 from ..live_transcription import LiveTranscriptStreamController
+from ..runtime_paths import executable_dir, is_frozen_build
 from ..transcription import (
     BackendHealthStatus,
     RealtimeBackendTranscriptionConfig,
@@ -31,7 +32,8 @@ from ..voice_command import VoiceCommandState, VoiceCommandWorkflow
 from ..wake_phrase import VoskWakePhraseController, WakePhraseConfig, describe_stream_input_device
 from .widgets import CardWidget, TranscriptionSettingsDialog
 
-DEFAULT_TEST_AUDIO_BATCH_DIR = Path.cwd() / "122949"
+DEFAULT_TEST_AUDIO_BATCH_DIR = executable_dir() / "122949"
+DEFAULT_TEST_VIDEO_AUDIO_DIR = executable_dir() / "video"
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,6 +249,8 @@ class VoiceCommandPanel(QWidget):
         self.transcribe_button = QPushButton("Retry Transcribe")
         self.test_button = QPushButton("Test 122949")
         self.test_button.setProperty("secondary", True)
+        self.video_test_button = QPushButton("Test Video MP3")
+        self.video_test_button.setProperty("secondary", True)
         self.wake_toggle_button = QPushButton("Disable Wake Trigger")
         self.wake_toggle_button.setProperty("secondary", True)
         self.settings_button = QPushButton("Backend Settings")
@@ -260,6 +264,7 @@ class VoiceCommandPanel(QWidget):
         self.stop_button.clicked.connect(self._handle_stop)
         self.transcribe_button.clicked.connect(self._handle_transcribe)
         self.test_button.clicked.connect(self._handle_test_dataset)
+        self.video_test_button.clicked.connect(self._handle_test_video_audio)
         self.wake_toggle_button.clicked.connect(self._handle_toggle_wake_trigger)
         self.settings_button.clicked.connect(self._handle_open_settings)
         self.refresh_backend_button.clicked.connect(lambda: self._refresh_backend_health(auto_start=True))
@@ -284,6 +289,7 @@ class VoiceCommandPanel(QWidget):
         button_row.addWidget(self.stop_button)
         button_row.addWidget(self.transcribe_button)
         button_row.addWidget(self.test_button)
+        button_row.addWidget(self.video_test_button)
         button_row.addWidget(self.wake_toggle_button)
         button_row.addWidget(self.settings_button)
         button_row.addWidget(self.refresh_backend_button)
@@ -385,6 +391,7 @@ class VoiceCommandPanel(QWidget):
         self.stop_button.setEnabled(False)
         self.transcribe_button.setEnabled(False)
         self.test_button.setEnabled(False)
+        self.video_test_button.setEnabled(False)
         self.wake_toggle_button.setEnabled(False)
         self.settings_button.setEnabled(False)
         self.refresh_backend_button.setEnabled(False)
@@ -392,6 +399,32 @@ class VoiceCommandPanel(QWidget):
         self.activity_reported.emit(
             f"Starting test transcription for {len(audio_files)} files from {dataset_dir.name} with language=en."
         )
+
+    def _handle_test_video_audio(self) -> None:
+        if self._transcription_thread is not None or self._test_batch_thread is not None:
+            return
+
+        audio_files = sorted(DEFAULT_TEST_VIDEO_AUDIO_DIR.glob("*.mp3"))
+        if not audio_files:
+            message = f"No test video audio files were found under {DEFAULT_TEST_VIDEO_AUDIO_DIR}."
+            self._transcript_output_override = message
+            self.transcript_output.setPlainText(message)
+            self.activity_reported.emit(message)
+            return
+
+        audio_path = audio_files[0]
+        self._cancel_live_stream()
+        self._transcript_output_override = f"Loaded test video audio {audio_path.name}. Starting transcription..."
+        self._apply_state(
+            self._workflow.load_audio_file(
+                str(audio_path),
+                guidance_text=(
+                    f"Using repo test audio '{audio_path.name}' as if it had just been recorded. "
+                    "The next step is sending this clip to the local transcription backend."
+                ),
+            )
+        )
+        self._handle_transcribe()
 
     def _handle_clear(self) -> None:
         if self._transcription_thread is not None or self._test_batch_thread is not None:
@@ -436,6 +469,7 @@ class VoiceCommandPanel(QWidget):
         self.stop_button.setEnabled(state.stop_enabled and self._test_batch_thread is None)
         self.transcribe_button.setEnabled(state.transcribe_enabled and self._test_batch_thread is None)
         self.test_button.setEnabled(self._transcription_thread is None and self._test_batch_thread is None)
+        self.video_test_button.setEnabled(self._transcription_thread is None and self._test_batch_thread is None)
         self.wake_toggle_button.setText(
             "Disable Wake Trigger" if self._wake_phrase_controller.is_armed else "Enable Wake Trigger"
         )
@@ -760,6 +794,8 @@ class VoiceCommandPanel(QWidget):
         if state.stage == "transcript_ready":
             return "Transcript saved locally and linked to the current session flow."
         if state.stage == "error":
+            if is_frozen_build():
+                return "If the backend is down, use `Refresh Backend` or restart the app to relaunch it."
             return "If the backend is down, open `realtime_backend` and start uvicorn on port 8080."
         return "Say 'command wake' to start hands-free, then pause briefly to auto-stop."
 

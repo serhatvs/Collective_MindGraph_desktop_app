@@ -114,8 +114,12 @@ class HealthResponse(BaseModel):
     app_name: str
     vad_provider: str
     asr_provider: str
+    asr_provider_resolved: str | None = None
+    asr_fallback_provider: str | None = None
     diarizer_provider: str
     llm_provider: str
+    llm_provider_resolved: str | None = None
+    llm_fallback_provider: str | None = None
 
 
 class FileTranscriptionResponse(BaseModel):

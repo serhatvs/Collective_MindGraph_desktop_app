@@ -192,9 +192,9 @@
 - Package installation is now complete locally, but real diarization is still effectively in fallback mode until Hugging Face access to the gated pyannote diarization model is configured.
 - Local package installation and gated-model access are now sufficient for `PyAnnoteDiarizer` to load, but a code-level compatibility workaround remains necessary because newer PyTorch defaults otherwise break pyannote checkpoint loading.
 - The remaining manual step is no longer exporting env vars; it is only obtaining/accepting gated-model access itself if the token is not already available locally.
-- The git worktree is currently dirty with many modified tracked files plus untracked local data/temp directories, so new edits should continue assuming in-progress user changes are present.
 - Long repo-local `video/*.mp3` transcription is now functionally wired into the desktop through `Test Video MP3`, but runtime stability is still uneven on this machine: one full controlled backend run transcribed the 23m49s sample successfully, while later repeat runs against long-lived/local test servers sometimes dropped the connection or hit the 600s client timeout.
 - A 2026-03-17 packaged-binary smoke check produced the onefile exe successfully, but embedded-backend `/health` verification from the frozen binary still needs manual confirmation because the GUI build does not surface startup errors cleanly from automated shell runs.
+- On this machine as of 2026-03-23, `dist/CollectiveMindGraph.exe` is blocked by Windows Code Integrity / Smart App Control enforcement because the packaged binary is unsigned (`Get-AuthenticodeSignature -> NotSigned` and Code Integrity events 3033/3077), so local launch/validation currently needs the source app through `python.exe -m collective_mindgraph_desktop` instead of the packaged binary.
 
 ## Autonomous Task Board
 
@@ -257,6 +257,8 @@
 - 2026-03-11: Provisioned a working local backend venv, pinned the verified CUDA/Python dependency combination, and confirmed that only gated-model access remains before full pyannote diarization can run locally.
 - 2026-03-11: Removed repeated manual token-export friction by teaching backend config to auto-discover Hugging Face credentials from `.env`, env vars, or local CLI cache.
 - 2026-03-11: Enabled real local pyannote loading by adding a PyTorch weights-only compatibility workaround after gated-model access and token discovery were put in place.
+- 2026-03-23: Confirmed the desktop UI launches successfully from source on this machine via `pythonw.exe -m collective_mindgraph_desktop`, while the packaged `dist/CollectiveMindGraph.exe` is blocked locally by Device Guard policy.
+- 2026-03-23: Confirmed the packaged exe block is specifically Smart App Control / Code Integrity enforcement against an unsigned PyInstaller binary, not a desktop-app crash during startup.
 - 2026-03-11: Switched the desktop voice-command UI from direct Amazon Nova transcription to the sibling local realtime backend, with persisted backend URL/language/timeout settings and transcript-to-session ingestion preserved.
 - 2026-03-11: Changed the backend default ASR model from `distil-large-v3` to `large-v3-turbo` after confirming the prior default was a bad fit for Turkish transcription in the desktop app.
 - 2026-03-11: Added persistent transcript-analysis storage, a session-detail conversation-analysis UI, editable transcript/speaker correction flow, automatic transcription on recording stop, and `auto_local` LM Studio-first LLM correction defaults.

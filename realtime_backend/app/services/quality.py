@@ -91,8 +91,8 @@ class TranscriptQualityService:
         speaker_match_ratio = TranscriptQualityService._ratio(speaker_matches, comparable)
 
         action_item_overlap = _counter_overlap(
-            Counter(item.lower() for item in transcript.action_items),
-            Counter(item.lower() for item in reference.action_items),
+            Counter(item.title.lower() for item in transcript.action_items),
+            Counter(item.title.lower() for item in reference.action_items),
         )
         summary_overlap = _counter_overlap(
             Counter(_TOKEN_RE.findall((transcript.summary or "").lower())),

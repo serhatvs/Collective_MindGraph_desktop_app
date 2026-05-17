@@ -1,0 +1,1 @@
+Merhaba, bugün Collective MindGraph toplantısındayız. Şey, yani transcript kalitesini artırmamız gerekiyor. Bu hafta FastAPI endpointini test edeceğiz. SQLite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. VAD ayarlarını da kontrol edip kararları ve görevleri düzgün çıkaracağız.

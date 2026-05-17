@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from pathlib import Path
+from dataclasses import replace
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QCloseEvent
@@ -19,7 +18,7 @@ from PySide6.QtWidgets import (
 from ..audio_capture import AudioCaptureController
 from ..backend_runtime import LocalBackendManager
 from ..live_transcription import LiveTranscriptStreamController
-from ..runtime_paths import executable_dir, is_frozen_build
+from ..runtime_paths import is_frozen_build
 from ..transcription import (
     BackendHealthStatus,
     RealtimeBackendTranscriptionConfig,
@@ -31,17 +30,6 @@ from ..transcription import (
 from ..voice_command import VoiceCommandState, VoiceCommandWorkflow
 from ..wake_phrase import VoskWakePhraseController, WakePhraseConfig, describe_stream_input_device
 from .widgets import CardWidget, TranscriptionSettingsDialog
-
-DEFAULT_TEST_AUDIO_BATCH_DIR = executable_dir() / "122949"
-DEFAULT_TEST_VIDEO_AUDIO_DIR = executable_dir() / "video"
-
-
-@dataclass(frozen=True, slots=True)
-class TestBatchTranscriptionResult:
-    report_text: str
-    total_files: int
-    succeeded_files: int
-
 
 class BackendTranscriptionWorker(QObject):
     finished = Signal(object)
@@ -65,58 +53,6 @@ class BackendTranscriptionWorker(QObject):
             self.failed.emit(str(exc))
             return
         self.finished.emit(result)
-
-
-class TestDatasetTranscriptionWorker(QObject):
-    progress = Signal(str)
-    finished = Signal(object)
-    failed = Signal(str)
-
-    def __init__(
-        self,
-        dataset_dir: Path,
-        config: RealtimeBackendTranscriptionConfig,
-        parent: QObject | None = None,
-    ) -> None:
-        super().__init__(parent)
-        self._dataset_dir = dataset_dir
-        self._config = replace(config, language="en")
-
-    @property
-    def config(self) -> RealtimeBackendTranscriptionConfig:
-        return self._config
-
-    @Slot()
-    def run(self) -> None:
-        audio_files = sorted(self._dataset_dir.glob("*.flac"))
-        if not audio_files:
-            self.failed.emit(f"No test audio files were found under {self._dataset_dir}.")
-            return
-
-        service = RealtimeBackendTranscriptionService(config=self._config)
-        report_lines: list[str] = []
-        succeeded_files = 0
-
-        for index, audio_path in enumerate(audio_files, start=1):
-            self.progress.emit(f"Test batch {index}/{len(audio_files)}: transcribing {audio_path.name}")
-            try:
-                result = service.transcribe_file(str(audio_path))
-            except Exception as exc:
-                report_lines.append(f"{audio_path.name}: ERROR - {exc}")
-                continue
-
-            succeeded_files += 1
-            transcript_text = (result.corrected_text_output or result.text).strip().replace("\n", " ")
-            report_lines.append(f"{audio_path.name}: {transcript_text or '(empty transcript)'}")
-
-        summary = f"Test batch completed: {succeeded_files}/{len(audio_files)} files transcribed successfully."
-        self.finished.emit(
-            TestBatchTranscriptionResult(
-                report_text="\n".join([summary, "", *report_lines]),
-                total_files=len(audio_files),
-                succeeded_files=succeeded_files,
-            )
-        )
 
 
 class BackendHealthWorker(QObject):
@@ -160,8 +96,6 @@ class VoiceCommandPanel(QWidget):
         self._capture_controller = capture_controller or AudioCaptureController(parent=self)
         self._transcription_thread: QThread | None = None
         self._transcription_worker: BackendTranscriptionWorker | None = None
-        self._test_batch_thread: QThread | None = None
-        self._test_batch_worker: TestDatasetTranscriptionWorker | None = None
         self._transcript_output_override: str | None = None
         self._health_thread: QThread | None = None
         self._health_worker: BackendHealthWorker | None = None
@@ -247,10 +181,6 @@ class VoiceCommandPanel(QWidget):
         self.stop_button = QPushButton("Stop")
         self.stop_button.setProperty("secondary", True)
         self.transcribe_button = QPushButton("Retry Transcribe")
-        self.test_button = QPushButton("Test 122949")
-        self.test_button.setProperty("secondary", True)
-        self.video_test_button = QPushButton("Test Video MP3")
-        self.video_test_button.setProperty("secondary", True)
         self.wake_toggle_button = QPushButton("Disable Wake Trigger")
         self.wake_toggle_button.setProperty("secondary", True)
         self.settings_button = QPushButton("Backend Settings")
@@ -263,8 +193,6 @@ class VoiceCommandPanel(QWidget):
         self.start_button.clicked.connect(self._handle_start)
         self.stop_button.clicked.connect(self._handle_stop)
         self.transcribe_button.clicked.connect(self._handle_transcribe)
-        self.test_button.clicked.connect(self._handle_test_dataset)
-        self.video_test_button.clicked.connect(self._handle_test_video_audio)
         self.wake_toggle_button.clicked.connect(self._handle_toggle_wake_trigger)
         self.settings_button.clicked.connect(self._handle_open_settings)
         self.refresh_backend_button.clicked.connect(lambda: self._refresh_backend_health(auto_start=True))
@@ -288,8 +216,6 @@ class VoiceCommandPanel(QWidget):
         button_row.addWidget(self.start_button)
         button_row.addWidget(self.stop_button)
         button_row.addWidget(self.transcribe_button)
-        button_row.addWidget(self.test_button)
-        button_row.addWidget(self.video_test_button)
         button_row.addWidget(self.wake_toggle_button)
         button_row.addWidget(self.settings_button)
         button_row.addWidget(self.refresh_backend_button)
@@ -319,7 +245,7 @@ class VoiceCommandPanel(QWidget):
         QTimer.singleShot(0, lambda: self._refresh_backend_health(auto_start=True))
 
     def _handle_start(self) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
+        if self._transcription_thread is not None:
             return
         self._transcript_output_override = None
         self._live_stream_attempted = False
@@ -344,7 +270,7 @@ class VoiceCommandPanel(QWidget):
         if not audio_path:
             self._apply_state(self._workflow.set_error("Record audio before requesting transcription."))
             return
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
+        if self._transcription_thread is not None:
             return
 
         self._transcript_output_override = None
@@ -360,74 +286,8 @@ class VoiceCommandPanel(QWidget):
         self._transcription_thread.finished.connect(self._cleanup_transcription_worker)
         self._transcription_thread.start()
 
-    def _handle_test_dataset(self) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
-            return
-        dataset_dir = DEFAULT_TEST_AUDIO_BATCH_DIR
-        audio_files = sorted(dataset_dir.glob("*.flac"))
-        if not audio_files:
-            message = f"No test audio files were found under {dataset_dir}."
-            self._transcript_output_override = message
-            self.transcript_output.setPlainText(message)
-            self.activity_reported.emit(message)
-            return
-
-        self._transcript_output_override = (
-            f"Starting test batch for {len(audio_files)} files from {dataset_dir.name} with language=en..."
-        )
-        self.transcript_output.setPlainText(self._transcript_output_override)
-        self._test_batch_thread = QThread(self)
-        self._test_batch_worker = TestDatasetTranscriptionWorker(dataset_dir, self._transcription_config)
-        self._test_batch_worker.moveToThread(self._test_batch_thread)
-        self._test_batch_thread.started.connect(self._test_batch_worker.run)
-        self._test_batch_worker.progress.connect(self._handle_test_batch_progress)
-        self._test_batch_worker.finished.connect(self._handle_test_batch_finished)
-        self._test_batch_worker.failed.connect(self._handle_test_batch_failed)
-        self._test_batch_worker.finished.connect(self._test_batch_thread.quit)
-        self._test_batch_worker.failed.connect(self._test_batch_thread.quit)
-        self._test_batch_thread.finished.connect(self._cleanup_test_batch_worker)
-        self._test_batch_thread.start()
-        self.start_button.setEnabled(False)
-        self.stop_button.setEnabled(False)
-        self.transcribe_button.setEnabled(False)
-        self.test_button.setEnabled(False)
-        self.video_test_button.setEnabled(False)
-        self.wake_toggle_button.setEnabled(False)
-        self.settings_button.setEnabled(False)
-        self.refresh_backend_button.setEnabled(False)
-        self.clear_button.setEnabled(False)
-        self.activity_reported.emit(
-            f"Starting test transcription for {len(audio_files)} files from {dataset_dir.name} with language=en."
-        )
-
-    def _handle_test_video_audio(self) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
-            return
-
-        audio_files = sorted(DEFAULT_TEST_VIDEO_AUDIO_DIR.glob("*.mp3"))
-        if not audio_files:
-            message = f"No test video audio files were found under {DEFAULT_TEST_VIDEO_AUDIO_DIR}."
-            self._transcript_output_override = message
-            self.transcript_output.setPlainText(message)
-            self.activity_reported.emit(message)
-            return
-
-        audio_path = audio_files[0]
-        self._cancel_live_stream()
-        self._transcript_output_override = f"Loaded test video audio {audio_path.name}. Starting transcription..."
-        self._apply_state(
-            self._workflow.load_audio_file(
-                str(audio_path),
-                guidance_text=(
-                    f"Using repo test audio '{audio_path.name}' as if it had just been recorded. "
-                    "The next step is sending this clip to the local transcription backend."
-                ),
-            )
-        )
-        self._handle_transcribe()
-
     def _handle_clear(self) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
+        if self._transcription_thread is not None:
             return
         self._transcript_output_override = None
         self._cancel_live_stream()
@@ -435,7 +295,7 @@ class VoiceCommandPanel(QWidget):
         self._apply_state(self._workflow.clear())
 
     def _handle_open_settings(self) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
+        if self._transcription_thread is not None:
             return
         dialog = TranscriptionSettingsDialog(
             self._transcription_config,
@@ -465,22 +325,18 @@ class VoiceCommandPanel(QWidget):
         self.wake_status_label.setText(self._wake_phrase_controller.status_text())
         self.provider_status_label.setText(self._backend_status_text())
 
-        self.start_button.setEnabled(state.start_enabled and self._test_batch_thread is None)
-        self.stop_button.setEnabled(state.stop_enabled and self._test_batch_thread is None)
-        self.transcribe_button.setEnabled(state.transcribe_enabled and self._test_batch_thread is None)
-        self.test_button.setEnabled(self._transcription_thread is None and self._test_batch_thread is None)
-        self.video_test_button.setEnabled(self._transcription_thread is None and self._test_batch_thread is None)
+        self.start_button.setEnabled(state.start_enabled)
+        self.stop_button.setEnabled(state.stop_enabled)
+        self.transcribe_button.setEnabled(state.transcribe_enabled)
         self.wake_toggle_button.setText(
             "Disable Wake Trigger" if self._wake_phrase_controller.is_armed else "Enable Wake Trigger"
         )
         self.wake_toggle_button.setEnabled(
-            self._transcription_thread is None
-            and self._test_batch_thread is None
-            and self._wake_phrase_controller.is_available
+            self._transcription_thread is None and self._wake_phrase_controller.is_available
         )
-        self.settings_button.setEnabled(self._transcription_thread is None and self._test_batch_thread is None)
-        self.refresh_backend_button.setEnabled(self._health_thread is None and self._test_batch_thread is None)
-        self.clear_button.setEnabled(state.clear_enabled and self._test_batch_thread is None)
+        self.settings_button.setEnabled(self._transcription_thread is None)
+        self.refresh_backend_button.setEnabled(self._health_thread is None)
+        self.clear_button.setEnabled(state.clear_enabled)
 
         self.activity_reported.emit(self._activity_message(state))
 
@@ -534,7 +390,7 @@ class VoiceCommandPanel(QWidget):
         self.activity_reported.emit("Wake trigger disabled. Use the button or restart to re-arm it.")
 
     def _handle_wake_requested(self, recognized_text: str) -> None:
-        if self._transcription_thread is not None or self._test_batch_thread is not None:
+        if self._transcription_thread is not None:
             return
         if self._workflow.state.stage in {"recording", "transcribing"}:
             return
@@ -628,21 +484,6 @@ class VoiceCommandPanel(QWidget):
     def _handle_backend_manager_error(self, message: str) -> None:
         self.activity_reported.emit(message)
 
-    def _handle_test_batch_progress(self, message: str) -> None:
-        self.activity_reported.emit(message)
-
-    def _handle_test_batch_finished(self, result: TestBatchTranscriptionResult) -> None:
-        self._transcript_output_override = result.report_text
-        self.transcript_output.setPlainText(result.report_text)
-        self.activity_reported.emit(
-            f"Test batch finished: {result.succeeded_files}/{result.total_files} files transcribed."
-        )
-
-    def _handle_test_batch_failed(self, message: str) -> None:
-        self._transcript_output_override = message
-        self.transcript_output.setPlainText(message)
-        self.activity_reported.emit(message)
-
     def _cleanup_transcription_worker(self) -> None:
         if self._transcription_worker is not None:
             self._transcription_worker.deleteLater()
@@ -650,16 +491,6 @@ class VoiceCommandPanel(QWidget):
             self._transcription_thread.deleteLater()
         self._transcription_worker = None
         self._transcription_thread = None
-        self._refresh_config_summary()
-        self._apply_state(self._workflow.state)
-
-    def _cleanup_test_batch_worker(self) -> None:
-        if self._test_batch_worker is not None:
-            self._test_batch_worker.deleteLater()
-        if self._test_batch_thread is not None:
-            self._test_batch_thread.deleteLater()
-        self._test_batch_worker = None
-        self._test_batch_thread = None
         self._refresh_config_summary()
         self._apply_state(self._workflow.state)
 
@@ -871,26 +702,11 @@ class VoiceCommandPanel(QWidget):
             if resolved == "lmstudio" and fallback == "mock":
                 return "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
 
-        if configured == "bedrock_auto_local":
-            if resolved == "bedrock" and fallback:
-                return (
-                    f"LLM reachability: Amazon Bedrock is active; "
-                    f"{VoiceCommandPanel._display_provider_name(fallback)} is ready as fallback."
-                )
-            if resolved == "lmstudio":
-                detail = "LLM fallback active: Amazon Bedrock is unreachable, so LM Studio is handling corrections."
-                if fallback == "mock":
-                    detail += " Mock cleanup remains the last fallback."
-                return detail
-            if resolved == "mock":
-                return "LLM fallback active: Amazon Bedrock and LM Studio are unreachable, so mock cleanup is handling corrections."
-
         return None
 
     @staticmethod
     def _display_provider_name(provider_name: str) -> str:
         mapping = {
-            "bedrock": "Amazon Bedrock",
             "lmstudio": "LM Studio",
             "mock": "mock cleanup",
             "openai_compatible": "OpenAI-compatible API",

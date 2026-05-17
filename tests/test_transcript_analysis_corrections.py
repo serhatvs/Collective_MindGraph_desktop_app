@@ -31,8 +31,9 @@ def build_transcription_result(audio_path: str) -> TranscriptionResult:
         ),
         summary="Short exchange.",
         topics=[{"label": "Greeting", "start": 0.0, "end": 2.0}],
-        action_items=["Keep listening"],
-        decisions=["Continue recording"],
+        action_items=[{"title": "Keep listening"}],
+        decisions=[{"decision": "Continue recording"}],
+        people=["Speaker_1", "Speaker_2"],
         speaker_stats=[
             {
                 "speaker": "Speaker_1",

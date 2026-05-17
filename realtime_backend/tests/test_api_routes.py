@@ -14,7 +14,14 @@ python_multipart.__version__ = "0.0.20"
 sys.modules.setdefault("python_multipart", python_multipart)
 
 from app.api.routes import router
-from app.models import ConversationTranscript, QualityReport, TopicSegment, TranscriptSegment
+from app.models import (
+    ConversationTranscript,
+    DecisionItem,
+    QualityReport,
+    TaskItem,
+    TopicSegment,
+    TranscriptSegment,
+)
 
 
 def _parse_options_header(value: str | bytes | None) -> tuple[bytes, dict[bytes, bytes]]:
@@ -155,13 +162,17 @@ class StubTranscriptionService:
         self,
         source_path: Path,
         *,
+        conversation_id: str | None = None,
         language: str | None = None,
+        quality_mode: str | None = None,
         source: str = "",
     ) -> ConversationTranscript:
         self.transcribe_requests.append(
             {
                 "source_path": source_path,
+                "conversation_id": conversation_id,
                 "language": language,
+                "quality_mode": quality_mode,
                 "source": source,
                 "bytes": source_path.read_bytes(),
             }
@@ -204,7 +215,7 @@ def build_client(
         vad_provider="silero",
         asr_provider="auto",
         diarizer_provider="pyannote",
-        llm_provider="bedrock_auto_local",
+        llm_provider="auto_local",
         temp_dir=Path(tempfile.gettempdir()),
     )
     app.state.transcription_service = transcription_service
@@ -332,7 +343,7 @@ def test_transcribe_file_route_cleans_up_temp_file_when_transcription_raises(tmp
             vad_provider="silero",
             asr_provider="auto",
             diarizer_provider="pyannote",
-            llm_provider="bedrock_auto_local",
+            llm_provider="auto_local",
             temp_dir=tmp_path,
         ),
         transcribe_error=RuntimeError("transcription exploded"),
@@ -380,10 +391,10 @@ def test_health_route_returns_provider_and_fallback_status():
             vad_provider="silero",
             asr_provider="auto",
             diarizer_provider="pyannote",
-            llm_provider="bedrock_auto_local",
+            llm_provider="auto_local",
         ),
-        asr_provider=StubProviderInfo("deepgram", "faster_whisper"),
-        llm_provider=StubProviderInfo("bedrock", "lmstudio"),
+        asr_provider=StubProviderInfo("faster_whisper", "mock"),
+        llm_provider=StubProviderInfo("lmstudio", "mock"),
     )
 
     response = client.get("/health")
@@ -394,12 +405,12 @@ def test_health_route_returns_provider_and_fallback_status():
         "app_name": "Realtime Backend",
         "vad_provider": "silero",
         "asr_provider": "auto",
-        "asr_provider_resolved": "deepgram",
-        "asr_fallback_provider": "faster_whisper",
+        "asr_provider_resolved": "faster_whisper",
+        "asr_fallback_provider": "mock",
         "diarizer_provider": "pyannote",
-        "llm_provider": "bedrock_auto_local",
-        "llm_provider_resolved": "bedrock",
-        "llm_fallback_provider": "lmstudio",
+        "llm_provider": "auto_local",
+        "llm_provider_resolved": "lmstudio",
+        "llm_fallback_provider": "mock",
     }
 
 
@@ -434,7 +445,7 @@ def test_health_route_allows_missing_resolved_provider_fields():
         "asr_provider_resolved": None,
         "asr_fallback_provider": None,
         "diarizer_provider": "pyannote",
-        "llm_provider": "bedrock_auto_local",
+        "llm_provider": "auto_local",
         "llm_provider_resolved": None,
         "llm_fallback_provider": None,
     }
@@ -517,8 +528,8 @@ def test_summary_route_returns_summary_payload():
         source="test",
         summary="Ship next Tuesday.",
         topics=[TopicSegment(label="Launch", start=0.0, end=1.0)],
-        action_items=["Speaker_1: Send launch checklist"],
-        decisions=["Speaker_2: Freeze scope"],
+        action_items=[TaskItem(title="Send launch checklist", responsible_person="Speaker_1")],
+        decisions=[DecisionItem(decision="Freeze scope")],
         segments=[
             TranscriptSegment(
                 segment_id="seg_1",
@@ -556,8 +567,23 @@ def test_summary_route_returns_summary_payload():
         "conversation_id": "conv_summary_route",
         "summary": "Ship next Tuesday.",
         "topics": [{"label": "Launch", "start": 0.0, "end": 1.0}],
-        "action_items": ["Speaker_1: Send launch checklist"],
-        "decisions": ["Speaker_2: Freeze scope"],
+        "action_items": [
+            {
+                "title": "Send launch checklist",
+                "responsible_person": "Speaker_1",
+                "due_date_reference": None,
+                "source_segment_id": None,
+                "confidence_note": None,
+            }
+        ],
+        "decisions": [
+            {
+                "decision": "Freeze scope",
+                "reason_context": None,
+                "source_segment_id": None,
+                "confidence_note": None,
+            }
+        ],
     }
     assert transcription_service.requested_ids == ["conv_summary_route"]
 

@@ -39,7 +39,7 @@ def test_summary_service_extracts_topics_actions_and_decisions():
 
     assert summary is not None
     assert topics
-    assert any("Speaker_1" in item for item in action_items)
-    assert any("Speaker_2" in item for item in action_items)
-    assert any("Freeze scope today" in item for item in decisions)
+    assert any(item.responsible_person == "Speaker_1" for item in action_items)
+    assert any(item.responsible_person == "Speaker_2" for item in action_items)
+    assert any("freeze scope today" in item.decision.lower() for item in decisions)
 

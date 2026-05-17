@@ -45,6 +45,9 @@ def build_transcription_result(audio_path: str) -> TranscriptionResult:
                 "notes": [],
             },
         ],
+        action_items=[{"title": "Follow up"}],
+        decisions=[{"decision": "Agree"}],
+        people=["Speaker_1", "Speaker_2"],
         quality_report={
             "segment_count": 2,
             "speaker_count": 2,

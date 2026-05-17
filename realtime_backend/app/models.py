@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from typing import Any
 
@@ -42,8 +43,8 @@ class TranscriptSegment(BaseModel):
     start: float
     end: float
     speaker: str
-    raw_text: str
-    corrected_text: str
+    raw_text: str = ""
+    corrected_text: str = ""
     words: list[WordTimestamp] = Field(default_factory=list)
     confidence: float | None = None
     speaker_confidence: float | None = None
@@ -58,10 +59,78 @@ class TopicSegment(BaseModel):
     end: float
 
 
+class TaskItem(BaseModel):
+    title: str
+    responsible_person: str | None = None
+    due_date_reference: str | None = None
+    source_segment_id: str | None = None
+    confidence_note: str | None = None
+
+
+class DecisionItem(BaseModel):
+    decision: str
+    reason_context: str | None = None
+    source_segment_id: str | None = None
+    confidence_note: str | None = None
+
+
 class ProcessingDebug(BaseModel):
     vad_regions: list[SpeechRegion] = Field(default_factory=list)
     diarization_turns: list[DiarizationTurn] = Field(default_factory=list)
     asr_segments: list[ASRSegment] = Field(default_factory=list)
+
+
+class TranscriptionDiagnostics(BaseModel):
+    provider: str
+    model: str
+    language: str | None = None
+    quality_mode: str | None = None
+    audio_duration: float
+    sample_rate_in: int | None = None
+    sample_rate_out: int | None = None
+    channels_in: int | None = None
+    channels_out: int | None = None
+    rms_before: float | None = None
+    rms_after: float | None = None
+    vad_settings: dict[str, Any] = Field(default_factory=dict)
+    chunk_count: int | None = None
+    processing_time_seconds: float | None = None
+    raw_transcript_length: int | None = None
+    cleaned_transcript_length: int | None = None
+
+
+class QueryResultItem(BaseModel):
+    result_type: str  # "transcript" | "task" | "decision" | "topic"
+    text: str
+    source_session_id: str
+    source_segment_id: str | None = None
+    matched_field: str | None = None
+    matched_terms: list[str] = Field(default_factory=list)
+    score: float = 1.0
+    preview: str | None = None
+    timestamp: str | None = None
+
+
+class QueryResponse(BaseModel):
+    query: str
+    results: list[QueryResultItem] = Field(default_factory=list)
+
+
+# Future Semantic/Vector Interfaces (Placeholders)
+class EmbeddingProvider(ABC):
+    @abstractmethod
+    async def embed(self, text: str) -> list[float]:
+        raise NotImplementedError
+
+
+class VectorStore(ABC):
+    @abstractmethod
+    async def add(self, id: str, vector: list[float], metadata: dict[str, Any]) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def search(self, vector: list[float], limit: int = 5) -> list[dict[str, Any]]:
+        raise NotImplementedError
 
 
 class ConversationTranscript(BaseModel):
@@ -70,14 +139,17 @@ class ConversationTranscript(BaseModel):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     source: str
     language: str | None = None
+    quality_mode: str | None = None
     status: str = "completed"
     segments: list[TranscriptSegment] = Field(default_factory=list)
     summary: str | None = None
     topics: list[TopicSegment] = Field(default_factory=list)
-    action_items: list[str] = Field(default_factory=list)
-    decisions: list[str] = Field(default_factory=list)
+    action_items: list[TaskItem] = Field(default_factory=list)
+    decisions: list[DecisionItem] = Field(default_factory=list)
+    people: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     debug: ProcessingDebug | None = None
+    diagnostics: TranscriptionDiagnostics | None = None
 
 
 class CorrectionRequest(BaseModel):
@@ -140,8 +212,8 @@ class SummaryResponse(BaseModel):
     conversation_id: str
     summary: str | None = None
     topics: list[TopicSegment] = Field(default_factory=list)
-    action_items: list[str] = Field(default_factory=list)
-    decisions: list[str] = Field(default_factory=list)
+    action_items: list[TaskItem] = Field(default_factory=list)
+    decisions: list[DecisionItem] = Field(default_factory=list)
 
 
 class QualityComparison(BaseModel):

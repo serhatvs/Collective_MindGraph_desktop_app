@@ -11,6 +11,7 @@ from .pipeline.orchestrator import TranscriptionPipeline
 from .services.conversation_store import ConversationStore
 from .services.media import FFmpegAudioNormalizer
 from .services.quality import TranscriptQualityService
+from .services.query import KeywordMemoryQueryService
 from .services.streaming import StreamingTranscriptionService
 from .services.transcription_service import TranscriptionService
 from .utils.ids import new_segment_id
@@ -37,12 +38,14 @@ def build_app() -> FastAPI:
         normalizer=normalizer,
         store=store,
     )
+    query_service = KeywordMemoryQueryService(transcript_provider=transcription_service)
 
     app = FastAPI(title=settings.app_name, version="0.1.0")
     app.state.settings = settings
     app.state.transcription_service = transcription_service
     app.state.streaming_service = streaming_service
     app.state.quality_service = quality_service
+    app.state.query_service = query_service
     app.state.id_factory = new_segment_id
     app.include_router(http_router)
     app.include_router(ws_router)

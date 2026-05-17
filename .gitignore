@@ -20,3 +20,8 @@ htmlcov/
 .coverage
 .DS_Store
 Thumbs.db
+realtime_backend/tests/fixtures/audio/*.wav
+realtime_backend/tests/fixtures/audio/common_voice_tr/*
+!realtime_backend/tests/fixtures/audio/common_voice_tr/.gitkeep
+*.sqlite3
+benchmark_results.json

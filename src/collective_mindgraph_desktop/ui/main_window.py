@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QSplitter,
+    QStackedWidget,
     QStatusBar,
     QVBoxLayout,
     QWidget,
@@ -21,6 +22,7 @@ from PySide6.QtWidgets import (
 from ..models import TranscriptAnalysisSegment
 from ..services import CollectiveMindGraphService
 from ..transcription import TranscriptionResult
+from .memory_search_panel import MemorySearchPanel
 from .session_detail_panel import SessionDetailPanel
 from .session_list_panel import SessionListPanel
 from .voice_command_panel import VoiceCommandPanel
@@ -92,9 +94,16 @@ class MainWindow(QMainWindow):
         self.voice_command_panel = VoiceCommandPanel()
         content_layout.addWidget(self.voice_command_panel)
 
+        self.content_stack = QStackedWidget()
+        content_layout.addWidget(self.content_stack, 1)
+
         self.session_detail_panel = SessionDetailPanel()
-        self.session_detail_panel.hide()
-        content_layout.addWidget(self.session_detail_panel, 1)
+        self.content_stack.addWidget(self.session_detail_panel)
+
+        self.memory_search_panel = MemorySearchPanel()
+        self.content_stack.addWidget(self.memory_search_panel)
+
+        self.memory_search_panel.set_config(self.voice_command_panel.current_transcription_config())
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.session_list_panel)
@@ -112,6 +121,9 @@ class MainWindow(QMainWindow):
         )
         self.session_list_panel.new_session_requested.connect(
             lambda: self._run_guarded(self._create_session)
+        )
+        self.session_list_panel.global_search_requested.connect(
+            self._show_memory_search
         )
         self.session_list_panel.delete_session_requested.connect(
             lambda session_id: self._run_guarded(lambda: self._delete_session(session_id))
@@ -132,6 +144,9 @@ class MainWindow(QMainWindow):
                 lambda: self._save_analysis_corrections(transcript_id, segments)
             )
         )
+        self.memory_search_panel.source_navigation_requested.connect(
+            self._navigate_to_source
+        )
 
     def _run_guarded(self, callback: Callable[[], None]) -> None:
         try:
@@ -149,11 +164,11 @@ class MainWindow(QMainWindow):
         target_id = selected_id if selected_id is not None else self._selected_session_id
         self.session_list_panel.set_sessions(sessions, target_id)
         current_session_id = self.session_list_panel.current_session_id()
-        if current_session_id is None:
+        if current_session_id is None and self.content_stack.currentWidget() == self.session_detail_panel:
             self._selected_session_id = None
             self.session_detail_panel.set_detail(None)
             self.session_detail_panel.hide()
-        if not sessions:
+        if not sessions and self.content_stack.currentWidget() == self.session_detail_panel:
             self._selected_session_id = None
             self.session_detail_panel.set_detail(None)
             self.session_detail_panel.hide()
@@ -163,9 +178,34 @@ class MainWindow(QMainWindow):
     def _select_session(self, session_id: int) -> None:
         self._selected_session_id = session_id
         self.session_detail_panel.set_detail(self._service.get_session_detail(session_id))
+        self.content_stack.setCurrentWidget(self.session_detail_panel)
         self.session_detail_panel.show()
         self._sync_action_state(True)
         self.statusBar().showMessage(f"Loaded session #{session_id}", 3000)
+
+    def _show_memory_search(self) -> None:
+        self.memory_search_panel.set_config(self.voice_command_panel.current_transcription_config())
+        self.content_stack.setCurrentWidget(self.memory_search_panel)
+        self.statusBar().showMessage("Memory Search active", 3000)
+
+    def _navigate_to_source(self, session_id_str: str, segment_id: str) -> None:
+        try:
+            # Check if it's a UUID (backend ID) or integer ID
+            if session_id_str.isdigit():
+                session_id = int(session_id_str)
+            else:
+                # Lookup by backend_conversation_id
+                session_id = self._service.find_session_by_conversation_id(session_id_str)
+                if session_id is None:
+                    raise ValueError(f"Session with conversation ID {session_id_str} not found in local database.")
+            
+            self._select_session(session_id)
+            if segment_id:
+                # Highlight segment in session_detail_panel
+                self.session_detail_panel.scroll_to_segment(segment_id)
+                self.statusBar().showMessage(f"Navigated to session #{session_id}, segment {segment_id}", 5000)
+        except Exception as exc:
+            self._run_guarded(lambda: {exec("raise exc")}) # type: ignore
 
     def _create_session(self) -> None:
         dialog = SessionDialog(self)

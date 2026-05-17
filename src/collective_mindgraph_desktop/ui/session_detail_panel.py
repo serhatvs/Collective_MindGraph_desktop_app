@@ -293,8 +293,8 @@ class SessionDetailPanel(QWidget):
             f"Topic: {topic.label} ({self._format_seconds(topic.start)} - {self._format_seconds(topic.end)})"
             for topic in analysis.topics
         )
-        insight_entries.extend(f"Decision: {item}" for item in analysis.decisions)
-        insight_entries.extend(f"Action: {item}" for item in analysis.action_items)
+        insight_entries.extend(f"Decision: {item.decision}" for item in analysis.decisions)
+        insight_entries.extend(f"Action: {item.title}" for item in analysis.action_items)
         if insight_entries:
             for entry in insight_entries:
                 self.insight_list.addItem(QListWidgetItem(entry))
@@ -321,6 +321,17 @@ class SessionDetailPanel(QWidget):
             self.segment_table.setItem(row_index, 3, corrected_item)
             self.segment_table.setItem(row_index, 4, raw_item)
         self._sync_correction_controls(bool(analysis.segments))
+
+    def scroll_to_segment(self, segment_id: str) -> None:
+        if not segment_id:
+            return
+
+        for row in range(self.segment_table.rowCount()):
+            item = self.segment_table.item(row, 0)
+            if item and item.data(Qt.ItemDataRole.UserRole) == segment_id:
+                self.segment_table.selectRow(row)
+                self.segment_table.scrollToItem(item)
+                return
 
     def _emit_corrections(self) -> None:
         if self._current_analysis is None:

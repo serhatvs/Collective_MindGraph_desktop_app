@@ -17,11 +17,14 @@ from .models import (
     SessionDetail,
     Snapshot,
     Transcript,
+    TranscriptAnalysis,
     TranscriptAnalysisDraft,
     TranscriptAnalysisSegment,
+    TranscriptDecisionItem,
     TranscriptDraft,
     TranscriptQualityReport,
     TranscriptSpeakerStat,
+    TranscriptTaskItem,
     TranscriptTopic,
 )
 from .repositories import (
@@ -81,6 +84,20 @@ class CollectiveMindGraphService:
 
     def list_sessions(self, query: str = "") -> list[Session]:
         return self.sessions.list(query)
+
+    def find_session_by_conversation_id(self, conversation_id: str) -> int | None:
+        with self._database.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT transcripts.session_id
+                FROM transcript_analyses
+                INNER JOIN transcripts ON transcripts.id = transcript_analyses.transcript_id
+                WHERE transcript_analyses.backend_conversation_id = ?
+                LIMIT 1
+                """,
+                (conversation_id,),
+            ).fetchone()
+        return int(row["session_id"]) if row else None
 
     def get_session_detail(self, session_id: int) -> SessionDetail | None:
         session = self.sessions.get(session_id)
@@ -251,6 +268,12 @@ class CollectiveMindGraphService:
         )
         if analysis_side_nodes:
             self.graph_nodes.create_many(session.id, analysis_side_nodes)
+        
+        # Build structured items for persistence
+        topics = self._build_topics(result.topics)
+        action_items = self._build_action_items(result.action_items)
+        decisions = self._build_decisions(result.decisions)
+
         self.transcript_analyses.upsert(
             transcript.id,
             TranscriptAnalysisDraft(
@@ -259,9 +282,10 @@ class CollectiveMindGraphService:
                 raw_text_output=result.raw_text_output or transcript_text,
                 corrected_text_output=result.corrected_text_output or transcript_text,
                 summary=result.summary,
-                topics=self._build_topics(result.topics),
-                action_items=list(result.action_items),
-                decisions=list(result.decisions),
+                topics=topics,
+                action_items=action_items,
+                decisions=decisions,
+                people=result.people,
                 speaker_stats=self._build_speaker_stats(result.speaker_stats),
                 segments=self._build_segments(result.segments, transcript_text),
                 quality_report=self._build_quality_report(result.quality_report),
@@ -316,6 +340,7 @@ class CollectiveMindGraphService:
                 topics=analysis.topics,
                 action_items=analysis.action_items,
                 decisions=analysis.decisions,
+                people=analysis.people,
                 speaker_stats=refreshed_speaker_stats,
                 segments=edited_segments,
                 quality_report=quality_report,
@@ -450,7 +475,7 @@ class CollectiveMindGraphService:
         if result.summary:
             summary_bits.append(f"Summary: {result.summary.strip()}")
         if result.topics:
-            topic_labels = [str(item.get('label') or '').strip() for item in result.topics if str(item.get("label") or "").strip()]
+            topic_labels = [str(item.get('label') or '').strip() for item in result.topics if isinstance(item, dict) and str(item.get("label") or "").strip()]
             if topic_labels:
                 summary_bits.append(f"Topics: {', '.join(topic_labels[:4])}")
         if summary_bits:
@@ -468,9 +493,14 @@ class CollectiveMindGraphService:
 
         insight_lines: list[str] = []
         if result.decisions:
-            insight_lines.extend(f"Decision: {item}" for item in result.decisions[:3])
+            for d in result.decisions[:3]:
+                if isinstance(d, dict):
+                    insight_lines.append(f"Decision: {d.get('decision')}")
         if result.action_items:
-            insight_lines.extend(f"Action: {item}" for item in result.action_items[:3])
+            for t in result.action_items[:3]:
+                if isinstance(t, dict):
+                    insight_lines.append(f"Action: {t.get('title')}")
+        
         if insight_lines:
             drafts.append(
                 GraphNodeDraft(
@@ -515,6 +545,35 @@ class CollectiveMindGraphService:
                     label=str(item.get("label") or "Topic"),
                     start=float(item.get("start") or 0.0),
                     end=float(item.get("end") or 0.0),
+                )
+            )
+        return built
+
+    @staticmethod
+    def _build_action_items(items: list[dict[str, object]]) -> list[TranscriptTaskItem]:
+        built: list[TranscriptTaskItem] = []
+        for item in items:
+            built.append(
+                TranscriptTaskItem(
+                    title=str(item.get("title") or ""),
+                    responsible_person=str(item.get("responsible_person")) if item.get("responsible_person") else None,
+                    due_date_reference=str(item.get("due_date_reference")) if item.get("due_date_reference") else None,
+                    source_segment_id=str(item.get("source_segment_id")) if item.get("source_segment_id") else None,
+                    confidence_note=str(item.get("confidence_note")) if item.get("confidence_note") else None,
+                )
+            )
+        return built
+
+    @staticmethod
+    def _build_decisions(items: list[dict[str, object]]) -> list[TranscriptDecisionItem]:
+        built: list[TranscriptDecisionItem] = []
+        for item in items:
+            built.append(
+                TranscriptDecisionItem(
+                    decision=str(item.get("decision") or ""),
+                    reason_context=str(item.get("reason_context")) if item.get("reason_context") else None,
+                    source_segment_id=str(item.get("source_segment_id")) if item.get("source_segment_id") else None,
+                    confidence_note=str(item.get("confidence_note")) if item.get("confidence_note") else None,
                 )
             )
         return built

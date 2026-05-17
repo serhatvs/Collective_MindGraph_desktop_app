@@ -11,6 +11,7 @@ from pathlib import Path
 from ..config import Settings
 from ..models import DiarizationTurn, SpeechRegion
 from ..utils.audio import extract_wav_region, wav_duration_seconds
+from ..utils.offline_safety import validate_local_model_path
 from ..utils.time import overlap_ratio
 
 LOGGER = logging.getLogger(__name__)
@@ -37,6 +38,11 @@ class PyAnnoteDiarizer(BaseDiarizer):
 
         self._torch = torch
         _enable_pyannote_checkpoint_compat(torch)
+        validate_local_model_path(
+            settings.diarizer_model_name,
+            "pyannote",
+            settings.allow_remote_download,
+        )
         self._pipeline = pipeline_cls.from_pretrained(
             settings.diarizer_model_name,
             use_auth_token=settings.diarizer_auth_token,
@@ -111,6 +117,8 @@ class SingleSpeakerFallbackDiarizer(BaseDiarizer):
 
 
 def build_diarizer(settings: Settings) -> BaseDiarizer:
+    if not settings.diarization_enabled:
+        return SingleSpeakerFallbackDiarizer()
     if settings.diarizer_provider == "fallback":
         return SingleSpeakerFallbackDiarizer()
     try:

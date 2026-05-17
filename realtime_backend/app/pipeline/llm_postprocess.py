@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
@@ -12,6 +11,7 @@ import httpx
 
 from ..config import Settings
 from ..models import CorrectionRequest, CorrectionResult, TranscriptSegment
+from ..utils.offline_safety import validate_local_endpoint
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +59,7 @@ class OllamaLLMProvider(BaseLLMProvider):
         self._model = settings.llm_model_name
         self._endpoint = settings.llm_endpoint or "http://127.0.0.1:11434/api/generate"
         self._timeout = settings.llm_timeout_seconds
+        validate_local_endpoint(self._endpoint, "Ollama", settings.allow_remote_access)
 
     async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
         prompt = _build_prompt(request)
@@ -82,6 +83,7 @@ class OpenAICompatibleLLMProvider(BaseLLMProvider):
         self._api_key = settings.llm_api_key
         self._model = settings.llm_model_name
         self._timeout = settings.llm_timeout_seconds
+        validate_local_endpoint(self._endpoint, "OpenAI-compatible", settings.allow_remote_access)
 
     async def _resolve_model(self) -> str:
         if self._model and self._model != "auto":
@@ -140,8 +142,11 @@ class LMStudioLLMProvider(OpenAICompatibleLLMProvider):
     provider_name = "lmstudio"
 
     def __init__(self, settings: Settings) -> None:
-        super().__init__(settings)
+        self._model = settings.llm_model_name
         self._endpoint = (settings.llm_endpoint or "http://127.0.0.1:1234/v1").rstrip("/")
+        self._api_key = settings.llm_api_key
+        self._timeout = settings.llm_timeout_seconds
+        validate_local_endpoint(self._endpoint, "LM Studio", settings.allow_remote_access)
 
 
 class AutoLocalLLMProvider(BaseLLMProvider):
@@ -159,78 +164,6 @@ class AutoLocalLLMProvider(BaseLLMProvider):
         try:
             corrected = await self._remote_provider.correct(request)
         except (httpx.HTTPError, ValueError):
-            self._remote_available = False
-            return await self._fallback_provider.correct(request)
-        self._remote_available = True
-        return corrected
-
-
-class BedrockLLMProvider(BaseLLMProvider):
-    provider_name = "bedrock"
-
-    def __init__(self, settings: Settings) -> None:
-        try:
-            import boto3
-        except ImportError as exc:  # pragma: no cover - optional dependency
-            raise RuntimeError("boto3 is required for Bedrock LLM provider.") from exc
-
-        session_kwargs: dict[str, str] = {}
-        if settings.bedrock_profile:
-            session_kwargs["profile_name"] = settings.bedrock_profile
-        session = boto3.session.Session(**session_kwargs)
-        self._client = session.client("bedrock-runtime", region_name=settings.bedrock_region)
-        self._model_id = settings.bedrock_model_id
-        self._max_tokens = settings.bedrock_max_tokens
-
-    async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
-        prompt = _build_prompt(request)
-        payload = await asyncio.to_thread(
-            self._client.converse,
-            modelId=self._model_id,
-            system=[
-                {
-                    "text": (
-                        "You repair diarized transcripts. Preserve meaning, timestamps, and speaker structure. "
-                        "Never invent content. Return JSON only."
-                    )
-                }
-            ],
-            messages=[
-                {
-                    "role": "user",
-                    "content": [{"text": prompt}],
-                }
-            ],
-            inferenceConfig={
-                "temperature": 0,
-                "maxTokens": self._max_tokens,
-            },
-        )
-        content = _extract_bedrock_text(payload)
-        return _parse_json_results(content, request.segments)
-
-
-class BedrockAutoLocalLLMProvider(BaseLLMProvider):
-    provider_name = "bedrock"
-    fallback_provider_name = "lmstudio"
-
-    def __init__(self, settings: Settings) -> None:
-        self._fallback_provider = AutoLocalLLMProvider(settings)
-        self._remote_available: bool | None = None
-        try:
-            self._remote_provider: BaseLLMProvider | None = BedrockLLMProvider(settings)
-        except Exception as exc:
-            LOGGER.warning("Bedrock LLM unavailable during initialization, falling back locally: %s", exc)
-            self._remote_provider = None
-            self._remote_available = False
-
-    async def correct(self, request: CorrectionRequest) -> list[CorrectionResult]:
-        if self._remote_provider is None or self._remote_available is False:
-            return await self._fallback_provider.correct(request)
-        try:
-            corrected = await self._remote_provider.correct(request)
-        except Exception as exc:
-            LOGGER.warning("Bedrock LLM failed, falling back locally: %s", exc)
             self._remote_available = False
             return await self._fallback_provider.correct(request)
         self._remote_available = True
@@ -290,10 +223,6 @@ class LLMPostProcessor:
 def build_llm_postprocessor(settings: Settings) -> LLMPostProcessor:
     if settings.llm_provider == "none":
         provider: BaseLLMProvider = NoOpLLMProvider()
-    elif settings.llm_provider == "bedrock_auto_local":
-        provider = BedrockAutoLocalLLMProvider(settings)
-    elif settings.llm_provider == "bedrock":
-        provider = BedrockLLMProvider(settings)
     elif settings.llm_provider == "auto_local":
         provider = AutoLocalLLMProvider(settings)
     elif settings.llm_provider == "mock":
@@ -305,7 +234,8 @@ def build_llm_postprocessor(settings: Settings) -> LLMPostProcessor:
     elif settings.llm_provider == "openai_compatible":
         provider = OpenAICompatibleLLMProvider(settings)
     else:
-        provider = OpenAICompatibleLLMProvider(settings)
+        # Default to local/offline-safe lmstudio
+        provider = LMStudioLLMProvider(settings)
     return LLMPostProcessor(
         provider=provider,
         batch_size=settings.llm_batch_size,
@@ -333,10 +263,22 @@ def _build_prompt(request: CorrectionRequest) -> str:
         }
         for segment in request.segments
     ]
+
+    language_note = ""
+    if request.language == "tr":
+        language_note = (
+            "The transcript is in Turkish (tr). Use Turkish grammar and preserve Turkish characters (ç, ğ, ı, İ, ö, ş, ü). "
+            "Do not translate to English. "
+        )
+    elif request.language:
+        language_note = f"The transcript is in {request.language}. "
+
     return (
         "Correct the following diarized transcript segments for punctuation, capitalization, "
-        "sentence continuity, local context consistency, and obvious ASR mistakes. Preserve meaning. "
+        "sentence continuity, local context consistency, and obvious ASR mistakes. "
+        "Remove repeated filler words, false starts, or noise where safe. Preserve meaning. "
         "Do not invent content. Keep timestamps and speaker structure unless correction is strongly justified.\n"
+        f"{language_note}"
         "Use the context block only to preserve continuity; do not rewrite context.\n"
         "Return JSON with the shape {\"segments\": [{\"segment_id\": ..., \"corrected_text\": ..., "
         "\"speaker_override\": null, \"notes\": [], \"confidence_note\": null}]}\n"
@@ -388,20 +330,6 @@ def _local_cleanup(text: str) -> str:
     if cleaned:
         cleaned = cleaned[:1].upper() + cleaned[1:]
     return cleaned
-
-
-def _extract_bedrock_text(payload: dict[str, Any]) -> str:
-    output = payload.get("output") or {}
-    message = output.get("message") or {}
-    content = message.get("content") or []
-    fragments: list[str] = []
-    for item in content:
-        if not isinstance(item, dict):
-            continue
-        text = item.get("text")
-        if isinstance(text, str) and text.strip():
-            fragments.append(text)
-    return "".join(fragments).strip()
 
 
 def _normalize_correction(original: str, corrected: str | None) -> str:

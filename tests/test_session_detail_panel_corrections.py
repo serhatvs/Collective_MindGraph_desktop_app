@@ -22,8 +22,8 @@ def build_transcription_result(
     quality_report: dict[str, object] | None = None,
     speaker_stats: list[dict[str, object]] | None = None,
     topics: list[dict[str, object]] | None = None,
-    decisions: list[str] | None = None,
-    action_items: list[str] | None = None,
+    decisions: list[dict[str, object]] | None = None,
+    action_items: list[dict[str, object]] | None = None,
 ) -> TranscriptionResult:
     return TranscriptionResult(
         text="Speaker_1: first idea\nSpeaker_2: second note\nSpeaker_1: third follow up",
@@ -76,6 +76,7 @@ def build_transcription_result(
         topics=topics or [],
         decisions=decisions or [],
         action_items=action_items or [],
+        people=["Speaker_1", "Speaker_2"],
         speaker_stats=speaker_stats or [],
         quality_report=quality_report,
     )
@@ -86,8 +87,8 @@ def build_panel_with_detail(
     quality_report: dict[str, object] | None = None,
     speaker_stats: list[dict[str, object]] | None = None,
     topics: list[dict[str, object]] | None = None,
-    decisions: list[str] | None = None,
-    action_items: list[str] | None = None,
+    decisions: list[dict[str, object]] | None = None,
+    action_items: list[dict[str, object]] | None = None,
 ):
     app = QApplication.instance() or QApplication([])
     service = build_service(tmp_path)
@@ -1081,8 +1082,8 @@ def test_session_detail_panel_renders_topics_decisions_and_actions_in_order(tmp_
     panel, _detail = build_panel_with_detail(
         tmp_path,
         topics=[{"label": "Planning", "start": 0.0, "end": 1.5}],
-        decisions=["Ship Friday"],
-        action_items=["Speaker_1: Send recap"],
+        decisions=[{"decision": "Ship Friday"}],
+        action_items=[{"title": "Speaker_1: Send recap"}],
     )
 
     assert panel.insight_list.count() == 3

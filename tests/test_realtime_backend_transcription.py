@@ -35,8 +35,8 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
                     "conversation_id": "conv_123",
                     "summary": "Short summary.",
                     "topics": [{"label": "Greeting", "start": 0.0, "end": 1.0}],
-                    "action_items": ["Reply politely"],
-                    "decisions": ["Continue"],
+                    "action_items": [{"title": "Reply politely"}],
+                    "decisions": [{"decision": "Continue"}],
                 }
             )
         if request.full_url.endswith("/quality/conv_123"):
@@ -93,8 +93,8 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
     assert result.conversation_id == "conv_123"
     assert result.speaker_count == 2
     assert result.summary == "Short summary."
-    assert result.action_items == ["Reply politely"]
-    assert result.decisions == ["Continue"]
+    assert result.action_items == [{"title": "Reply politely"}]
+    assert result.decisions == [{"decision": "Continue"}]
 
     request, timeout = captured_requests[0]
     assert request.full_url == "http://127.0.0.1:8080/transcribe/file"
@@ -135,7 +135,7 @@ def test_realtime_backend_transcription_service_fetches_health():
                 "asr_provider_resolved": "faster_whisper",
                 "asr_fallback_provider": "mock",
                 "diarizer_provider": "pyannote",
-                "llm_provider": "bedrock_auto_local",
+                "llm_provider": "auto_local",
                 "llm_provider_resolved": "lmstudio",
                 "llm_fallback_provider": "mock",
             }
@@ -197,8 +197,8 @@ def test_realtime_backend_transcription_service_parses_stream_final_payload(tmp_
             ],
             "summary": "Live summary.",
             "topics": [{"label": "Live", "start": 0.0, "end": 1.0}],
-            "action_items": ["Keep testing"],
-            "decisions": ["Continue streaming"],
+            "action_items": [{"title": "Keep testing"}],
+            "decisions": [{"decision": "Continue streaming"}],
             "corrected_text_output": "Speaker_1: Live final result.",
             "speaker_stats": [{"speaker": "Speaker_1", "segment_count": 1}],
             "is_final": True,
@@ -208,8 +208,8 @@ def test_realtime_backend_transcription_service_parses_stream_final_payload(tmp_
 
     assert result.text == "Speaker_1: Live final result."
     assert result.summary == "Live summary."
-    assert result.action_items == ["Keep testing"]
-    assert result.decisions == ["Continue streaming"]
+    assert result.action_items == [{"title": "Keep testing"}]
+    assert result.decisions == [{"decision": "Continue streaming"}]
     assert result.quality_report is not None
     assert requested_urls == ["http://127.0.0.1:8080/quality/conv_stream"]
 

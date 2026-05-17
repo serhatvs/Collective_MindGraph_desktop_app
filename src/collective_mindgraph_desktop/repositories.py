@@ -16,9 +16,10 @@ from .models import (
     TranscriptAnalysis,
     TranscriptAnalysisDraft,
     TranscriptAnalysisSegment,
-    TranscriptDraft,
+    TranscriptDecisionItem,
     TranscriptQualityReport,
     TranscriptSpeakerStat,
+    TranscriptTaskItem,
     TranscriptTopic,
 )
 
@@ -73,6 +74,29 @@ def _topic_from_payload(payload: dict[str, object]) -> TranscriptTopic:
         label=str(payload.get("label") or ""),
         start=float(payload.get("start") or 0.0),
         end=float(payload.get("end") or 0.0),
+    )
+
+
+def _task_item_from_payload(payload: dict[str, object] | str) -> TranscriptTaskItem:
+    if isinstance(payload, str):
+        return TranscriptTaskItem(title=payload)
+    return TranscriptTaskItem(
+        title=str(payload.get("title") or ""),
+        responsible_person=str(payload.get("responsible_person")) if payload.get("responsible_person") else None,
+        due_date_reference=str(payload.get("due_date_reference")) if payload.get("due_date_reference") else None,
+        source_segment_id=str(payload.get("source_segment_id")) if payload.get("source_segment_id") else None,
+        confidence_note=str(payload.get("confidence_note")) if payload.get("confidence_note") else None,
+    )
+
+
+def _decision_item_from_payload(payload: dict[str, object] | str) -> TranscriptDecisionItem:
+    if isinstance(payload, str):
+        return TranscriptDecisionItem(decision=payload)
+    return TranscriptDecisionItem(
+        decision=str(payload.get("decision") or ""),
+        reason_context=str(payload.get("reason_context")) if payload.get("reason_context") else None,
+        source_segment_id=str(payload.get("source_segment_id")) if payload.get("source_segment_id") else None,
+        confidence_note=str(payload.get("confidence_note")) if payload.get("confidence_note") else None,
     )
 
 
@@ -136,6 +160,13 @@ def _analysis_from_row(row: sqlite3.Row) -> TranscriptAnalysis:
     speaker_stats = json.loads(row["speaker_stats_json"])
     segments = json.loads(row["segments_json"])
     quality_payload = json.loads(row["quality_report_json"]) if row["quality_report_json"] else None
+    
+    # Backward compatibility for people_json
+    try:
+        people = json.loads(row["people_json"])
+    except (KeyError, sqlite3.IndexError):
+        people = []
+
     return TranscriptAnalysis(
         transcript_id=row["transcript_id"],
         source_provider=row["source_provider"],
@@ -144,8 +175,9 @@ def _analysis_from_row(row: sqlite3.Row) -> TranscriptAnalysis:
         corrected_text_output=row["corrected_text_output"],
         summary=row["summary"],
         topics=[_topic_from_payload(item) for item in topics],
-        action_items=[str(item) for item in action_items],
-        decisions=[str(item) for item in decisions],
+        action_items=[_task_item_from_payload(item) for item in action_items],
+        decisions=[_decision_item_from_payload(item) for item in decisions],
+        people=[str(p) for p in people],
         speaker_stats=[_speaker_stat_from_payload(item) for item in speaker_stats],
         segments=[_analysis_segment_from_payload(item) for item in segments],
         quality_report=_quality_report_from_payload(quality_payload),
@@ -405,6 +437,25 @@ class TranscriptAnalysisRepository:
             }
             for item in draft.topics
         ]
+        action_items_payload = [
+            {
+                "title": item.title,
+                "responsible_person": item.responsible_person,
+                "due_date_reference": item.due_date_reference,
+                "source_segment_id": item.source_segment_id,
+                "confidence_note": item.confidence_note,
+            }
+            for item in draft.action_items
+        ]
+        decisions_payload = [
+            {
+                "decision": item.decision,
+                "reason_context": item.reason_context,
+                "source_segment_id": item.source_segment_id,
+                "confidence_note": item.confidence_note,
+            }
+            for item in draft.decisions
+        ]
         speaker_stats_payload = [
             {
                 "speaker": item.speaker,
@@ -464,13 +515,14 @@ class TranscriptAnalysisRepository:
                     topics_json,
                     action_items_json,
                     decisions_json,
+                    people_json,
                     speaker_stats_json,
                     segments_json,
                     quality_report_json,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(transcript_id) DO UPDATE SET
                     source_provider = excluded.source_provider,
                     backend_conversation_id = excluded.backend_conversation_id,
@@ -480,6 +532,7 @@ class TranscriptAnalysisRepository:
                     topics_json = excluded.topics_json,
                     action_items_json = excluded.action_items_json,
                     decisions_json = excluded.decisions_json,
+                    people_json = excluded.people_json,
                     speaker_stats_json = excluded.speaker_stats_json,
                     segments_json = excluded.segments_json,
                     quality_report_json = excluded.quality_report_json,
@@ -493,8 +546,9 @@ class TranscriptAnalysisRepository:
                     draft.corrected_text_output,
                     draft.summary,
                     _dump_json(topics_payload),
-                    _dump_json(draft.action_items),
-                    _dump_json(draft.decisions),
+                    _dump_json(action_items_payload),
+                    _dump_json(decisions_payload),
+                    _dump_json(draft.people),
                     _dump_json(speaker_stats_payload),
                     _dump_json(segments_payload),
                     _dump_json(quality_payload) if quality_payload is not None else None,

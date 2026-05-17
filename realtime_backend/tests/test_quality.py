@@ -1,4 +1,4 @@
-from app.models import ConversationTranscript, TranscriptSegment, WordTimestamp
+from app.models import ConversationTranscript, DecisionItem, TaskItem, TranscriptSegment, WordTimestamp
 from app.services.quality import TranscriptQualityService
 
 
@@ -7,8 +7,8 @@ def test_quality_service_builds_operational_metrics_and_warnings():
         conversation_id="conv_quality",
         source="test",
         summary="A short summary.",
-        action_items=["Speaker_1: Send the report"],
-        decisions=["Speaker_2: Freeze scope"],
+        action_items=[TaskItem(title="Send the report", responsible_person="Speaker_1")],
+        decisions=[DecisionItem(decision="Freeze scope")],
         segments=[
             TranscriptSegment(
                 segment_id="seg_1",
@@ -53,7 +53,7 @@ def test_quality_service_can_compare_against_reference():
         conversation_id="conv_live",
         source="test",
         summary="We agreed to ship next week.",
-        action_items=["Speaker_1: Send the checklist"],
+        action_items=[TaskItem(title="Send the checklist", responsible_person="Speaker_1")],
         segments=[
             TranscriptSegment(
                 segment_id="seg_1",
@@ -69,7 +69,7 @@ def test_quality_service_can_compare_against_reference():
         conversation_id="conv_ref",
         source="test",
         summary="We agreed to ship next week.",
-        action_items=["Speaker_1: Send the checklist"],
+        action_items=[TaskItem(title="Send the checklist", responsible_person="Speaker_1")],
         segments=[
             TranscriptSegment(
                 segment_id="seg_r1",

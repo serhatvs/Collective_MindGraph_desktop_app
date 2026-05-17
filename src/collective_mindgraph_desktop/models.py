@@ -57,6 +57,23 @@ class TranscriptTopic:
 
 
 @dataclass(frozen=True, slots=True)
+class TranscriptTaskItem:
+    title: str
+    responsible_person: str | None = None
+    due_date_reference: str | None = None
+    source_segment_id: str | None = None
+    confidence_note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TranscriptDecisionItem:
+    decision: str
+    reason_context: str | None = None
+    source_segment_id: str | None = None
+    confidence_note: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class TranscriptSpeakerStat:
     speaker: str
     segment_count: int
@@ -107,8 +124,9 @@ class TranscriptAnalysis:
     corrected_text_output: str
     summary: str | None
     topics: list[TranscriptTopic]
-    action_items: list[str]
-    decisions: list[str]
+    action_items: list[TranscriptTaskItem]
+    decisions: list[TranscriptDecisionItem]
+    people: list[str]
     speaker_stats: list[TranscriptSpeakerStat]
     segments: list[TranscriptAnalysisSegment]
     quality_report: TranscriptQualityReport | None
@@ -149,8 +167,9 @@ class TranscriptAnalysisDraft:
     corrected_text_output: str
     summary: str | None
     topics: list[TranscriptTopic]
-    action_items: list[str]
-    decisions: list[str]
+    action_items: list[TranscriptTaskItem]
+    decisions: list[TranscriptDecisionItem]
+    people: list[str]
     speaker_stats: list[TranscriptSpeakerStat]
     segments: list[TranscriptAnalysisSegment]
     quality_report: TranscriptQualityReport | None

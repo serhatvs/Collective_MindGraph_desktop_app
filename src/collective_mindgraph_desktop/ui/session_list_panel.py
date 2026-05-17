@@ -24,6 +24,7 @@ class SessionListPanel(QWidget):
     new_session_requested = Signal()
     delete_session_requested = Signal(int)
     session_selected = Signal(int)
+    global_search_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -34,20 +35,24 @@ class SessionListPanel(QWidget):
         layout.addWidget(card)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search by title or device ID")
+        self.search_input.setPlaceholderText("Filter by title or device...")
         self.search_input.textChanged.connect(self.search_changed.emit)
         card.body_layout.addWidget(self.search_input)
 
         button_row = QHBoxLayout()
         self.new_button = QPushButton("New Session")
+        self.search_button = QPushButton("Global Search")
+        self.search_button.setProperty("secondary", True)
         self.delete_button = QPushButton("Delete")
         self.delete_button.setProperty("secondary", True)
         self.delete_button.setEnabled(False)
 
         self.new_button.clicked.connect(self.new_session_requested.emit)
+        self.search_button.clicked.connect(self.global_search_requested.emit)
         self.delete_button.clicked.connect(self._confirm_delete)
 
         button_row.addWidget(self.new_button)
+        button_row.addWidget(self.search_button)
         button_row.addWidget(self.delete_button)
         card.body_layout.addLayout(button_row)
 

@@ -129,8 +129,9 @@ def test_ingest_transcription_result_persists_backend_analysis(tmp_path):
             speaker_count=2,
             summary="Iki kisilik kisa selamlama.",
             topics=[{"label": "Selamlama", "start": 0.0, "end": 1.0}],
-            action_items=["Takibe devam et"],
-            decisions=["Gorusmeyi surdur"],
+            action_items=[{"title": "Takibe devam et"}],
+            decisions=[{"decision": "Gorusmeyi surdur"}],
+            people=["Speaker_1", "Speaker_2"],
             speaker_stats=[
                 {
                     "speaker": "Speaker_1",
@@ -182,7 +183,8 @@ def test_ingest_transcription_result_persists_backend_analysis(tmp_path):
     assert analysis.backend_conversation_id == "conv_123"
     assert analysis.summary == "Iki kisilik kisa selamlama."
     assert analysis.segments[0].corrected_text == "Merhaba."
-    assert analysis.action_items == ["Takibe devam et"]
+    assert analysis.action_items[0].title == "Takibe devam et"
+    assert "Speaker_1" in analysis.people
     assert len(detail.graph_nodes) == 3
     assert detail.graph_nodes[1].branch_type == "side"
     assert detail.graph_nodes[2].branch_type == "side"

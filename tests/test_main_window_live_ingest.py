@@ -7,7 +7,10 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from collective_mindgraph_desktop.database import Database
 from collective_mindgraph_desktop.services import CollectiveMindGraphService
-from collective_mindgraph_desktop.transcription import TranscriptionResult
+from collective_mindgraph_desktop.transcription import (
+    RealtimeBackendTranscriptionConfig,
+    TranscriptionResult,
+)
 import collective_mindgraph_desktop.ui.main_window as main_window_module
 
 
@@ -17,6 +20,9 @@ class FakeVoiceCommandPanel(QWidget):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+
+    def current_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
+        return RealtimeBackendTranscriptionConfig()
 
 
 def build_service(tmp_path) -> CollectiveMindGraphService:
@@ -36,8 +42,8 @@ def build_stream_result(audio_path: str, *, conversation_id: str) -> Transcripti
         speaker_count=2,
         summary="Streaming summary.",
         topics=[{"label": "Streaming", "start": 0.0, "end": 2.0}],
-        action_items=["Keep testing"],
-        decisions=["Continue streaming"],
+        action_items=[{"title": "Keep testing"}],
+        decisions=[{"decision": "Continue streaming"}],
         speaker_stats=[
             {
                 "speaker": "Speaker_1",

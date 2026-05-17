@@ -41,13 +41,13 @@ def test_realtime_backend_settings_store_round_trips_config(tmp_path):
     assert payload["auto_stop_silence_seconds"] == 1.5
 
 
-def test_realtime_backend_settings_store_ignores_old_nova_payload_shape(tmp_path):
+def test_realtime_backend_settings_store_ignores_stale_payload_shape(tmp_path):
     settings_path = tmp_path / "transcription_settings.json"
     settings_path.write_text(
         json.dumps(
             {
-                "model_id": "us.amazon.nova-2-lite-v1:0",
-                "region_name": "us-east-1",
+                "model_id": "stale-model-id",
+                "region_name": "stale-region",
                 "max_tokens": 2048,
             }
         ),

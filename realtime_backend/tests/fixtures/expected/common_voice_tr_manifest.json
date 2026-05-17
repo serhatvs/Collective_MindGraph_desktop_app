@@ -1,0 +1,172 @@
+{
+  "source_dataset": "Mozilla Common Voice Turkish",
+  "source_version": "Common Voice Scripted Speech 25.0",
+  "locale": "tr",
+  "license": "CC0-1.0",
+  "source_split": "test",
+  "imported_count": 20,
+  "created_at": "2026-05-17T10:43:07.305938+00:00",
+  "notes": "Imported for local ASR quality regression testing.",
+  "samples": [
+    {
+      "id": "cv_tr_000",
+      "audio_path": "audio/common_voice_tr/cv_tr_000.wav",
+      "expected_sentence": "Hatta bazılarına göre bir efsanesiniz.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_20858298.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_001",
+      "audio_path": "audio/common_voice_tr/cv_tr_001.wav",
+      "expected_sentence": "Çalışma gelecek yılın ilk günlerinde başlayacak.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_20242615.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_002",
+      "audio_path": "audio/common_voice_tr/cv_tr_002.wav",
+      "expected_sentence": "Seni uyarmaya çalıştım.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_35819435.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_003",
+      "audio_path": "audio/common_voice_tr/cv_tr_003.wav",
+      "expected_sentence": "Dürüst ol.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_28162024.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_004",
+      "audio_path": "audio/common_voice_tr/cv_tr_004.wav",
+      "expected_sentence": "Hiç bir Müslüman aile bulamazsınız.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_21428585.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_005",
+      "audio_path": "audio/common_voice_tr/cv_tr_005.wav",
+      "expected_sentence": "Ah o anan olacak karı…",
+      "source_split": "test",
+      "original_path": "common_voice_tr_37796660.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_006",
+      "audio_path": "audio/common_voice_tr/cv_tr_006.wav",
+      "expected_sentence": "Ancak küçük partiler isyanlarda.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_17639213.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_007",
+      "audio_path": "audio/common_voice_tr/cv_tr_007.wav",
+      "expected_sentence": "Mesele Türkiye'de oldukça hassas bir sorun.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_21325203.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_008",
+      "audio_path": "audio/common_voice_tr/cv_tr_008.wav",
+      "expected_sentence": "Para karşılığında bir kumarhaneyi himaye eden bakan bu durumun çözülmesi için derhal harekete geçer.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_39945000.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_009",
+      "audio_path": "audio/common_voice_tr/cv_tr_009.wav",
+      "expected_sentence": "Bütün yazdıklarım boşa gitti ve bütün korktuklarım doğru çıktı.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_25756668.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_010",
+      "audio_path": "audio/common_voice_tr/cv_tr_010.wav",
+      "expected_sentence": "Burası da neresi?",
+      "source_split": "test",
+      "original_path": "common_voice_tr_30471059.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_011",
+      "audio_path": "audio/common_voice_tr/cv_tr_011.wav",
+      "expected_sentence": "Ancak pek çok Arnavut bundan şüpheli.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_25030264.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_012",
+      "audio_path": "audio/common_voice_tr/cv_tr_012.wav",
+      "expected_sentence": "Bu bakımdan Kosova ile kıyaslanamaz.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_25211877.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_013",
+      "audio_path": "audio/common_voice_tr/cv_tr_013.wav",
+      "expected_sentence": "Cavcav her iki teklifi de geri çevirdi.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_24925033.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_014",
+      "audio_path": "audio/common_voice_tr/cv_tr_014.wav",
+      "expected_sentence": "Maaşlarımızı kesecekler.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_17410662.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_015",
+      "audio_path": "audio/common_voice_tr/cv_tr_015.wav",
+      "expected_sentence": "Aliu gıyaben ömür boyu hapse mahkum edilmişti.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_18938966.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_016",
+      "audio_path": "audio/common_voice_tr/cv_tr_016.wav",
+      "expected_sentence": "En başarılı uygulamalar, herkes için aynı vergi oranlarının uygulanması anlamına mı geliyor?",
+      "source_split": "test",
+      "original_path": "common_voice_tr_18434104.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_017",
+      "audio_path": "audio/common_voice_tr/cv_tr_017.wav",
+      "expected_sentence": "Sokaklarda daha evlerini bulamamış birkaç inek kuyruklarını kalçalarına çarparak yürüyor ve ara sıra böğürüyordu.",
+      "source_split": "test",
+      "original_path": "common_voice_tr_32085503.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_018",
+      "audio_path": "audio/common_voice_tr/cv_tr_018.wav",
+      "expected_sentence": "Ücretlerin kaldırılması her iki ülkenin de ekonomik gelişimine fayda sağlar mı?",
+      "source_split": "test",
+      "original_path": "common_voice_tr_17352355.mp3",
+      "license": "CC0-1.0"
+    },
+    {
+      "id": "cv_tr_019",
+      "audio_path": "audio/common_voice_tr/cv_tr_019.wav",
+      "expected_sentence": "Biz de kalktık, kocamın asıl memleketi olan Doğu Prusya'ya gittik…",
+      "source_split": "test",
+      "original_path": "common_voice_tr_37742840.mp3",
+      "license": "CC0-1.0"
+    }
+  ]
+}

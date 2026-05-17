@@ -36,5 +36,7 @@ def test_build_local_backend_launch_spec_uses_embedded_backend_when_frozen(tmp_p
     assert Path(spec.program) == executable_path
     assert spec.arguments == ["--backend", "--host", "127.0.0.1", "--port", "8080"]
     assert spec.working_directory == str(executable_path.parent)
-    assert spec.environment["CMG_RT_DATA_DIR"].endswith("CollectiveMindGraph\\realtime_backend_data")
-    assert spec.environment["CMG_RT_TEMP_DIR"].endswith("CollectiveMindGraph\\realtime_backend_temp")
+    data_dir = spec.environment["CMG_RT_DATA_DIR"].replace("\\", "/")
+    temp_dir = spec.environment["CMG_RT_TEMP_DIR"].replace("\\", "/")
+    assert data_dir.endswith("CollectiveMindGraph/realtime_backend_data")
+    assert temp_dir.endswith("CollectiveMindGraph/realtime_backend_temp")

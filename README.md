@@ -1,6 +1,13 @@
 # Collective MindGraph
 
-Collective MindGraph is a native Windows-first desktop application built with Python, PySide6, and SQLite. The desktop app stays local-first for session storage, and its voice transcription flow now connects to the sibling `realtime_backend/` FastAPI service for multi-speaker speech-to-text with online-first Deepgram transcription, Amazon Bedrock transcript correction, and local fallbacks.
+Collective MindGraph is a native Windows-first desktop application built with Python, PySide6, and SQLite. The desktop app stays local-first for session storage, and its voice transcription flow now connects to the sibling `realtime_backend/` FastAPI service for local, multi-speaker speech-to-text with privacy-focused offline processing.
+
+## Cloud AI providers removed
+- Amazon Bedrock / Nova support was removed.
+- Deepgram (online ASR) support was removed.
+- The project now expects local/offline providers only.
+- Old environment variables (AWS, Deepgram) should be deleted.
+- Users should configure local providers (e.g., faster-whisper, LM Studio).
 
 ## Features
 
@@ -19,11 +26,103 @@ Collective MindGraph is a native Windows-first desktop application built with Py
 - Automatic local backend startup for the sibling `realtime_backend/` service when the desktop app is pointed at loopback and the backend is down
 - Stronger transcript correction UX in the session detail view, including bulk speaker rename/merge, segment reordering, and merge-with-next editing
 - Session graph enrichment from backend analysis so summary/topics and decisions/action items become side nodes beside the primary transcript node
-- Online-first STT path through Deepgram Nova-3 with local `faster-whisper` fallback inside the backend
+- Local STT path through local `faster-whisper` inside the backend
 - Editable transcript-segment correction UI for speaker labels and corrected text
 
-## Installation
+## Product-integration ready for local-first Turkish transcription
+Real meeting-room production accuracy still requires project-specific/manual meeting audio validation.
 
+## Project Documentation
+- **[PROJECT_STATUS.md](PROJECT_STATUS.md)**: Current MVP summary, implementation matrix, and honest claim boundaries.
+- **[HANDOFF.md](HANDOFF.md)**: Technical overview and architecture details for developers.
+- **[DEMO_FLOW.md](DEMO_FLOW.md)**: Step-by-step instructions for demonstrating the product loop.
+- **[TECHNICAL_OVERVIEW_FOR_PATENT.md](TECHNICAL_OVERVIEW_FOR_PATENT.md)**: Conceptual and technical summary suitable for external reference/filing.
+- **[DEMO_PRESENTATION_NOTES.md](DEMO_PRESENTATION_NOTES.md)**: Structured scripts for short and technical demonstrations.
+- **[V2_ROADMAP.md](V2_ROADMAP.md)**: 4-phase plan for future development from MVP to hardware-integrated semantic system.
+
+### Extraction Output Example (Turkish)
+For a session containing: *“Merhaba, bugün Collective MindGraph toplantısındayız. Bu hafta FastAPI endpointini test edeceğiz.”*
+
+The system extracts:
+- **Summary**: `1 speaker covered Action Items. Early context: Merhaba, bugün Collective MindGraph toplantısındayız...`
+- **Tasks**:
+  - `title`: "Bu hafta fastapi endpointini test edeceğiz"
+  - `responsible_person`: "Speaker_1"
+  - `source_segment_id`: "s1"
+- **Topics**: `["Action Items", "FastAPI", "MindGraph"]`
+- **People**: `["Speaker_1"]`
+
+### Memory Graph Status
+Collective MindGraph currently uses **basic graph-node persistence** via hierarchical nodes in SQLite (adjacency list with `parent_node_id`). It is not a full graph database; it supports tree-based exploration and side-node enrichment for tasks and decisions.
+## Desktop Global Search status
+- **implemented**: local keyword memory search UI in the "Memory Search" panel
+- **searches**: transcripts, tasks, decisions, and topics across all sessions
+- **source-linked**: results allow double-clicking to navigate back to the source session and segment
+- **semantic/vector search**: future TODO
+- **full graph reasoning**: not implemented yet; uses basic hierarchical node structure
+
+## Current memory/query status
+...
+- **implemented**: local keyword search over cleaned transcripts, tasks, decisions, topics
+- **implemented**: source-linked query results
+- **implemented**: basic heuristic scoring (prioritizing decisions and tasks)
+- **not implemented yet**: vector embeddings, semantic search, arbitrary graph edges, multi-hop reasoning
+- **current graph storage**: SQLite adjacency/tree-style nodes, not full graph database
+
+## Local Demo Flow
+
+To explore the integrated system locally:
+
+1.  **Install dependencies**:
+    ```powershell
+    python -m pip install -e .
+    cd realtime_backend
+    python -m venv .venv
+    .\.venv\Scripts\activate
+    pip install -r requirements.txt
+    ```
+
+2.  **Start the Backend**:
+    ```powershell
+    ./scripts/dev_backend.sh
+    ```
+
+3.  **Start the Desktop App**:
+    ```powershell
+    ./scripts/dev_desktop.sh
+    ```
+
+4.  **Seed a Demo Session (Optional)**:
+    If you don't have audio ready, run:
+    ```powershell
+    PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
+    ```
+
+5.  **Explore the Product Loop**:
+    - **Transcribe**: Record a technical session or transcribe a local file.
+    - **Inspect**: Compare **Raw ASR** vs. **Cleaned Transcript** in the session detail.
+    - **Memory**: View extracted tasks, decisions, and topics.
+    - **Search**: Open **Global Search**, enter technical terms, and double-click to navigate back to the source.
+
+## Current Implementation Status
+
+### Implemented
+- **Local transcription pipeline**: 100% offline Faster-Whisper with CPU/GPU support.
+- **Raw/clean transcript separation**: Preserves original ASR output and cleaned text.
+- **Turkish clean-speech benchmark**: Verified with Common Voice dataset (91% score).
+- **Structured extraction**: Heuristic-based extraction of tasks, decisions, and topics.
+- **Basic graph-node persistence**: Hierarchical storage of meeting knowledge in SQLite.
+- **Keyword memory search**: Cross-session traceable lookup via `/query` API.
+- **Desktop Global Search**: Integrated UI for cross-session knowledge retrieval.
+
+### Pending
+- **Project-specific meeting audio validation**: Infrastructure ready; pending manual recording.
+- **Semantic/Vector search**: Interface placeholders added; implementation pending.
+- **Full graph edge reasoning**: Current storage is hierarchical tree only.
+- **Production diarization validation**: Verified for 1-2 speakers; high-noise stability pending.
+
+## Installation
+...
 ```powershell
 python -m pip install -e .
 ```
@@ -64,14 +163,24 @@ The script prefers `realtime_backend\.venv\Scripts\python.exe`, installs the des
 The packaged app starts its bundled local backend automatically on loopback and stores its
 runtime settings/recordings under `%LOCALAPPDATA%\CollectiveMindGraph\`.
 
+## Tech Stack
+
+- **Desktop UI**: PySide6 (Qt)
+- **Backend API**: FastAPI
+- **ASR**: `faster-whisper` (local)
+- **VAD**: `silero-vad` (local)
+- **Diarization**: `pyannote.audio` (local)
+- **Memory Persistence**: SQLite (Hierarchical graph-node storage)
+- **LLM Cleanup**: Local API (LM Studio, Ollama)
+- **Database**: SQLite3 (Desktop) / File-based (Backend)
+- **Audio**: sounddevice / soundfile / ffmpeg
+
 Notes:
 
 - If `ffmpeg` is available on the build machine, the build script bundles it into the `.exe`.
 - To stay within PyInstaller's onefile size limit, the bundled backend uses lighter built-in
   fallbacks for VAD/diarization instead of packaging the full `pyannote`/`torch` stack.
-- In the packaged build, real STT depends on a configured Deepgram key; otherwise the backend falls
-  back to its mock ASR path instead of shipping the full local model stack inside the `.exe`.
-- Cloud-backed transcription or correction providers still need their normal API credentials at runtime.
+- Cloud-backed transcription or correction providers are no longer supported.
 
 ## Test
 

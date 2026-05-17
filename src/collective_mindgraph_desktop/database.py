@@ -90,6 +90,7 @@ class Database:
             topics_json TEXT NOT NULL,
             action_items_json TEXT NOT NULL,
             decisions_json TEXT NOT NULL,
+            people_json TEXT NOT NULL,
             speaker_stats_json TEXT NOT NULL,
             segments_json TEXT NOT NULL,
             quality_report_json TEXT,
@@ -108,3 +109,8 @@ class Database:
         """
         with self.connect() as connection:
             connection.executescript(schema)
+            # Lightweight migration: Ensure people_json exists in transcript_analyses
+            cursor = connection.execute("PRAGMA table_info(transcript_analyses)")
+            columns = [row["name"] for row in cursor.fetchall()]
+            if columns and "people_json" not in columns:
+                connection.execute("ALTER TABLE transcript_analyses ADD COLUMN people_json TEXT NOT NULL DEFAULT '[]'")

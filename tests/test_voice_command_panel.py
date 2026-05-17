@@ -245,353 +245,6 @@ def test_voice_command_panel_shutdown_request_during_transcribing_keeps_state(mo
     panel.close()
 
 
-def test_test_dataset_transcription_worker_processes_all_flac_files_in_english(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    for filename in ("sample_a.flac", "sample_b.flac"):
-        (dataset_dir / filename).write_bytes(b"fake flac")
-
-    configured_languages: list[str | None] = []
-    transcribed_files: list[str] = []
-
-    class FakeTranscriptionService:
-        def __init__(self, config) -> None:
-            configured_languages.append(config.language)
-
-        def transcribe_file(self, audio_path: str) -> TranscriptionResult:
-            transcribed_files.append(audio_path)
-            name = audio_path.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-            return TranscriptionResult(
-                text=f"Speaker_1: {name}",
-                model_id="realtime_backend",
-                audio_path=audio_path,
-                corrected_text_output=f"Speaker_1: {name}",
-            )
-
-    monkeypatch.setattr(voice_command_panel_module, "RealtimeBackendTranscriptionService", FakeTranscriptionService)
-    worker = voice_command_panel_module.TestDatasetTranscriptionWorker(
-        dataset_dir,
-        RealtimeBackendTranscriptionConfig(language=None),
-    )
-    progress_messages: list[str] = []
-    finished_results: list[object] = []
-    failed_messages: list[str] = []
-    worker.progress.connect(progress_messages.append)
-    worker.finished.connect(finished_results.append)
-    worker.failed.connect(failed_messages.append)
-
-    worker.run()
-
-    assert failed_messages == []
-    assert configured_languages == ["en"]
-    assert [path.rsplit("\\", 1)[-1] for path in transcribed_files] == ["sample_a.flac", "sample_b.flac"]
-    assert progress_messages == [
-        "Test batch 1/2: transcribing sample_a.flac",
-        "Test batch 2/2: transcribing sample_b.flac",
-    ]
-    assert len(finished_results) == 1
-    result = finished_results[0]
-    assert result.total_files == 2
-    assert result.succeeded_files == 2
-    assert "sample_a.flac: Speaker_1: sample_a.flac" in result.report_text
-    assert "sample_b.flac: Speaker_1: sample_b.flac" in result.report_text
-
-
-def test_test_dataset_transcription_worker_reports_per_file_errors(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    for filename in ("sample_a.flac", "sample_b.flac"):
-        (dataset_dir / filename).write_bytes(b"fake flac")
-
-    class FakeTranscriptionService:
-        def __init__(self, config=None) -> None:
-            return
-
-        def transcribe_file(self, audio_path: str) -> TranscriptionResult:
-            if audio_path.endswith("sample_a.flac"):
-                raise RuntimeError("backend offline")
-            return TranscriptionResult(
-                text="Speaker_1: sample_b.flac",
-                model_id="realtime_backend",
-                audio_path=audio_path,
-                corrected_text_output="Speaker_1: sample_b.flac",
-            )
-
-    monkeypatch.setattr(voice_command_panel_module, "RealtimeBackendTranscriptionService", FakeTranscriptionService)
-    worker = voice_command_panel_module.TestDatasetTranscriptionWorker(
-        dataset_dir,
-        RealtimeBackendTranscriptionConfig(language=None),
-    )
-    finished_results: list[object] = []
-    failed_messages: list[str] = []
-    worker.finished.connect(finished_results.append)
-    worker.failed.connect(failed_messages.append)
-
-    worker.run()
-
-    assert failed_messages == []
-    assert len(finished_results) == 1
-    result = finished_results[0]
-    assert result.total_files == 2
-    assert result.succeeded_files == 1
-    assert "sample_a.flac: ERROR - backend offline" in result.report_text
-    assert "sample_b.flac: Speaker_1: sample_b.flac" in result.report_text
-
-
-def test_voice_command_panel_test_button_starts_dataset_batch(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    created_workers: list[QObject] = []
-
-    class FakeBatchWorker(QObject):
-        progress = Signal(str)
-        finished = Signal(object)
-        failed = Signal(str)
-
-        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
-            super().__init__(parent)
-            self.source_dir = source_dir
-            self.config = config
-            created_workers.append(self)
-
-        def run(self) -> None:
-            return
-
-    panel = build_panel(monkeypatch)
-    activity_messages: list[str] = []
-    panel.activity_reported.connect(activity_messages.append)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
-    monkeypatch.setattr(voice_command_panel_module.QThread, "start", lambda self: None)
-
-    panel.test_button.click()
-
-    assert len(created_workers) == 1
-    assert created_workers[0].source_dir == dataset_dir
-    assert not panel.test_button.isEnabled()
-    assert any("Starting test transcription for 1 files from 122949 with language=en." in item for item in activity_messages)
-    panel._cleanup_test_batch_worker()
-    assert panel.test_button.isEnabled()
-    panel.close()
-
-
-def test_voice_command_panel_test_button_reports_missing_dataset(monkeypatch, tmp_path):
-    panel = build_panel(monkeypatch)
-    activity_messages: list[str] = []
-    missing_dir = tmp_path / "missing_122949"
-    panel.activity_reported.connect(activity_messages.append)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", missing_dir)
-
-    panel.test_button.click()
-
-    expected = f"No test audio files were found under {missing_dir}."
-    assert panel.transcript_output.toPlainText() == expected
-    assert activity_messages == [expected]
-    assert panel.test_button.isEnabled()
-    panel.close()
-
-
-def test_voice_command_panel_video_test_button_loads_mp3_and_starts_transcription(monkeypatch, tmp_path):
-    video_dir = tmp_path / "video"
-    video_dir.mkdir()
-    sample_path = video_dir / "sample.mp3"
-    sample_path.write_bytes(b"fake mp3")
-    panel = build_panel(monkeypatch)
-    transcribe_calls: list[str] = []
-    panel._handle_transcribe = lambda: transcribe_calls.append("called")  # type: ignore[method-assign]
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_VIDEO_AUDIO_DIR", video_dir)
-
-    panel.video_test_button.click()
-
-    assert panel._workflow.state.stage == "audio_ready"
-    assert panel._workflow.state.audio_path == str(sample_path)
-    assert "sample.mp3" in panel.transcript_output.toPlainText()
-    assert transcribe_calls == ["called"]
-    panel.close()
-
-
-def test_voice_command_panel_video_test_button_reports_missing_mp3(monkeypatch, tmp_path):
-    panel = build_panel(monkeypatch)
-    activity_messages: list[str] = []
-    missing_dir = tmp_path / "missing_video"
-    panel.activity_reported.connect(activity_messages.append)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_VIDEO_AUDIO_DIR", missing_dir)
-
-    panel.video_test_button.click()
-
-    expected = f"No test video audio files were found under {missing_dir}."
-    assert panel.transcript_output.toPlainText() == expected
-    assert activity_messages == [expected]
-    assert panel.video_test_button.isEnabled()
-    panel.close()
-
-
-def test_voice_command_panel_ignores_test_batch_request_while_transcription_is_active(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    created_workers: list[QObject] = []
-    activity_messages: list[str] = []
-
-    class FakeBatchWorker(QObject):
-        progress = Signal(str)
-        finished = Signal(object)
-        failed = Signal(str)
-
-        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
-            super().__init__(parent)
-            created_workers.append(self)
-
-    panel = build_panel(monkeypatch)
-    panel.activity_reported.connect(activity_messages.append)
-    panel._transcription_thread = QThread(panel)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
-
-    panel._handle_test_dataset()
-
-    assert created_workers == []
-    assert panel.transcript_output.toPlainText() == ""
-    assert activity_messages == []
-    panel._transcription_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_ignores_test_batch_request_while_batch_is_active(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    created_workers: list[QObject] = []
-    activity_messages: list[str] = []
-
-    class FakeBatchWorker(QObject):
-        progress = Signal(str)
-        finished = Signal(object)
-        failed = Signal(str)
-
-        def __init__(self, source_dir, config, parent: QObject | None = None) -> None:
-            super().__init__(parent)
-            created_workers.append(self)
-
-    panel = build_panel(monkeypatch)
-    panel.activity_reported.connect(activity_messages.append)
-    panel._test_batch_thread = QThread(panel)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-    monkeypatch.setattr(voice_command_panel_module, "TestDatasetTranscriptionWorker", FakeBatchWorker)
-
-    panel._handle_test_dataset()
-
-    assert created_workers == []
-    assert panel.transcript_output.toPlainText() == ""
-    assert activity_messages == []
-    panel._test_batch_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_preserves_existing_output_when_busy_test_request_is_ignored(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    panel = build_panel(monkeypatch)
-    panel._transcription_thread = QThread(panel)
-    panel._transcript_output_override = "Existing transcript output."
-    panel.transcript_output.setPlainText("Existing transcript output.")
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-
-    panel._handle_test_dataset()
-
-    assert panel.transcript_output.toPlainText() == "Existing transcript output."
-    panel._transcription_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_preserves_existing_activity_when_busy_test_request_is_ignored(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    panel = build_panel(monkeypatch)
-    activity_messages = ["Existing activity entry."]
-    panel.activity_reported.connect(activity_messages.append)
-    panel._transcription_thread = QThread(panel)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-
-    panel._handle_test_dataset()
-
-    assert activity_messages == ["Existing activity entry."]
-    panel._transcription_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_preserves_existing_output_when_busy_batch_request_is_ignored(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    panel = build_panel(monkeypatch)
-    panel._test_batch_thread = QThread(panel)
-    panel._transcript_output_override = "Existing batch report."
-    panel.transcript_output.setPlainText("Existing batch report.")
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-
-    panel._handle_test_dataset()
-
-    assert panel.transcript_output.toPlainText() == "Existing batch report."
-    panel._test_batch_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_preserves_existing_activity_when_busy_batch_request_is_ignored(monkeypatch, tmp_path):
-    dataset_dir = tmp_path / "122949"
-    dataset_dir.mkdir()
-    (dataset_dir / "sample.flac").write_bytes(b"fake flac")
-    panel = build_panel(monkeypatch)
-    activity_messages = ["Existing batch activity entry."]
-    panel.activity_reported.connect(activity_messages.append)
-    panel._test_batch_thread = QThread(panel)
-    monkeypatch.setattr(voice_command_panel_module, "DEFAULT_TEST_AUDIO_BATCH_DIR", dataset_dir)
-
-    panel._handle_test_dataset()
-
-    assert activity_messages == ["Existing batch activity entry."]
-    panel._test_batch_thread = None
-    panel.close()
-
-
-def test_voice_command_panel_reports_test_batch_progress_activity(monkeypatch):
-    panel = build_panel(monkeypatch)
-    activity_messages: list[str] = []
-    panel.activity_reported.connect(activity_messages.append)
-
-    panel._handle_test_batch_progress("Test batch 1/2: transcribing sample_a.flac")
-
-    assert activity_messages == ["Test batch 1/2: transcribing sample_a.flac"]
-    panel.close()
-
-
-def test_voice_command_panel_keeps_test_batch_report_visible_after_worker_cleanup(monkeypatch):
-    panel = build_panel(monkeypatch)
-    activity_messages: list[str] = []
-    panel.activity_reported.connect(activity_messages.append)
-    panel._test_batch_thread = QThread(panel)
-    panel._test_batch_worker = QObject(panel)
-
-    panel._handle_test_batch_finished(
-        voice_command_panel_module.TestBatchTranscriptionResult(
-            report_text="Test batch completed: 1/1 files transcribed successfully.\n\nsample.flac: ready",
-            total_files=1,
-            succeeded_files=1,
-        )
-    )
-
-    panel._cleanup_test_batch_worker()
-
-    assert "Test batch finished: 1/1 files transcribed." in activity_messages
-    assert panel.transcript_output.toPlainText() == (
-        "Test batch completed: 1/1 files transcribed successfully.\n\nsample.flac: ready"
-    )
-    panel.close()
-
-
 def test_voice_command_panel_finalizes_live_stream_on_capture_stop(monkeypatch):
     panel = build_panel(
         monkeypatch,
@@ -716,24 +369,24 @@ def test_voice_command_panel_clears_retry_message_after_successful_health_retry(
             app_name="Realtime Backend",
             vad_provider="silero",
             asr_provider="auto",
-            asr_provider_resolved="deepgram",
-            asr_fallback_provider="faster_whisper",
+            asr_provider_resolved="faster_whisper",
+            asr_fallback_provider="mock",
             diarizer_provider="pyannote",
-            llm_provider="bedrock_auto_local",
-            llm_provider_resolved="bedrock",
-            llm_fallback_provider="lmstudio",
+            llm_provider="auto_local",
+            llm_provider_resolved="lmstudio",
+            llm_fallback_provider="mock",
         )
     )
 
     assert "Starting local backend and retrying health check..." not in panel.provider_status_label.text()
     assert "Realtime Backend [ok]" in panel.provider_status_label.text()
-    assert "STT: auto -> deepgram (fallback faster_whisper)" in panel.provider_status_label.text()
-    assert "LLM: bedrock_auto_local -> bedrock (fallback lmstudio)" in panel.provider_status_label.text()
-    assert "LLM reachability: Amazon Bedrock is active; LM Studio is ready as fallback." in panel.provider_status_label.text()
+    assert "STT: auto -> faster_whisper (fallback mock)" in panel.provider_status_label.text()
+    assert "LLM: auto_local -> lmstudio (fallback mock)" in panel.provider_status_label.text()
+    assert "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback." in panel.provider_status_label.text()
     panel.close()
 
 
-def test_voice_command_panel_surfaces_bedrock_fallback_activity(monkeypatch):
+def test_voice_command_panel_surfaces_auto_local_lmstudio_activity(monkeypatch):
     panel = build_panel(monkeypatch)
 
     panel._handle_backend_health_finished(
@@ -745,18 +398,17 @@ def test_voice_command_panel_surfaces_bedrock_fallback_activity(monkeypatch):
             asr_provider_resolved="faster_whisper",
             asr_fallback_provider="mock",
             diarizer_provider="pyannote",
-            llm_provider="bedrock_auto_local",
+            llm_provider="auto_local",
             llm_provider_resolved="lmstudio",
             llm_fallback_provider="mock",
         )
     )
 
-    assert "LLM: bedrock_auto_local -> lmstudio (fallback mock)" in panel.provider_status_label.text()
+    assert "LLM: auto_local -> lmstudio (fallback mock)" in panel.provider_status_label.text()
     assert (
-        "LLM fallback active: Amazon Bedrock is unreachable, so LM Studio is handling corrections."
+        "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
         in panel.provider_status_label.text()
     )
-    assert "Mock cleanup remains the last fallback." in panel.provider_status_label.text()
     panel.close()
 
 

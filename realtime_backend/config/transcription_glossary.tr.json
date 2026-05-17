@@ -1,0 +1,39 @@
+{
+  "project_terms": [
+    "Collective MindGraph",
+    "MindGraph",
+    "FastAPI",
+    "SQLite",
+    "PySide6",
+    "diarization",
+    "transcriber",
+    "transcript",
+    "VAD",
+    "faster-whisper",
+    "memory graph",
+    "raw transcript",
+    "cleaned transcript"
+  ],
+  "technical_terms": [
+    "offline-capable",
+    "local-first",
+    "speech-to-text",
+    "large-v3-turbo",
+    "cuda",
+    "float16"
+  ],
+  "turkish_terms": [
+    "toplantı",
+    "konuşmacı",
+    "görev",
+    "karar",
+    "özet",
+    "aksiyon maddesi",
+    "nasılsın",
+    "teşekkürler",
+    "sağ ol",
+    "yani",
+    "şey",
+    "ııı"
+  ]
+}

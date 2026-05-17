@@ -8,10 +8,8 @@ from app.pipeline import llm_postprocess as llm_module
 from app.pipeline.llm_postprocess import (
     AutoLocalLLMProvider,
     BaseLLMProvider,
-    BedrockAutoLocalLLMProvider,
     LLMPostProcessor,
     MockLLMProvider,
-    _extract_bedrock_text,
     _parse_json_results,
 )
 
@@ -144,57 +142,7 @@ def test_auto_local_llm_provider_falls_back_to_mock_cleanup():
     assert corrected[0].corrected_text == "Hello world."
 
 
-def test_extract_bedrock_text_joins_message_fragments():
-    payload = {
-        "output": {
-            "message": {
-                "content": [
-                    {"text": '{"segments": ['},
-                    {"text": '{"segment_id":"seg_1","corrected_text":"Hello."}'},
-                    {"text": "]}"}
-                ]
-            }
-        }
-    }
-
-    content = _extract_bedrock_text(payload)
-
-    assert content == '{"segments": [{"segment_id":"seg_1","corrected_text":"Hello."}]}'
-
-
-def test_bedrock_auto_local_llm_provider_falls_back_when_bedrock_fails(monkeypatch):
-    class FakeBedrockProvider(BaseLLMProvider):
-        async def correct(self, request):
-            raise RuntimeError("bedrock unavailable")
-
-    monkeypatch.setattr(llm_module, "BedrockLLMProvider", lambda settings: FakeBedrockProvider())
-    provider = BedrockAutoLocalLLMProvider(Settings())
-    request_segments = [
-        TranscriptSegment(
-            segment_id="seg_1",
-            start=0.0,
-            end=1.0,
-            speaker="Speaker_1",
-            raw_text="hello world",
-            corrected_text="hello world",
-        )
-    ]
-
-    corrected = asyncio.run(
-        provider.correct(
-            CorrectionRequest(
-                conversation_id="conv_bedrock",
-                language="en",
-                context_segments=[],
-                segments=request_segments,
-            )
-        )
-    )
-
-    assert corrected[0].corrected_text == "Hello world."
-
-
-def test_build_llm_postprocessor_defaults_to_bedrock_auto_local():
+def test_build_llm_postprocessor_defaults_to_lmstudio():
     processor = llm_module.build_llm_postprocessor(Settings())
 
-    assert processor._provider.__class__.__name__ == "BedrockAutoLocalLLMProvider"
+    assert processor._provider.__class__.__name__ == "LMStudioLLMProvider"

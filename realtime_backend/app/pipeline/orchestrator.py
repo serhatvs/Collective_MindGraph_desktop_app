@@ -8,10 +8,20 @@ from pathlib import Path
 from typing import TYPE_CHECKING, TypeVar
 
 from ..config import Settings
-from ..models import ASRSegment, ConversationTranscript, DiarizationTurn, ProcessingDebug, SpeechRegion, TranscriptSegment
+from ..models import (
+    ASRSegment,
+    ConversationTranscript,
+    DiarizationTurn,
+    ProcessingDebug,
+    SpeechRegion,
+    TranscriptSegment,
+    TranscriptionDiagnostics,
+)
 from ..services.summary import ConversationSummaryService
 from ..utils.audio import extract_wav_region, wav_duration_seconds
+from ..utils.audio_process import normalize_audio
 from ..utils.ids import new_conversation_id
+from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
 from .asr import BaseASR, build_asr
 from .diarization import BaseDiarizer, build_diarizer
@@ -34,6 +44,7 @@ class TranscriptionPipeline:
         llm_postprocessor: LLMPostProcessor | None = None,
         summary_service: ConversationSummaryService | None = None,
     ) -> None:
+        settings.ensure_directories()
         self._settings = settings
         if vad is None:
             from .vad import build_vad
@@ -53,106 +64,147 @@ class TranscriptionPipeline:
         conversation_id: str | None = None,
         source: str,
         language: str | None = None,
+        quality_mode: str | None = None,
         prior_segments: list[TranscriptSegment] | None = None,
         speaker_mapper: StableSpeakerMapper | None = None,
         chunk_offset: float = 0.0,
         include_summary: bool = True,
         debug: bool = True,
     ) -> ConversationTranscript:
+        start_process = datetime.now(tz=UTC)
         resolved_conversation_id = conversation_id or new_conversation_id()
+        resolved_language = language or self._settings.default_language
+        resolved_quality = quality_mode or self._settings.transcription_quality_mode
         prior = list(prior_segments or [])
         mapper = speaker_mapper or StableSpeakerMapper()
 
-        total_duration = await asyncio.to_thread(wav_duration_seconds, audio_path)
-        vad_regions = await asyncio.to_thread(self._vad.detect, audio_path)
-        processing_windows = _build_processing_windows(
-            total_duration=total_duration,
-            regions=vad_regions,
-            max_window_seconds=self._settings.pipeline_max_window_seconds,
-            overlap_seconds=self._settings.pipeline_window_overlap_seconds,
+        # 1. Audio Preprocessing
+        normalized_path = self._settings.temp_dir / f"{resolved_conversation_id}_pipeline_norm.wav"
+        normalize_success = await asyncio.to_thread(
+            normalize_audio,
+            audio_path,
+            normalized_path,
+            self._settings.sample_rate
         )
-        asr_segments: list[ASRSegment] = []
-        diarization_turns: list[DiarizationTurn] = []
-        merged_segments: list[TranscriptSegment] = []
+        working_path = normalized_path if normalize_success else audio_path
 
-        for window in processing_windows:
-            local_regions = _clip_regions_to_window(vad_regions, window.start, window.end)
-            window_path = audio_path
-            cleanup_path = False
-            if not _is_full_audio_window(window, total_duration):
-                window_path = await asyncio.to_thread(
-                    extract_wav_region,
-                    audio_path,
-                    window.start,
-                    window.end,
-                    self._settings.temp_dir,
+        try:
+            total_duration = await asyncio.to_thread(wav_duration_seconds, working_path)
+            vad_regions = await asyncio.to_thread(self._vad.detect, working_path)
+            processing_windows = _build_processing_windows(
+                total_duration=total_duration,
+                regions=vad_regions,
+                max_window_seconds=self._settings.pipeline_max_window_seconds,
+                overlap_seconds=self._settings.pipeline_window_overlap_seconds,
+            )
+            asr_segments: list[ASRSegment] = []
+            diarization_turns: list[DiarizationTurn] = []
+            merged_segments: list[TranscriptSegment] = []
+
+            for window in processing_windows:
+                local_regions = _clip_regions_to_window(vad_regions, window.start, window.end)
+                window_path = working_path
+                cleanup_window = False
+                if not _is_full_audio_window(window, total_duration):
+                    window_path = await asyncio.to_thread(
+                        extract_wav_region,
+                        working_path,
+                        window.start,
+                        window.end,
+                        self._settings.temp_dir,
+                    )
+                    cleanup_window = True
+
+                try:
+                    window_asr_segments = await asyncio.to_thread(
+                        self._asr.transcribe,
+                        window_path,
+                        resolved_language,
+                        local_regions or None,
+                        resolved_quality,
+                    )
+                    window_diarization_turns = await asyncio.to_thread(
+                        self._diarizer.diarize,
+                        window_path,
+                        local_regions or None,
+                    )
+                finally:
+                    if cleanup_window:
+                        window_path.unlink(missing_ok=True)
+
+                absolute_offset = chunk_offset + window.start
+                merged_window_segments = merge_transcript_segments(
+                    asr_segments=window_asr_segments,
+                    diarization_turns=window_diarization_turns,
+                    speaker_mapper=mapper,
+                    prior_segments=prior + merged_segments,
+                    chunk_offset=absolute_offset,
                 )
-                cleanup_path = True
-
-            try:
-                window_asr_segments = await asyncio.to_thread(
-                    self._asr.transcribe,
-                    window_path,
-                    language,
-                    local_regions or None,
+                merged_segments = _replace_timeline_tail(merged_segments, merged_window_segments, absolute_offset)
+                asr_segments = _replace_timeline_tail(
+                    asr_segments,
+                    _offset_asr_segments(window_asr_segments, absolute_offset),
+                    absolute_offset,
                 )
-                window_diarization_turns = await asyncio.to_thread(
-                    self._diarizer.diarize,
-                    window_path,
-                    local_regions or None,
+                diarization_turns = _replace_timeline_tail(
+                    diarization_turns,
+                    _offset_diarization_turns(window_diarization_turns, absolute_offset),
+                    absolute_offset,
                 )
-            finally:
-                if cleanup_path:
-                    window_path.unlink(missing_ok=True)
 
-            absolute_offset = chunk_offset + window.start
-            merged_window_segments = merge_transcript_segments(
-                asr_segments=window_asr_segments,
-                diarization_turns=window_diarization_turns,
-                speaker_mapper=mapper,
-                prior_segments=prior + merged_segments,
-                chunk_offset=absolute_offset,
-            )
-            merged_segments = _replace_timeline_tail(merged_segments, merged_window_segments, absolute_offset)
-            asr_segments = _replace_timeline_tail(
-                asr_segments,
-                _offset_asr_segments(window_asr_segments, absolute_offset),
-                absolute_offset,
-            )
-            diarization_turns = _replace_timeline_tail(
-                diarization_turns,
-                _offset_diarization_turns(window_diarization_turns, absolute_offset),
-                absolute_offset,
+            # 2. LLM Cleanup
+            corrected_segments = await self._llm_postprocessor.apply(
+                conversation_id=resolved_conversation_id,
+                language=resolved_language,
+                segments=merged_segments,
             )
 
-        corrected_segments = await self._llm_postprocessor.apply(
-            conversation_id=resolved_conversation_id,
-            language=language or self._settings.default_language,
-            segments=merged_segments,
-        )
+            # 3. Deterministic Turkish cleanup
+            if resolved_language == "tr":
+                for segment in corrected_segments:
+                    segment.corrected_text = clean_turkish_transcript(segment.corrected_text)
 
-        transcript = ConversationTranscript(
-            conversation_id=resolved_conversation_id,
-            source=source,
-            language=language or self._settings.default_language,
-            segments=corrected_segments,
-            debug=ProcessingDebug(
-                vad_regions=vad_regions,
-                diarization_turns=diarization_turns,
-                asr_segments=asr_segments,
+            end_process = datetime.now(tz=UTC)
+            
+            diagnostics = TranscriptionDiagnostics(
+                provider=self._asr.provider_name,
+                model=self._settings.asr_model_name,
+                language=resolved_language,
+                quality_mode=resolved_quality,
+                audio_duration=total_duration,
+                chunk_count=len(processing_windows),
+                processing_time_seconds=(end_process - start_process).total_seconds(),
+                raw_transcript_length=sum(len(s.raw_text) for s in corrected_segments),
+                cleaned_transcript_length=sum(len(s.corrected_text) for s in corrected_segments),
             )
-            if debug
-            else None,
-        )
 
-        if include_summary and self._settings.enable_summary:
-            summary, topics, action_items, decisions = self._summary_service.build_summary(transcript)
-            transcript.summary = summary
-            transcript.topics = topics
-            transcript.action_items = action_items
-            transcript.decisions = decisions
-        transcript.updated_at = datetime.now(tz=UTC)
-        return transcript
+            transcript = ConversationTranscript(
+                conversation_id=resolved_conversation_id,
+                source=source,
+                language=resolved_language,
+                quality_mode=resolved_quality,
+                segments=corrected_segments,
+                diagnostics=diagnostics,
+                debug=ProcessingDebug(
+                    vad_regions=vad_regions,
+                    diarization_turns=diarization_turns,
+                    asr_segments=asr_segments,
+                )
+                if debug
+                else None,
+            )
+
+            if include_summary and self._settings.enable_summary:
+                summary, topics, action_items, decisions = self._summary_service.build_summary(transcript)
+                transcript.summary = summary
+                transcript.topics = topics
+                transcript.action_items = action_items
+                transcript.decisions = decisions
+            transcript.updated_at = datetime.now(tz=UTC)
+            return transcript
+        finally:
+            if normalize_success:
+                normalized_path.unlink(missing_ok=True)
 
 
 def _build_processing_windows(

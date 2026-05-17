@@ -98,7 +98,7 @@ class Settings:
     channels: int = field(default_factory=lambda: _env_int("CMG_RT_CHANNELS", 1))
     sample_width_bytes: int = field(default_factory=lambda: _env_int("CMG_RT_SAMPLE_WIDTH_BYTES", 2))
     default_language: str | None = field(
-        default_factory=lambda: os.getenv("CMG_RT_LANGUAGE") or None
+        default_factory=lambda: os.getenv("CMG_RT_LANGUAGE", "tr")
     )
 
     stream_partial_window_seconds: float = field(
@@ -149,28 +149,6 @@ class Settings:
     asr_region_padding_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_ASR_REGION_PADDING_SECONDS", 0.10)
     )
-    deepgram_api_key: str | None = field(default_factory=lambda: os.getenv("CMG_RT_DEEPGRAM_API_KEY") or None)
-    deepgram_endpoint: str = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_ENDPOINT", "https://api.deepgram.com/v1/listen")
-    )
-    deepgram_model_name: str = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_MODEL", "nova-3")
-    )
-    deepgram_smart_format: bool = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_SMART_FORMAT", "true").lower() == "true"
-    )
-    deepgram_punctuate: bool = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_PUNCTUATE", "true").lower() == "true"
-    )
-    deepgram_utterances: bool = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_UTTERANCES", "true").lower() == "true"
-    )
-    deepgram_detect_language: bool = field(
-        default_factory=lambda: _env("CMG_RT_DEEPGRAM_DETECT_LANGUAGE", "true").lower() == "true"
-    )
-    deepgram_timeout_seconds: float = field(
-        default_factory=lambda: _env_float("CMG_RT_DEEPGRAM_TIMEOUT_SECONDS", 45.0)
-    )
 
     diarizer_provider: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_PROVIDER", "pyannote"))
     diarizer_device: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_DEVICE", "cuda"))
@@ -200,7 +178,7 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS", 2.0)
     )
 
-    llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "bedrock_auto_local"))
+    llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "lmstudio"))
     llm_model_name: str = field(default_factory=lambda: _env("CMG_RT_LLM_MODEL", "auto"))
     llm_endpoint: str | None = field(
         default_factory=lambda: os.getenv("CMG_RT_LLM_ENDPOINT") or "http://127.0.0.1:1234/v1"
@@ -213,15 +191,26 @@ class Settings:
     llm_context_segments: int = field(
         default_factory=lambda: _env_int("CMG_RT_LLM_CONTEXT_SEGMENTS", 4)
     )
-    bedrock_region: str = field(default_factory=lambda: _env("CMG_RT_BEDROCK_REGION", "us-east-1"))
-    bedrock_model_id: str = field(
-        default_factory=lambda: _env("CMG_RT_BEDROCK_MODEL_ID", "us.amazon.nova-2-lite-v1:0")
-    )
-    bedrock_profile: str | None = field(default_factory=lambda: os.getenv("CMG_RT_BEDROCK_PROFILE") or None)
-    bedrock_max_tokens: int = field(default_factory=lambda: _env_int("CMG_RT_BEDROCK_MAX_TOKENS", 1024))
 
     enable_summary: bool = field(
         default_factory=lambda: _env("CMG_RT_ENABLE_SUMMARY", "true").lower() == "true"
+    )
+
+    # Offline Safety & Internet Constraints
+    allow_remote_access: bool = field(
+        default_factory=lambda: _env("CMG_RT_ALLOW_REMOTE_ACCESS", "false").lower() == "true"
+    )
+    allow_remote_download: bool = field(
+        default_factory=lambda: _env("CMG_RT_ALLOW_REMOTE_DOWNLOAD", "false").lower() == "true"
+    )
+
+    # Diarization specific controls
+    diarization_enabled: bool = field(
+        default_factory=lambda: _env("CMG_RT_DIARIZATION_ENABLED", "true").lower() == "true"
+    )
+
+    transcription_quality_mode: str = field(
+        default_factory=lambda: _env("CMG_RT_TRANSCRIPTION_QUALITY_MODE", "balanced")
     )
 
     def ensure_directories(self) -> None:

@@ -10,6 +10,14 @@ from pathlib import Path
 
 import numpy as np
 
+# torchaudio 2.11.0 compatibility shim for silero_vad
+try:
+    import torchaudio
+    if not hasattr(torchaudio, "list_audio_backends"):
+        torchaudio.list_audio_backends = lambda: ["ffmpeg"]
+except ImportError:
+    pass
+
 from ..config import Settings
 from ..models import SpeechRegion
 
@@ -104,30 +112,35 @@ class EnergyVAD(BaseVAD):
 class SileroVAD(BaseVAD):
     def __init__(self, settings: Settings) -> None:
         try:
+            import torch
             silero_vad = importlib.import_module("silero_vad")
             get_speech_timestamps = getattr(silero_vad, "get_speech_timestamps")
             load_silero_vad = getattr(silero_vad, "load_silero_vad")
-            read_audio = getattr(silero_vad, "read_audio")
         except ImportError as exc:  # pragma: no cover - optional dependency
-            raise RuntimeError("silero-vad is not installed.") from exc
+            raise RuntimeError("silero-vad and torch are required for SileroVAD.") from exc
 
+        self._torch = torch
         self._get_speech_timestamps = get_speech_timestamps
         self._load_silero_vad = load_silero_vad
-        self._read_audio = read_audio
         self._model = self._load_silero_vad()
         self._settings = settings
 
     def detect(self, audio_path: Path) -> list[SpeechRegion]:
-        audio = self._read_audio(str(audio_path), sampling_rate=self._settings.sample_rate)
+        samples, sample_rate = _read_wav(audio_path)
+        if samples.size == 0:
+            return []
+            
+        # Convert numpy to torch tensor
+        audio_tensor = self._torch.from_numpy(samples)
+        
         timestamps = self._get_speech_timestamps(
-            audio,
+            audio_tensor,
             self._model,
             sampling_rate=self._settings.sample_rate,
             min_speech_duration_ms=self._settings.vad_min_speech_ms,
             min_silence_duration_ms=self._settings.vad_min_silence_ms,
             speech_pad_ms=self._settings.vad_padding_ms,
         )
-        samples, sample_rate = _read_wav(audio_path)
         regions = [
             SpeechRegion(
                 start=item["start"] / self._settings.sample_rate,

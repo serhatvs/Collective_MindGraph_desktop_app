@@ -36,8 +36,9 @@ class TranscriptionResult:
     speaker_count: int | None = None
     summary: str | None = None
     topics: list[dict[str, object]] = field(default_factory=list)
-    action_items: list[str] = field(default_factory=list)
-    decisions: list[str] = field(default_factory=list)
+    action_items: list[dict[str, object]] = field(default_factory=list)
+    decisions: list[dict[str, object]] = field(default_factory=list)
+    people: list[str] = field(default_factory=list)
     speaker_stats: list[dict[str, object]] = field(default_factory=list)
     segments: list[dict[str, object]] = field(default_factory=list)
     quality_report: dict[str, object] | None = None
@@ -53,7 +54,28 @@ class StreamingTranscriptionUpdate:
     speaker_count: int | None = None
     speaker_stats: list[dict[str, object]] = field(default_factory=list)
     segments: list[dict[str, object]] = field(default_factory=list)
+    action_items: list[dict[str, object]] = field(default_factory=list)
+    decisions: list[dict[str, object]] = field(default_factory=list)
     is_final: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class QueryResultItem:
+    result_type: str
+    text: str
+    source_session_id: str
+    source_segment_id: str | None = None
+    matched_field: str | None = None
+    matched_terms: list[str] = field(default_factory=list)
+    score: float = 1.0
+    preview: str | None = None
+    timestamp: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class QueryResponse:
+    query: str
+    results: list[QueryResultItem] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -289,6 +311,43 @@ class RealtimeBackendTranscriptionService:
 
         return self.result_from_payload(response_payload, audio_path=path)
 
+    def query_memory(self, query: str) -> QueryResponse:
+        import urllib.parse
+
+        safe_query = urllib.parse.quote(query)
+        request = Request(
+            urljoin(f"{self._config.base_url}/", f"query?q={safe_query}"),
+            method="GET",
+            headers={"Accept": "application/json"},
+        )
+        try:
+            payload = self._read_json_response(request)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace").strip()
+            raise ValueError(f"Memory query failed: {detail or exc.reason or exc.code}") from exc
+        except URLError as exc:
+            raise ValueError(_backend_unreachable_message(self._config.base_url)) from exc
+        except TimeoutError as exc:
+            raise ValueError("Memory query timed out.") from exc
+
+        results_payload = payload.get("results") or []
+        results = [
+            QueryResultItem(
+                result_type=str(item.get("result_type") or "unknown"),
+                text=str(item.get("text") or ""),
+                source_session_id=str(item.get("source_session_id") or ""),
+                source_segment_id=self._extract_string(item, "source_segment_id"),
+                matched_field=self._extract_string(item, "matched_field"),
+                matched_terms=self._extract_string_list(item, "matched_terms"),
+                score=float(item.get("score") or 1.0),
+                preview=self._extract_string(item, "preview"),
+                timestamp=self._extract_string(item, "timestamp"),
+            )
+            for item in results_payload
+            if isinstance(item, dict)
+        ]
+        return QueryResponse(query=query, results=results)
+
     def fetch_health(self) -> BackendHealthStatus:
         request = Request(
             urljoin(f"{self._config.base_url}/", "health"),
@@ -357,8 +416,9 @@ class RealtimeBackendTranscriptionService:
             speaker_count=len(normalized_speaker_stats) or None,
             summary=self._extract_string(summary_payload, "summary"),
             topics=self._extract_list(summary_payload, "topics"),
-            action_items=self._extract_string_list(summary_payload, "action_items"),
-            decisions=self._extract_string_list(summary_payload, "decisions"),
+            action_items=self._extract_list(summary_payload, "action_items"),
+            decisions=self._extract_list(summary_payload, "decisions"),
+            people=self._extract_string_list(summary_payload, "people") or self._extract_string_list(payload.get("transcript") or {}, "people"),
             speaker_stats=[item for item in normalized_speaker_stats if isinstance(item, dict)],
             segments=[item for item in normalized_segments if isinstance(item, dict)],
             quality_report=quality_payload,
@@ -385,6 +445,8 @@ class RealtimeBackendTranscriptionService:
             speaker_count=len(normalized_speaker_stats) or None,
             speaker_stats=normalized_speaker_stats,
             segments=[item for item in segments if isinstance(item, dict)] if isinstance(segments, list) else [],
+            action_items=self._extract_list(payload, "action_items"),
+            decisions=self._extract_list(payload, "decisions"),
             is_final=bool(payload.get("is_final") or False),
         )
 

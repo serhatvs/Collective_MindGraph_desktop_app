@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
-from ..models import FileTranscriptionResponse, HealthResponse, QualityReport, SummaryResponse, TranscriptResponse
+from ..models import FileTranscriptionResponse, HealthResponse, QualityReport, QueryResponse, SummaryResponse, TranscriptResponse
 from ..pipeline.transcript_formatter import build_transcript_response
 
 router = APIRouter()
@@ -35,7 +35,9 @@ async def health(request: Request) -> HealthResponse:
 async def transcribe_file(
     request: Request,
     upload: UploadFile = File(...),
+    conversation_id: str | None = Form(default=None),
     language: str | None = Form(default=None),
+    quality_mode: str | None = Form(default=None),
 ) -> FileTranscriptionResponse:
     service = request.app.state.transcription_service
     settings = request.app.state.settings
@@ -45,7 +47,9 @@ async def transcribe_file(
     try:
         transcript = await service.transcribe_file(
             source_path,
+            conversation_id=conversation_id,
             language=language,
+            quality_mode=quality_mode,
             source="upload",
         )
     finally:
@@ -88,3 +92,13 @@ async def get_quality(request: Request, conversation_id: str) -> QualityReport:
     if transcript is None:
         raise HTTPException(status_code=404, detail="Transcript not found.")
     return request.app.state.quality_service.build_report(transcript)
+
+
+@router.get("/query", response_model=QueryResponse)
+async def query_memory(request: Request, q: str) -> QueryResponse:
+    # Get all conversation IDs from the store
+    store = request.app.state.transcription_service._store
+    conv_ids = [p.stem for p in store._base_dir.glob("*.json")]
+
+    results = request.app.state.query_service.search(q, conv_ids)
+    return QueryResponse(query=q, results=results)

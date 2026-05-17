@@ -27,7 +27,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["collective_mindgraph_desktop*"]
+include = ["collective_mindgraph*", "collective_mindgraph_desktop*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

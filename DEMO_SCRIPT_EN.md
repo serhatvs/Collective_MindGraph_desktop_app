@@ -15,7 +15,7 @@ This script is designed for presenting Collective MindGraph to professors, revie
 
 1.  **Readiness**: "First, we verify that the local environment and models are correctly configured." (`./scripts/check_demo_readiness.sh`)
 2.  **Seeding Data**: "We seed the system with a technical Turkish meeting sample to demonstrate the extraction logic without requiring live audio." (`PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py`)
-3.  **Launch**: "We start the local backend service and the desktop UI." (`./scripts/dev_backend.sh` and `./scripts/dev_desktop.sh`)
+3.  **Launch**: "We start the local backend service on port 8081 and launch the native PySide6 desktop UI, which is our primary user interface." (`./scripts/dev_backend.sh` and `./scripts/dev_desktop.sh`)
 4.  **Session Review**: "We open the 'demo_technical_turkish' session from the explorer."
 5.  **Cleaned Transcript**: "Note how the system handles technical casing and filters out filler words for better readability."
 6.  **Structured Insights**: "Observe the automatically extracted Tasks and Decisions in the side panel, such as 'FastAPI testing' or 'SQLite storage decisions'."

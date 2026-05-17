@@ -49,4 +49,30 @@ Open another terminal and launch the UI.
 ---
 **Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
 
+## Troubleshooting: Desktop App Window Not Appearing
+The **native PySide6 desktop app** is the only user-facing frontend. If the window does not appear after running `./scripts/dev_desktop.sh`:
+
+1.  **Check Display Environment**:
+    ```bash
+    echo "DISPLAY=$DISPLAY"
+    echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
+    ```
+    Ensure you are in a graphical environment (X11 or Wayland).
+
+2.  **Verify Process**:
+    ```bash
+    pgrep -af python | grep collective_mindgraph_desktop
+    ```
+
+3.  **Debug Qt Plugins**:
+    If there are platform errors, run with plugin debugging:
+    ```bash
+    QT_DEBUG_PLUGINS=1 ./scripts/dev_desktop.sh
+    ```
+
+4.  **Virtual Environment**:
+    The desktop app requires PySide6, which is installed in `realtime_backend/.venv`. The `dev_desktop.sh` script handles this automatically if the venv exists.
+
+*Note: The backend API at `127.0.0.1:8081` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.*
+
 *Note: This flow demonstrates architectural integration and Turkish heuristic accuracy. Actual meeting-room audio performance is pending manual fixture validation.*

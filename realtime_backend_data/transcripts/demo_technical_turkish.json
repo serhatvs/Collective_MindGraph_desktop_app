@@ -1,0 +1,63 @@
+{
+  "conversation_id": "demo_technical_turkish",
+  "created_at": "2026-05-17T21:35:56.734869Z",
+  "updated_at": "2026-05-17T21:35:56.734873Z",
+  "source": "demo_seed",
+  "language": "tr",
+  "quality_mode": null,
+  "status": "completed",
+  "segments": [
+    {
+      "segment_id": "s1",
+      "start": 0.0,
+      "end": 15.0,
+      "speaker": "Serhat",
+      "raw_text": "merhaba, bugün collective mindgraph toplantısındayız. transcript kalitesini artırmamız gerekiyor. bu hafta fastapi endpointini test edeceğiz. sqlite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. vad ayarlarını kontrol edip kararları ve görevleri düzgün çıkaracağız.",
+      "corrected_text": "Merhaba, bugün Collective MindGraph toplantısındayız. Transcript kalitesini artırmamız gerekiyor. Bu hafta FastAPI endpointini test edeceğiz. SQLite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. VAD ayarlarını kontrol edip kararları ve görevleri düzgün çıkaracağız.",
+      "words": [],
+      "confidence": null,
+      "speaker_confidence": null,
+      "overlap": false,
+      "notes": [],
+      "metadata": {}
+    }
+  ],
+  "summary": "1 speaker covered Decisions. Early context: Merhaba, bugün Collective MindGraph toplantısındayız. Transcript kalitesini artırmamız gerekiyor. Bu hafta FastAPI endpointini test edeceğiz. SQLite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. VAD a Decisions: Sqlite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak Action items: Transcript kalitesini artırmamız gerekiyor; Bu hafta fastapi endpointini test edeceğiz",
+  "topics": [
+    {
+      "label": "Decisions",
+      "start": 0.0,
+      "end": 15.0
+    }
+  ],
+  "action_items": [
+    {
+      "title": "Transcript kalitesini artırmamız gerekiyor",
+      "responsible_person": "Serhat",
+      "due_date_reference": null,
+      "source_segment_id": "s1",
+      "confidence_note": "heuristic match"
+    },
+    {
+      "title": "Bu hafta fastapi endpointini test edeceğiz",
+      "responsible_person": "Serhat",
+      "due_date_reference": null,
+      "source_segment_id": "s1",
+      "confidence_note": "heuristic match"
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "Sqlite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak",
+      "reason_context": null,
+      "source_segment_id": "s1",
+      "confidence_note": "heuristic match"
+    }
+  ],
+  "people": [
+    "Serhat"
+  ],
+  "metadata": {},
+  "debug": null,
+  "diagnostics": null
+}

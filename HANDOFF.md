@@ -25,9 +25,14 @@ Collective MindGraph is a local-first, privacy-focused desktop application for c
 ## How to Run the Local Demo
 Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
 
+## Interface Definitions
+- **User-facing Frontend**: Native PySide6 Desktop Application in `src/collective_mindgraph_desktop/`.
+- **Backend API**: Local FastAPI service at `http://127.0.0.1:8081`.
+- **Optional Developer Docs**: API documentation at `http://127.0.0.1:8081/docs` (Use for debugging only).
+
 ## Architecture
-- **Desktop UI**: PySide6 application in `src/collective_mindgraph_desktop`.
-- **Backend Service**: FastAPI service in `realtime_backend` for audio processing and analysis.
+- **Desktop UI**: PySide6 application. This is the **primary user interface**.
+- **Backend Service**: FastAPI service. This is a background processing service.
 - **Persistence**: SQLite (Desktop) and File-based (Backend).
 - **Core Pipeline**:
   1. `audio_process.py`: FFmpeg normalization.

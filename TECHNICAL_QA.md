@@ -13,21 +13,27 @@ No. The current implementation uses **basic graph-node persistence**. It stores 
 No. All cloud AI logic (Amazon Bedrock, Deepgram) has been **completely removed**. The system is strictly local-first and offline-capable by default.
 
 ## 5. What is "local-first" in this context?
-It means all audio normalization, VAD, ASR, and extraction happen on the user's machine. The system includes **offline safety guards** that prevent it from making unintentional network calls to public APIs.
+It means all audio normalization, VAD, ASR, and extraction happen on the user's machine. The system includes **offline safety guards** that prevent it from making unintentional network calls to public APIs. The **frontend** is a native desktop application that communicates with this local service.
 
-## 6. What is the difference between raw_transcript and cleaned_transcript?
+## 6. Where is the user interface?
+The user interface is a **native PySide6 desktop application**. The FastAPI backend at `127.0.0.1:8081` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.
+
+## 7. What is the difference between raw_transcript and cleaned_transcript?
 - **Raw Transcript**: The exact, unfiltered output from the ASR model, preserved for auditability and debugging.
 - **Cleaned Transcript**: Metatdata-aware text processed to remove Turkish filler words (*şey, yani, ııı*) and normalize technical casing (*FastAPI, SQLite*).
 
-## 7. What is the difference between keyword search and semantic search?
+## 8. What is the difference between keyword search and semantic search?
 - **Keyword Search (Implemented)**: Finds exact token matches in the database.
 - **Semantic Search (Planned)**: Uses vector embeddings to find conceptually related results (e.g., searching "database" finds "SQLite").
 
-## 8. What is the strongest technical novelty angle?
+## 9. What is the strongest technical novelty angle?
 The **dual-transcript auditable pipeline** combined with **deterministic technical Turkish heuristic extraction** running in a strictly **privacy-preserved offline environment**.
 
-## 9. How is privacy handled?
+## 10. How is privacy handled?
 By design, the system has no code paths to cloud AI providers. All endpoints are validated against local/private IP ranges. Audio files and transcripts never leave the local storage directories.
 
-## 11. What is the current official status?
+## 11. What happens to raw audio?
+Audio is normalized locally and temporarily stored in a `temp/` directory for processing. Users can configure retention or permanent storage settings.
+
+## 12. What is the current official status?
 The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.

@@ -1,11 +1,16 @@
-# Collective MindGraph
+# Collective MindGraph (Legacy Distributed Architecture)
+
+> **IMPORTANT**: This document describes an alternative/legacy distributed architecture using Docker and MQTT. 
+> The **current primary frontend** is the native **PySide6 Desktop Application** located in `src/collective_mindgraph_desktop/`.
+> For the current local MVP demo, please refer to the root `README.md` and `DEMO_FLOW.md`.
 
 Docker-first monorepo for a distributed multi-agent reasoning demo built around MQTT events, Postgres state, and isolated Python agent containers.
 
-## Current App Form
+## Architecture History
 
-- The current user-facing application is a local web dashboard served by FastAPI.
-- The canonical operator experience is: start the Docker stack, then open `http://localhost:8000` in a browser.
+- Previously, the user-facing application was a local web dashboard served by FastAPI in a Docker stack.
+- The **new primary user experience** is the native desktop application.
+- The canonical operator experience for THIS legacy stack is: start the Docker stack, then open `http://localhost:8000` in a browser.
 - This repository does not ship a packaged native desktop executable such as a Windows `.exe`.
 
 ## Stack

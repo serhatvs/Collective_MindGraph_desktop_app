@@ -15,7 +15,7 @@ Bu senaryo, Collective MindGraph projesini bir öğretmene, TTO yetkilisine veya
 
 1.  **Hazırlık**: "Sistemi çalıştırmadan önce çevresel gereksinimlerin (ffmpeg, yerel modeller) tam olduğunu kontrol ediyoruz." (`./scripts/check_demo_readiness.sh`)
 2.  **Veri Hazırlama**: "Ses kaydı gerektirmeyen, teknik bir Türkçe toplantı metnini sisteme örnek veri olarak yüklüyoruz." (`PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py`)
-3.  **Servislerin Başlatılması**: "Yerel STT servisimiz ve masaüstü arayüzümüzü başlatıyoruz." (`./scripts/dev_backend.sh` ve `./scripts/dev_desktop.sh`)
+3.  **Servislerin Başlatılması**: "Arka planda ses işleme servisimiz olan FastAPI'yi 8081 portunda başlatıyoruz. Ardından, asıl kullanıcı arayüzümüz olan yerel masaüstü uygulamamızı açıyoruz." (`./scripts/dev_backend.sh` ve `./scripts/dev_desktop.sh`)
 4.  **Oturum İnceleme**: "Oturum Listesi'nden az önce eklediğimiz 'demo_technical_turkish' oturumunu açıyoruz."
 5.  **Temiz Metin (Cleaned Transcript)**: "Sistemin dolgu kelimeleri temizleyip teknik terimleri nasıl düzelttiğini gösteriyoruz."
 6.  **Görev ve Kararlar**: "Heuristik yöntemlerle ayıklanan 'FastAPI testi' veya 'SQLite kaydı' gibi yapısal verileri sağ panelde gösteriyoruz."

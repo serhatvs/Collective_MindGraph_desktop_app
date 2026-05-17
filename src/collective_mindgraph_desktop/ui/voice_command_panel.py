@@ -81,6 +81,9 @@ class VoiceCommandPanel(QWidget):
     activity_reported = Signal(str)
     transcript_captured = Signal(object)
 
+    def current_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
+        return self._transcription_config
+
     def __init__(
         self,
         workflow: VoiceCommandWorkflow | None = None,

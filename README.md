@@ -39,6 +39,7 @@ Real meeting-room production accuracy still requires project-specific/manual mee
 - **[HANDOFF.md](HANDOFF.md)**: Technical overview and architecture details for developers.
 - **[DEMO_FLOW.md](DEMO_FLOW.md)**: Step-by-step instructions for demonstrating the product loop.
 - **[PITCH_SUMMARY.md](PITCH_SUMMARY.md)**: Problem, solution, and value proposition at different lengths.
+- **[PRESENTATION_PACKAGE_TR.md](PRESENTATION_PACKAGE_TR.md)**: Turkish presentation scripts and slide outline.
 - **[DEMO_SCRIPT_TR.md](DEMO_SCRIPT_TR.md)**: Turkish presentation script for reviewers.
 - **[DEMO_SCRIPT_EN.md](DEMO_SCRIPT_EN.md)**: English presentation script for technical partners.
 - **[SLIDE_OUTLINE.md](SLIDE_OUTLINE.md)**: 7-slide structure for project presentations.

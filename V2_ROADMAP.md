@@ -31,4 +31,4 @@ Develop a dedicated physical device for seamless meeting intelligence.
 - **Local Inference Workflow**: Seamless push/pull of memory between the hardware device and the desktop application.
 
 ---
-**Baseline**: Phase 0 (Software MVP) is completed. System is product-integration ready for local technical Turkish transcription.
+**Baseline**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.

@@ -32,4 +32,7 @@ The system identifies and extracts high-level organizational entities from the c
 - **Implemented**: Local ASR, raw/clean separation, heuristic technical Turkish extraction, keyword query, and source-linked desktop UI.
 - **Roadmap (Potential Future Capabilities)**: Semantic vector retrieval, multi-hop reasoning, arbitrary graph edge relationships, and hardware-specific status displays.
 
+## 6. Project Status
+The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+
 *Note: This document describes a prototype/MVP implementation. Actual performance in non-controlled environments or meeting-room conditions is pending further validation.*

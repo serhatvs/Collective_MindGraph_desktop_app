@@ -1,5 +1,8 @@
 # Project Handoff: Collective MindGraph
 
+## Status and Claim Boundary
+**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.**
+
 ## Overview
 Collective MindGraph is a local-first, privacy-focused desktop application for capturing, transcribing, and extracting knowledge from technical Turkish meetings. It has transitioned from a cloud-dependent architecture to a strictly offline-capable system.
 

@@ -45,4 +45,4 @@ These notes guide you through presenting the current local-first software MVP.
 - **Perfect Diarization**: State that diarization is optimized for local environments but can be model-limited in high noise.
 
 ---
-**Status**: Local MVP Demo Ready. Product-integration ready for keyword-based memory exploration.
+**Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.

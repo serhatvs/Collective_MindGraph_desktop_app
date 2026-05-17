@@ -47,5 +47,6 @@ Open another terminal and launch the UI.
 - Observe the **segment table scrolling and highlighting** the exact source of that information.
 
 ---
-**Status**: Local MVP Demo Ready. 
+**Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+
 *Note: This flow demonstrates architectural integration and Turkish heuristic accuracy. Actual meeting-room audio performance is pending manual fixture validation.*

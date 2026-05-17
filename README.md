@@ -30,15 +30,22 @@ Collective MindGraph is a native Windows-first desktop application built with Py
 - Editable transcript-segment correction UI for speaker labels and corrected text
 
 ## Product-integration ready for local-first Turkish transcription
+The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+
 Real meeting-room production accuracy still requires project-specific/manual meeting audio validation.
 
 ## Project Documentation
 - **[PROJECT_STATUS.md](PROJECT_STATUS.md)**: Current MVP summary, implementation matrix, and honest claim boundaries.
 - **[HANDOFF.md](HANDOFF.md)**: Technical overview and architecture details for developers.
 - **[DEMO_FLOW.md](DEMO_FLOW.md)**: Step-by-step instructions for demonstrating the product loop.
-- **[TECHNICAL_OVERVIEW_FOR_PATENT.md](TECHNICAL_OVERVIEW_FOR_PATENT.md)**: Conceptual and technical summary suitable for external reference/filing.
-- **[DEMO_PRESENTATION_NOTES.md](DEMO_PRESENTATION_NOTES.md)**: Structured scripts for short and technical demonstrations.
-- **[V2_ROADMAP.md](V2_ROADMAP.md)**: 4-phase plan for future development from MVP to hardware-integrated semantic system.
+- **[PITCH_SUMMARY.md](PITCH_SUMMARY.md)**: Problem, solution, and value proposition at different lengths.
+- **[DEMO_SCRIPT_TR.md](DEMO_SCRIPT_TR.md)**: Turkish presentation script for reviewers.
+- **[DEMO_SCRIPT_EN.md](DEMO_SCRIPT_EN.md)**: English presentation script for technical partners.
+- **[SLIDE_OUTLINE.md](SLIDE_OUTLINE.md)**: 7-slide structure for project presentations.
+- **[TECHNICAL_QA.md](TECHNICAL_QA.md)**: Likely questions and honest, data-backed answers.
+- **[PATENT_SAFE_CLAIMS.md](PATENT_SAFE_CLAIMS.md)**: Precise, non-overclaiming terminology for formal filings.
+- **[TECHNICAL_OVERVIEW_FOR_PATENT.md](TECHNICAL_OVERVIEW_FOR_PATENT.md)**: Conceptual summary for external reference.
+- **[V2_ROADMAP.md](V2_ROADMAP.md)**: 4-phase plan for future development.
 
 ### Extraction Output Example (Turkish)
 For a session containing: *“Merhaba, bugün Collective MindGraph toplantısındayız. Bu hafta FastAPI endpointini test edeceğiz.”*
@@ -52,22 +59,10 @@ The system extracts:
 - **Topics**: `["Action Items", "FastAPI", "MindGraph"]`
 - **People**: `["Speaker_1"]`
 
-### Memory Graph Status
+### Memory Graph and Search Status
 Collective MindGraph currently uses **basic graph-node persistence** via hierarchical nodes in SQLite (adjacency list with `parent_node_id`). It is not a full graph database; it supports tree-based exploration and side-node enrichment for tasks and decisions.
-## Desktop Global Search status
-- **implemented**: local keyword memory search UI in the "Memory Search" panel
-- **searches**: transcripts, tasks, decisions, and topics across all sessions
-- **source-linked**: results allow double-clicking to navigate back to the source session and segment
-- **semantic/vector search**: future TODO
-- **full graph reasoning**: not implemented yet; uses basic hierarchical node structure
 
-## Current memory/query status
-...
-- **implemented**: local keyword search over cleaned transcripts, tasks, decisions, topics
-- **implemented**: source-linked query results
-- **implemented**: basic heuristic scoring (prioritizing decisions and tasks)
-- **not implemented yet**: vector embeddings, semantic search, arbitrary graph edges, multi-hop reasoning
-- **current graph storage**: SQLite adjacency/tree-style nodes, not full graph database
+The backend provides a `/query` endpoint for **traceable local keyword search** over transcripts, tasks, decisions, and topics across all sessions. Semantic search and arbitrary graph edges are not yet implemented.
 
 ## Local Demo Flow
 
@@ -82,23 +77,29 @@ To explore the integrated system locally:
     pip install -r requirements.txt
     ```
 
-2.  **Start the Backend**:
+2.  **Verify environment**:
     ```powershell
-    ./scripts/dev_backend.sh
+    ./scripts/check_demo_readiness.sh
     ```
 
-3.  **Start the Desktop App**:
-    ```powershell
-    ./scripts/dev_desktop.sh
-    ```
-
-4.  **Seed a Demo Session (Optional)**:
-    If you don't have audio ready, run:
+3.  **Seed a Demo Session**:
+    If you don't have audio ready, run this to populate the memory:
     ```powershell
     PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
     ```
 
-5.  **Explore the Product Loop**:
+4.  **Start the Backend**:
+    ```powershell
+    ./scripts/dev_backend.sh
+    ```
+
+5.  **Start the Desktop App**:
+    ```powershell
+    ./scripts/dev_desktop.sh
+    ```
+
+6.  **Explore the Product Loop**:
+
     - **Transcribe**: Record a technical session or transcribe a local file.
     - **Inspect**: Compare **Raw ASR** vs. **Cleaned Transcript** in the session detail.
     - **Memory**: View extracted tasks, decisions, and topics.

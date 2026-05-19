@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot, Qt
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -29,6 +29,7 @@ from ..transcription import (
 )
 from ..voice_command import VoiceCommandState, VoiceCommandWorkflow
 from ..wake_phrase import VoskWakePhraseController, WakePhraseConfig, describe_stream_input_device
+from .components.status_badge import StatusBadge
 from .widgets import CardWidget, TranscriptionSettingsDialog
 
 class BackendTranscriptionWorker(QObject):
@@ -116,90 +117,73 @@ class VoiceCommandPanel(QWidget):
         self._live_stream_finalizing = False
         self._transcription_config = self._apply_runtime_config(self._transcription_config, emit_activity=False)
 
+        # NEW COMPACT UI LAYOUT
         root_layout = QVBoxLayout(self)
         root_layout.setContentsMargins(0, 0, 0, 0)
 
-        card = CardWidget("Voice Command")
-        root_layout.addWidget(card)
+        self.card = CardWidget("Voice Ingest")
+        root_layout.addWidget(self.card)
 
-        header_row = QHBoxLayout()
-        header_row.setSpacing(10)
+        top_row = QHBoxLayout()
+        top_row.setSpacing(16)
 
-        self.status_badge = QLabel()
-        self.status_badge.setObjectName("VoiceStatusBadge")
-        self.status_badge.setMinimumWidth(128)
-        header_row.addWidget(self.status_badge)
+        self.status_badge = StatusBadge("IDLE", stage="idle")
+        self.status_badge.setMinimumWidth(140)
+        self.status_badge.setMinimumHeight(32)
+        top_row.addWidget(self.status_badge)
 
-        self.pipeline_label = QLabel("Input: recorded speech  ->  Local backend transcript  ->  Session")
+        self.pipeline_label = QLabel("Capture technical conversation for automated analysis.")
         self.pipeline_label.setObjectName("MutedText")
-        self.pipeline_label.setWordWrap(True)
-        header_row.addWidget(self.pipeline_label, 1)
-        card.body_layout.addLayout(header_row)
+        top_row.addWidget(self.pipeline_label, 1)
 
-        self.guidance_label = QLabel()
-        self.guidance_label.setObjectName("MutedText")
-        self.guidance_label.setWordWrap(True)
-        card.body_layout.addWidget(self.guidance_label)
+        self.card.body_layout.addLayout(top_row)
 
-        capture_label = QLabel("Captured Audio")
-        capture_label.setObjectName("MutedText")
-        card.body_layout.addWidget(capture_label)
-
-        self.capture_path_label = QLabel()
-        self.capture_path_label.setObjectName("MutedText")
-        self.capture_path_label.setWordWrap(True)
-        card.body_layout.addWidget(self.capture_path_label)
-
-        config_label = QLabel("Transcription Backend")
-        config_label.setObjectName("MutedText")
-        card.body_layout.addWidget(config_label)
-
-        self.config_summary_label = QLabel()
-        self.config_summary_label.setObjectName("MutedText")
-        self.config_summary_label.setWordWrap(True)
-        card.body_layout.addWidget(self.config_summary_label)
-
-        backend_label = QLabel("Backend Runtime")
-        backend_label.setObjectName("MutedText")
-        card.body_layout.addWidget(backend_label)
-
-        self.provider_status_label = QLabel("Checking backend providers...")
-        self.provider_status_label.setObjectName("MutedText")
-        self.provider_status_label.setWordWrap(True)
-        card.body_layout.addWidget(self.provider_status_label)
-
-        wake_label = QLabel("Wake Trigger")
-        wake_label.setObjectName("MutedText")
-        card.body_layout.addWidget(wake_label)
-
-        self.wake_status_label = QLabel()
-        self.wake_status_label.setObjectName("MutedText")
-        self.wake_status_label.setWordWrap(True)
-        card.body_layout.addWidget(self.wake_status_label)
-
-        button_row = QHBoxLayout()
-        button_row.setSpacing(8)
+        control_row = QHBoxLayout()
+        control_row.setSpacing(10)
 
         self.start_button = QPushButton("Start Recording")
-        self.stop_button = QPushButton("Stop")
+        self.start_button.clicked.connect(self._handle_start)
+
+        self.stop_button = QPushButton("Stop & Transcribe")
         self.stop_button.setProperty("secondary", True)
-        self.transcribe_button = QPushButton("Retry Transcribe")
-        self.wake_toggle_button = QPushButton("Disable Wake Trigger")
-        self.wake_toggle_button.setProperty("secondary", True)
-        self.settings_button = QPushButton("Backend Settings")
-        self.settings_button.setProperty("secondary", True)
-        self.refresh_backend_button = QPushButton("Refresh Backend")
-        self.refresh_backend_button.setProperty("secondary", True)
+        self.stop_button.clicked.connect(self._handle_stop)
+        self.stop_button.setEnabled(False)
+
         self.clear_button = QPushButton("Clear")
         self.clear_button.setProperty("secondary", True)
-
-        self.start_button.clicked.connect(self._handle_start)
-        self.stop_button.clicked.connect(self._handle_stop)
-        self.transcribe_button.clicked.connect(self._handle_transcribe)
-        self.wake_toggle_button.clicked.connect(self._handle_toggle_wake_trigger)
-        self.settings_button.clicked.connect(self._handle_open_settings)
-        self.refresh_backend_button.clicked.connect(lambda: self._refresh_backend_health(auto_start=True))
         self.clear_button.clicked.connect(self._handle_clear)
+        self.clear_button.setEnabled(False)
+
+        self.settings_button = QPushButton("Settings")
+        self.settings_button.setProperty("secondary", True)
+        self.settings_button.clicked.connect(self._handle_open_settings)
+
+        control_row.addWidget(self.start_button)
+        control_row.addWidget(self.stop_button)
+        control_row.addWidget(self.clear_button)
+        control_row.addStretch(1)
+        control_row.addWidget(self.settings_button)
+
+        self.card.body_layout.addLayout(control_row)
+
+        # Provider / Health status at the bottom of the card
+        self.provider_status_label = QLabel("Backend Status: Checking...")
+        self.provider_status_label.setObjectName("MutedText")
+        self.provider_status_label.setStyleSheet("font-size: 9pt;")
+        self.card.body_layout.addWidget(self.provider_status_label)
+
+        # Compatibility placeholders (Hidden)
+        self.guidance_label = QLabel()
+        self.capture_path_label = QLabel()
+        self.config_summary_label = QLabel()
+        self.wake_status_label = QLabel()
+        self.transcript_output = QPlainTextEdit()
+        self.processing_hint_label = QLabel()
+        self.transcribe_button = QPushButton()
+        self.wake_toggle_button = QPushButton()
+        self.refresh_backend_button = QPushButton()
+
+        # Wire signals
         self._capture_controller.recording_started.connect(self._handle_capture_started)
         self._capture_controller.recording_stopped.connect(self._handle_capture_stopped)
         self._capture_controller.recording_auto_stopped.connect(self._handle_capture_auto_stopped)
@@ -215,33 +199,6 @@ class VoiceCommandPanel(QWidget):
         self._live_stream_controller.state_changed.connect(self._handle_live_state_changed)
         self._backend_manager.state_changed.connect(self._handle_backend_manager_state_changed)
         self._backend_manager.error_occurred.connect(self._handle_backend_manager_error)
-
-        button_row.addWidget(self.start_button)
-        button_row.addWidget(self.stop_button)
-        button_row.addWidget(self.transcribe_button)
-        button_row.addWidget(self.wake_toggle_button)
-        button_row.addWidget(self.settings_button)
-        button_row.addWidget(self.refresh_backend_button)
-        button_row.addWidget(self.clear_button)
-        button_row.addStretch(1)
-        card.body_layout.addLayout(button_row)
-
-        transcript_label = QLabel("Transcript Output")
-        transcript_label.setObjectName("MutedText")
-        card.body_layout.addWidget(transcript_label)
-
-        self.transcript_output = QPlainTextEdit()
-        self.transcript_output.setReadOnly(True)
-        self.transcript_output.setMinimumHeight(110)
-        self.transcript_output.setPlaceholderText(
-            "Transcript text from the local backend will appear here after transcription."
-        )
-        card.body_layout.addWidget(self.transcript_output)
-
-        self.processing_hint_label = QLabel()
-        self.processing_hint_label.setObjectName("MutedText")
-        self.processing_hint_label.setWordWrap(True)
-        card.body_layout.addWidget(self.processing_hint_label)
 
         self._apply_state(self._workflow.state)
         self._backend_health_timer.start()
@@ -316,9 +273,7 @@ class VoiceCommandPanel(QWidget):
 
     def _apply_state(self, state: VoiceCommandState) -> None:
         self.status_badge.setText(state.status_label)
-        self.status_badge.setProperty("stage", state.stage)
-        self.status_badge.style().unpolish(self.status_badge)
-        self.status_badge.style().polish(self.status_badge)
+        self.status_badge.set_stage(state.stage)
 
         self.guidance_label.setText(state.guidance_text)
         self.capture_path_label.setText(state.audio_path or "No audio clip captured yet.")
@@ -401,157 +356,56 @@ class VoiceCommandPanel(QWidget):
         self._handle_start()
 
     def _handle_shutdown_requested(self, recognized_text: str) -> None:
-        if self._workflow.state.stage == "recording":
-            self._handle_stop()
-            self.activity_reported.emit(
-                f"Shutdown phrase detected: {recognized_text}. Recording stopped and will be transcribed."
-            )
+        if self._workflow.state.stage != "recording":
             return
-        if self._workflow.state.stage == "transcribing":
-            self.activity_reported.emit(
-                f"Shutdown phrase detected: {recognized_text}. Current transcription will finish, "
-                "but the wake trigger stays armed."
-            )
-            return
-        self._apply_state(self._workflow.state)
-        self.activity_reported.emit(
-            f"Shutdown phrase detected: {recognized_text}. Wake trigger remains armed."
-        )
+        self.activity_reported.emit(f"Shutdown phrase detected: {recognized_text}")
+        self._handle_stop()
 
-    def _handle_wake_state_changed(self, _message: str) -> None:
+    def _handle_wake_state_changed(self, message: str) -> None:
         self._apply_state(self._workflow.state)
+        if message:
+            self.activity_reported.emit(message)
 
     def _handle_wake_error(self, message: str) -> None:
-        self.activity_reported.emit(message)
-        self._apply_state(self._workflow.state)
+        self.activity_reported.emit(f"Wake trigger error: {message}")
 
     def _handle_live_partial_received(self, update: StreamingTranscriptionUpdate) -> None:
-        live_text = update.corrected_text_output or update.text
-        if live_text:
-            self._transcript_output_override = None
-            self.transcript_output.setPlainText(live_text)
+        if self._live_stream_finalizing:
+            return
+        self._transcript_output_override = update.text
+        self._apply_state(self._workflow.state)
 
     def _handle_live_finalized(self, result: TranscriptionResult) -> None:
-        self._live_stream_attempted = False
-        self._live_stream_failed = False
         self._live_stream_finalizing = False
         self._complete_transcription_result(result)
 
     def _handle_live_failed(self, message: str) -> None:
-        self._live_stream_attempted = False
-        self._live_stream_failed = True
-        was_waiting_for_final = self._live_stream_finalizing
+        if not self._live_stream_finalizing:
+            self.activity_reported.emit(f"Live stream failed: {message}. Falling back to upload.")
+            return
         self._live_stream_finalizing = False
-        self.activity_reported.emit(f"{message} Falling back to final file upload.")
-        if was_waiting_for_final and self._workflow.state.audio_path and self._transcription_thread is None:
-            self._apply_state(self._workflow.stop_recording(self._workflow.state.audio_path))
-            QTimer.singleShot(0, self._handle_transcribe)
+        QTimer.singleShot(0, self._handle_transcribe)
 
     def _handle_live_state_changed(self, message: str) -> None:
         if message:
             self.activity_reported.emit(message)
 
-    def _handle_backend_health_finished(self, result: BackendHealthStatus) -> None:
-        self._backend_health = result
-        self._backend_health_retry_after_start = False
-        self._backend_status_override = None
-        self._apply_state(self._workflow.state)
-
-    def _handle_backend_health_failed(self, message: str) -> None:
-        self._backend_health = None
-        if self._backend_health_retry_after_start:
-            self._backend_health_retry_after_start = False
-            self._backend_status_override = None
-            self.provider_status_label.setText(self._backend_status_text(message))
-            self.activity_reported.emit(message)
-            self._apply_state(self._workflow.state)
-            return
-
-        if self._backend_manager.can_manage(self._transcription_config.base_url):
-            started = self._backend_manager.ensure_running(self._transcription_config.base_url)
-            if started:
-                self._backend_health_retry_after_start = True
-                self._backend_status_override = "Starting local backend and retrying health check..."
-                self.provider_status_label.setText(self._backend_status_text())
-                QTimer.singleShot(2000, lambda: self._refresh_backend_health(auto_start=False))
-                return
-
-        self._backend_status_override = None
-        self.provider_status_label.setText(self._backend_status_text(message))
-        self.activity_reported.emit(message)
-        self._apply_state(self._workflow.state)
-
     def _handle_backend_manager_state_changed(self, message: str) -> None:
-        self.activity_reported.emit(message)
+        if message:
+            self.activity_reported.emit(message)
 
     def _handle_backend_manager_error(self, message: str) -> None:
-        self.activity_reported.emit(message)
+        self.activity_reported.emit(f"Backend manager error: {message}")
 
-    def _cleanup_transcription_worker(self) -> None:
-        if self._transcription_worker is not None:
-            self._transcription_worker.deleteLater()
-        if self._transcription_thread is not None:
-            self._transcription_thread.deleteLater()
-        self._transcription_worker = None
-        self._transcription_thread = None
-        self._refresh_config_summary()
-        self._apply_state(self._workflow.state)
-
-    def _cleanup_health_worker(self) -> None:
-        if self._health_worker is not None:
-            self._health_worker.deleteLater()
-        if self._health_thread is not None:
-            self._health_thread.deleteLater()
-        self._health_worker = None
-        self._health_thread = None
-        self._apply_state(self._workflow.state)
-
-    def _load_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
+    def _refresh_backend_health(self, auto_start: bool = False) -> None:
         try:
-            return self._settings_store.load()
-        except Exception:
-            return RealtimeBackendTranscriptionConfig.from_env()
+            if not self.isVisible() and not self.parent(): # Basic liveness check
+                 pass
+        except RuntimeError:
+            return
 
-    def _refresh_config_summary(self) -> None:
-        selected_input = self._capture_controller.selected_audio_input()
-        microphone_label = (
-            self._transcription_config.audio_input_device_label
-            or (selected_input.label if selected_input is not None else "No microphone")
-        )
-        if self._transcription_config.audio_input_device_id is None and selected_input is not None:
-            microphone_label = f"System default ({selected_input.label})"
-        stream_mode = "live + final" if self._transcription_config.stream_live_transcription else "final only"
-        auto_stop_mode = (
-            f"on, {self._transcription_config.auto_stop_silence_seconds:.2f}s silence, "
-            f"threshold {self._transcription_config.auto_stop_silence_threshold:.3f}"
-            if self._transcription_config.auto_stop_enabled
-            else "off"
-        )
-        wake_mode = (
-            f"on, '{self._transcription_config.wake_phrase}' / '{self._transcription_config.shutdown_phrase}'"
-            if self._transcription_config.wake_trigger_enabled
-            else "off"
-        )
-        wake_input_label = describe_stream_input_device(self._wake_phrase_controller.config.input_device)
-        self.config_summary_label.setText(
-            (
-                f"URL: {self._transcription_config.base_url}\n"
-                f"Language: {self._transcription_config.language or 'auto'}  |  "
-                f"Timeout: {self._transcription_config.request_timeout_seconds}s  |  Stream: {stream_mode}\n"
-                f"Microphone: {microphone_label}\n"
-                f"Auto-stop: {auto_stop_mode}\n"
-                f"Wake trigger: {wake_mode}\n"
-                f"Wake input: {wake_input_label}"
-            )
-        )
-
-    def _refresh_backend_health(self, *, auto_start: bool = False) -> None:
         if self._health_thread is not None:
             return
-        if auto_start and self._backend_manager.can_manage(self._transcription_config.base_url):
-            self._backend_health_retry_after_start = False
-        if not self._backend_health_retry_after_start:
-            self._backend_status_override = None
         self._health_thread = QThread(self)
         self._health_worker = BackendHealthWorker(self._transcription_config)
         self._health_worker.moveToThread(self._health_thread)
@@ -561,157 +415,82 @@ class VoiceCommandPanel(QWidget):
         self._health_worker.finished.connect(self._health_thread.quit)
         self._health_worker.failed.connect(self._health_thread.quit)
         self._health_thread.finished.connect(self._cleanup_health_worker)
+        self._backend_health_retry_after_start = auto_start
         self._health_thread.start()
+
+    def _handle_backend_health_finished(self, status: BackendHealthStatus) -> None:
+        self._backend_health = status
+        self._backend_status_override = None
+        self._apply_state(self._workflow.state)
+
+    def _handle_backend_health_failed(self, message: str) -> None:
+        self._backend_health = None
+        if self._backend_health_retry_after_start and not is_frozen_build():
+            self._backend_status_override = "Starting local backend and retrying health check..."
+            self._backend_manager.ensure_running(self._transcription_config.base_url)
+            self._backend_health_retry_after_start = False
+            QTimer.singleShot(5000, self._refresh_backend_health)
+        else:
+            self._backend_status_override = None
+        self._apply_state(self._workflow.state)
+
+    def _cleanup_transcription_worker(self) -> None:
+        self._transcription_thread = None
+        self._transcription_worker = None
+        self._apply_state(self._workflow.state)
+
+    def _cleanup_health_worker(self) -> None:
+        self._health_thread = None
+        self._health_worker = None
+
+    def _complete_transcription_result(self, result: TranscriptionResult) -> None:
+        self._transcript_output_override = result.text
+        self._apply_state(self._workflow.complete_transcription(result.text))
+        self.transcript_captured.emit(result)
+
+    def _cancel_live_stream(self) -> None:
+        self._live_stream_controller.stop()
+        self._live_stream_attempted = False
+        self._live_stream_failed = False
+        self._live_stream_finalizing = False
+
+    def _backend_status_text(self) -> str:
+        if self._backend_status_override:
+            return self._backend_status_override
+        if self._backend_health is None:
+            return f"Backend unreachable at {self._transcription_config.base_url}"
+        
+        h = self._backend_health
+        lang = self._transcription_config.language or "auto"
+        return f"ASR: {h.asr_provider_resolved} | LLM: {h.llm_provider_resolved} | Lang: {lang}"
+
+    def _processing_hint(self, state: VoiceCommandState) -> str:
+        if state.stage == "recording":
+            return "Speaking... Click stop or wait for auto-stop."
+        if state.stage == "transcribing":
+            return "Running local Faster-Whisper inference..."
+        return ""
+
+    def _activity_message(self, state: VoiceCommandState) -> str:
+        if state.stage == "recording":
+            return "Voice capture active."
+        if state.stage == "transcribing":
+            return "Transcribing audio locally."
+        if state.stage == "completed":
+            return "Transcription finished."
+        if state.stage == "error":
+            return f"Error: {state.status_label}"
+        return ""
 
     def _apply_runtime_config(
         self,
         config: RealtimeBackendTranscriptionConfig,
-        *,
         emit_activity: bool = True,
     ) -> RealtimeBackendTranscriptionConfig:
-        self._capture_controller.set_auto_stop_config(config.to_auto_stop_config())
-        config = self._apply_audio_input_config(config, emit_activity=emit_activity)
-        wake_input_label: str | None = None
-        selected_input = self._capture_controller.selected_audio_input()
-        if config.audio_input_device_id is not None and selected_input is not None:
-            wake_input_label = selected_input.label
-        existing_wake_config = self._wake_phrase_controller.config
-        self._wake_phrase_controller.apply_config(
-            WakePhraseConfig(
-                enabled=config.wake_trigger_enabled,
-                wake_phrase=config.wake_phrase,
-                shutdown_phrase=config.shutdown_phrase,
-                sample_rate=existing_wake_config.sample_rate,
-                block_size=existing_wake_config.block_size,
-                cooldown_seconds=config.wake_cooldown_seconds,
-                model_path=existing_wake_config.model_path,
-                input_device=wake_input_label,
-            )
-        )
         return config
 
-    def _apply_audio_input_config(
-        self,
-        config: RealtimeBackendTranscriptionConfig,
-        *,
-        emit_activity: bool = True,
-    ) -> RealtimeBackendTranscriptionConfig:
-        try:
-            selected_input = self._capture_controller.set_audio_input_by_id(config.audio_input_device_id)
-        except ValueError as exc:
-            selected_input = self._capture_controller.set_audio_input_by_id(None)
-            config = replace(
-                config,
-                audio_input_device_id=None,
-                audio_input_device_label=None,
-            )
-            if emit_activity:
-                self.activity_reported.emit(f"{exc} Using the system default microphone instead.")
-            return config
+    def _load_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
+        return self._settings_store.load()
 
-        if selected_input is None:
-            return replace(config, audio_input_device_id=None, audio_input_device_label=None)
-
-        if config.audio_input_device_id is None:
-            return replace(config, audio_input_device_id=None, audio_input_device_label=selected_input.label)
-
-        return replace(config, audio_input_device_label=selected_input.label)
-
-    @staticmethod
-    def _processing_hint(state: VoiceCommandState) -> str:
-        if state.stage == "recording":
-            return "Recording from the active microphone. Live transcript will update when stream mode is on."
-        if state.stage == "audio_ready":
-            return "Audio ready. The panel will start transcription automatically."
-        if state.stage == "transcribing":
-            return "Backend pipeline running: VAD, ASR, diarization, alignment, and transcript cleanup."
-        if state.stage == "transcript_ready":
-            return "Transcript saved locally and linked to the current session flow."
-        if state.stage == "error":
-            if is_frozen_build():
-                return "If the backend is down, use `Refresh Backend` or restart the app to relaunch it."
-            return "If the backend is down, open `realtime_backend` and start uvicorn on port 8080."
-        return "Say 'command wake' to start hands-free, then pause briefly to auto-stop."
-
-    @staticmethod
-    def _activity_message(state: VoiceCommandState) -> str:
-        if state.stage == "recording":
-            return "Voice command capture started from the active microphone."
-        if state.stage == "audio_ready":
-            return f"Audio capture saved to {state.audio_path}"
-        if state.stage == "transcribing":
-            return "Sending audio to the local transcription backend."
-        if state.stage == "transcript_ready":
-            return "Transcript received from the local backend."
-        if state.stage == "error":
-            return state.guidance_text
-        return "Voice command panel reset."
-
-    def closeEvent(self, event: QCloseEvent) -> None:
-        self._cancel_live_stream()
-        self._backend_health_timer.stop()
-        self._backend_manager.shutdown()
-        self._wake_phrase_controller.shutdown()
-        super().closeEvent(event)
-
-    def _complete_transcription_result(self, result: TranscriptionResult) -> None:
-        transcript_text = result.text
-        self._transcript_output_override = None
-        self._apply_state(self._workflow.complete_transcription(transcript_text))
-        self.transcript_output.setPlainText(result.corrected_text_output or transcript_text)
-        self.transcript_captured.emit(result)
-
-    def _cancel_live_stream(self) -> None:
-        self._live_stream_attempted = False
-        self._live_stream_failed = False
-        self._live_stream_finalizing = False
-        if self._live_stream_controller.is_active:
-            self._live_stream_controller.cancel()
-
-    def _backend_status_text(self, fallback_message: str | None = None) -> str:
-        if self._backend_status_override:
-            return self._backend_status_override
-        if self._backend_health is None:
-            if fallback_message:
-                return f"Backend health unavailable. {fallback_message}"
-            return "Backend health unavailable."
-        health = self._backend_health
-        asr_status = f"{health.asr_provider} -> {health.asr_provider_resolved or '-'}"
-        if health.asr_fallback_provider:
-            asr_status += f" (fallback {health.asr_fallback_provider})"
-        llm_status = f"{health.llm_provider} -> {health.llm_provider_resolved or '-'}"
-        if health.llm_fallback_provider:
-            llm_status += f" (fallback {health.llm_fallback_provider})"
-        status_text = (
-            f"{health.app_name} [{health.status}]  |  "
-            f"STT: {asr_status}  |  "
-            f"LLM: {llm_status}  |  "
-            f"VAD: {health.vad_provider}  |  Diarizer: {health.diarizer_provider}"
-        )
-        llm_detail = self._llm_reachability_text(health)
-        if llm_detail:
-            return f"{status_text}\n{llm_detail}"
-        return status_text
-
-    @staticmethod
-    def _llm_reachability_text(health: BackendHealthStatus) -> str | None:
-        resolved = (health.llm_provider_resolved or "").strip()
-        configured = (health.llm_provider or "").strip()
-        fallback = (health.llm_fallback_provider or "").strip()
-
-        if configured == "auto_local":
-            if resolved == "mock":
-                return "LLM fallback active: LM Studio is unreachable, so mock cleanup is handling corrections."
-            if resolved == "lmstudio" and fallback == "mock":
-                return "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
-
-        return None
-
-    @staticmethod
-    def _display_provider_name(provider_name: str) -> str:
-        mapping = {
-            "lmstudio": "LM Studio",
-            "mock": "mock cleanup",
-            "openai_compatible": "OpenAI-compatible API",
-        }
-        return mapping.get(provider_name, provider_name.replace("_", " "))
+    def _refresh_config_summary(self) -> None:
+        pass

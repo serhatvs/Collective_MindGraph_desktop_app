@@ -22,6 +22,7 @@ from .widgets import CardWidget, EmptyStateWidget
 class SessionListPanel(QWidget):
     search_changed = Signal(str)
     new_session_requested = Signal()
+    transcribe_file_requested = Signal()
     delete_session_requested = Signal(int)
     session_selected = Signal(int)
     global_search_requested = Signal()
@@ -30,46 +31,60 @@ class SessionListPanel(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
 
-        card = CardWidget("Session Explorer")
-        layout.addWidget(card)
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Filter by title or device...")
-        self.search_input.textChanged.connect(self.search_changed.emit)
-        card.body_layout.addWidget(self.search_input)
-
-        button_row = QHBoxLayout()
+        # Primary Actions
+        action_layout = QVBoxLayout()
+        action_layout.setSpacing(8)
+        
         self.new_button = QPushButton("New Session")
-        self.search_button = QPushButton("Global Search")
+        self.transcribe_button = QPushButton("Transcribe Local File")
+        self.transcribe_button.setProperty("secondary", True)
+        self.search_button = QPushButton("Global Memory Search")
         self.search_button.setProperty("secondary", True)
-        self.delete_button = QPushButton("Delete")
-        self.delete_button.setProperty("secondary", True)
-        self.delete_button.setEnabled(False)
+        
+        action_layout.addWidget(self.new_button)
+        action_layout.addWidget(self.transcribe_button)
+        action_layout.addWidget(self.search_button)
+        layout.addLayout(action_layout)
 
-        self.new_button.clicked.connect(self.new_session_requested.emit)
-        self.search_button.clicked.connect(self.global_search_requested.emit)
-        self.delete_button.clicked.connect(self._confirm_delete)
+        # Search / Filter
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Filter sessions...")
+        self.search_input.textChanged.connect(self.search_changed.emit)
+        layout.addWidget(self.search_input)
 
-        button_row.addWidget(self.new_button)
-        button_row.addWidget(self.search_button)
-        button_row.addWidget(self.delete_button)
-        card.body_layout.addLayout(button_row)
-
+        # List
         self.list_widget = QListWidget()
         self.list_widget.currentItemChanged.connect(self._handle_current_item_changed)
+        self.list_widget.setStyleSheet("""
+            QListWidget { border: none; background: transparent; }
+            QListWidget::item { border-bottom: 1px solid #f0f4f8; padding: 10px; border-radius: 6px; }
+            QListWidget::item:selected { background: #eef3f9; color: #264a7f; font-weight: 600; }
+        """)
 
         self.empty_state = EmptyStateWidget(
             "No sessions",
-            "Create a session or seed demo data to start exploring reasoning timelines.",
+            "Start recording or import a file.",
         )
 
         self.stack_host = QWidget()
         self.stack_layout = QStackedLayout(self.stack_host)
-        self.stack_layout.setContentsMargins(0, 0, 0, 0)
         self.stack_layout.addWidget(self.empty_state)
         self.stack_layout.addWidget(self.list_widget)
-        card.body_layout.addWidget(self.stack_host)
+        layout.addWidget(self.stack_host, 1)
+
+        # Delete button at the bottom
+        self.delete_button = QPushButton("Delete Selected")
+        self.delete_button.setProperty("secondary", True)
+        self.delete_button.setEnabled(False)
+        self.delete_button.setStyleSheet("color: #a13232;")
+        layout.addWidget(self.delete_button)
+
+        self.new_button.clicked.connect(self.new_session_requested.emit)
+        self.transcribe_button.clicked.connect(self.transcribe_file_requested.emit)
+        self.search_button.clicked.connect(self.global_search_requested.emit)
+        self.delete_button.clicked.connect(self._confirm_delete)
 
         self._sessions_by_id: dict[int, Session] = {}
 

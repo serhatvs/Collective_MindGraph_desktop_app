@@ -28,23 +28,25 @@ Open another terminal and launch the UI.
 
 ## Step 5: Guided UI Walkthrough
 
-### 1. View Seeded Session
-- In the **Session Explorer** (left panel), find and select: `demo_technical_turkish`.
-- View the **Cleaned Transcript** in the main area.
-- Scroll down to see the **Extracted Tasks, Decisions, and Topics** (e.g., *FastAPI endpoint*, *SQLite storage*).
-- Switch to the **Analysis** tab to compare the **Raw Text** vs. **Corrected Text**.
+### 1. Explore the Rebuilt MVP UI
+Observe the modern 3-area layout:
+- **Left Sidebar**: The Session Explorer and primary actions.
+- **Main Content**: Tabbed interface (Overview, Transcript, Insights, Memory Search).
+- **Voice Ingest**: header for real-time capture.
+
+1.  **Select 'demo_technical_turkish'** in the sidebar.
+2.  **View Overview**: See high-level intelligence metrics (Task/Decision counts).
+3.  **Click 'Transcript' Tab**: Observe the side-by-side comparison.
+    -   **Cleaned Transcript**: Main readable view with technical corrections.
+    -   **Raw Text**: Original ASR output (in gray) for auditability.
+4.  **Click 'Insights' Tab**: See extracted **Tasks** and **Decisions**.
 
 ### 2. Global Memory Search
-- Click the **"Global Search"** button in the left panel.
-- Enter query: `FastAPI endpoint`
-- Verify the task from the seeded session appears with a high score.
-- Enter query: `raw transcript`
-- Verify the decision about transcript separation appears.
-
-### 3. Traceability Navigation
-- **Double-click** any search result in the list.
-- Observe the app automatically navigating back to the **Session Detail**.
-- Observe the **segment table scrolling and highlighting** the exact source of that information.
+1.  **Click 'Memory Search' Tab** (or 'Global Memory Search' button in sidebar).
+2.  **Enter Search**: Type `FastAPI endpoint`.
+3.  **Inspect Results**: Note the **Result Cards** with type badges (TASK, TOPIC, etc.).
+4.  **Traceability**: **Double-click** a result.
+5.  **Navigation**: Observe the app automatically switching to the **Transcript Tab** and highlighting the exact source segment.
 
 ---
 **Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
@@ -70,8 +72,13 @@ The **native PySide6 desktop app** is the only user-facing frontend. If the wind
     QT_DEBUG_PLUGINS=1 ./scripts/dev_desktop.sh
     ```
 
-4.  **Virtual Environment**:
-    The desktop app requires PySide6, which is installed in `realtime_backend/.venv`. The `dev_desktop.sh` script handles this automatically if the venv exists.
+4.  **Confirm New UI**:
+    The new UI window title is: **"Collective MindGraph — Native MVP UI"**.
+    The status bar (bottom right) contains: **"Collective MindGraph Desktop — New MVP UI"**.
+    If you see a different title, you are running an old version. Clear `__pycache__` and ensure `PYTHONPATH` is correct.
+
+5.  **Virtual Environment**:
+    The desktop app requires PySide6. The `dev_desktop.sh` script handles this if `realtime_backend/.venv` exists.
 
 *Note: The backend API at `127.0.0.1:8081` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.*
 

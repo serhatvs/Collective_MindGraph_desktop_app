@@ -11,145 +11,96 @@ from .ui.main_window import MainWindow
 
 
 APP_STYLESHEET = """
-QWidget {
-    background: #f3f6fb;
-    color: #1f2933;
-    font-family: "Segoe UI";
-    font-size: 10pt;
+QMainWindow {
+    background-color: #f5f7fa;
 }
-QMainWindow, QMenuBar, QMenu, QStatusBar {
-    background: #f3f6fb;
+
+#Sidebar {
+    background-color: #ffffff;
+    border-right: 1px solid #d6dfe8;
 }
-QMenuBar {
-    border-bottom: 1px solid #d7e0ea;
-}
-QMenuBar::item {
-    padding: 6px 10px;
-    background: transparent;
-}
-QMenuBar::item:selected {
-    background: #dde7f2;
-    border-radius: 6px;
-}
-QMenu {
-    border: 1px solid #cfdae5;
-    padding: 6px;
-}
-QMenu::item {
-    padding: 7px 24px 7px 10px;
-    border-radius: 6px;
-}
-QMenu::item:selected {
-    background: #dde7f2;
-}
-QFrame#CardWidget, QFrame#SummaryBar {
-    background: #ffffff;
+
+#CardWidget {
+    background-color: #ffffff;
     border: 1px solid #d6dfe8;
-    border-radius: 14px;
-}
-QFrame#MetricPill {
-    background: #f8fbff;
-    border: 1px solid #d7e5f0;
-    border-radius: 12px;
-}
-QLabel#MetricValue {
-    font-size: 18px;
-    font-weight: 700;
-}
-QLabel#SectionTitle {
-    font-size: 12pt;
-    font-weight: 700;
-}
-QLineEdit, QListWidget, QTreeWidget, QTableWidget, QComboBox, QPlainTextEdit {
-    background: #ffffff;
-    border: 1px solid #ccd8e4;
     border-radius: 10px;
-    padding: 6px 8px;
 }
-QLineEdit:focus, QListWidget:focus, QTreeWidget:focus, QTableWidget:focus, QComboBox:focus, QPlainTextEdit:focus {
-    border: 1px solid #4b6cb7;
-}
-QLabel#MutedText {
-    color: #5a6b7d;
-}
-QLabel#VoiceStatusBadge {
-    border-radius: 999px;
-    padding: 5px 12px;
-    font-size: 9pt;
+
+#SectionTitle {
+    font-size: 13pt;
     font-weight: 700;
-}
-QLabel#VoiceStatusBadge[stage="idle"] {
-    background: #eef3f9;
-    color: #264a7f;
-    border: 1px solid #c8d6e4;
-}
-QLabel#VoiceStatusBadge[stage="recording"] {
-    background: #fff0f0;
-    color: #a13232;
-    border: 1px solid #efb3b3;
-}
-QLabel#VoiceStatusBadge[stage="audio_ready"] {
-    background: #fff7e3;
-    color: #8b5a08;
-    border: 1px solid #eed49a;
-}
-QLabel#VoiceStatusBadge[stage="transcript_ready"] {
-    background: #ebfaf1;
-    color: #19693d;
-    border: 1px solid #b8e3c8;
-}
-QLabel#VoiceStatusBadge[stage="error"] {
-    background: #fff0f0;
-    color: #9a2121;
-    border: 1px solid #efb3b3;
-}
-QListWidget::item, QTreeWidget::item {
-    padding: 6px;
-}
-QListWidget::item:selected, QTreeWidget::item:selected, QTableWidget::item:selected {
-    background: #dce8ff;
     color: #102036;
 }
-QPushButton {
-    background: #264a7f;
-    color: #ffffff;
-    border: none;
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-weight: 600;
+
+#MetricPill {
+    background-color: #f8fbff;
+    border: 1px solid #e0eaff;
+    border-radius: 8px;
 }
-QPushButton:hover {
-    background: #1f3e6c;
-}
-QPushButton:disabled {
-    background: #9bb0c7;
-}
-QPushButton[secondary="true"] {
-    background: #eef3f9;
+
+#MetricValue {
+    font-size: 16pt;
+    font-weight: 700;
     color: #264a7f;
-    border: 1px solid #c8d6e4;
 }
-QPushButton[secondary="true"]:hover {
-    background: #e3edf8;
+
+#VoiceStatusBadge {
+    font-weight: 800;
+    font-size: 10pt;
+    border-radius: 6px;
+    color: white;
+    padding: 4px 12px;
 }
-QScrollArea {
-    border: none;
+
+#VoiceStatusBadge[stage="idle"] { background-color: #64748b; }
+#VoiceStatusBadge[stage="recording"] { background-color: #ef4444; }
+#VoiceStatusBadge[stage="processing"] { background-color: #f59e0b; }
+#VoiceStatusBadge[stage="transcribing"] { background-color: #3b82f6; }
+#VoiceStatusBadge[stage="completed"] { background-color: #10b981; }
+#VoiceStatusBadge[stage="error"] { background-color: #7f1d1d; }
+
+#MutedText {
+    color: #66788a;
 }
-QHeaderView::section {
-    background: #eef3f9;
-    border: none;
-    border-bottom: 1px solid #d7e0ea;
-    padding: 6px;
+
+QPushButton {
+    padding: 8px 16px;
     font-weight: 600;
+    border-radius: 6px;
+    background-color: #264a7f;
+    color: white;
+    border: none;
 }
-QSplitter::handle {
-    background: #dce4ed;
-    width: 6px;
+
+QPushButton:hover {
+    background-color: #1d3a66;
+}
+
+QPushButton:disabled {
+    background-color: #cbd5e1;
+}
+
+QPushButton[secondary="true"] {
+    background-color: transparent;
+    color: #264a7f;
+    border: 1px solid #264a7f;
+}
+
+QPushButton[secondary="true"]:hover {
+    background-color: #f1f5f9;
 }
 """
 
 
 def build_application() -> tuple[QApplication, MainWindow]:
+    import os
+    import collective_mindgraph_desktop
+    print(f"Desktop startup:")
+    print(f"  ui_mode=REBUILT_NATIVE_MVP_UI")
+    print(f"  python={sys.executable}")
+    print(f"  package_path={os.path.abspath(collective_mindgraph_desktop.__file__)}")
+    print(f"  main_window_file={os.path.abspath(__file__)}")
+
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName("Collective MindGraph")
     app.setOrganizationName("Collective MindGraph")

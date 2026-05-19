@@ -1,4 +1,4 @@
-"""Global Memory Query / Search panel."""
+"""Global Memory Search page with categorized results."""
 
 from __future__ import annotations
 
@@ -15,17 +15,16 @@ from PySide6.QtWidgets import (
     QPushButton,
     QVBoxLayout,
     QWidget,
-    QScrollArea,
-    QFrame,
 )
 
-from ..transcription import (
+from ...transcription import (
     QueryResultItem,
     QueryResponse,
     RealtimeBackendTranscriptionConfig,
     RealtimeBackendTranscriptionService,
 )
-from .widgets import CardWidget, EmptyStateWidget
+from ..components.result_card import ResultCard
+from ..widgets import CardWidget, EmptyStateWidget
 
 LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +53,7 @@ class MemoryQueryWorker(QObject):
         self.finished.emit(result)
 
 
-class MemorySearchPanel(QWidget):
+class MemorySearchPage(QWidget):
     source_navigation_requested = Signal(str, str) # session_id, segment_id
 
     def __init__(self, parent: QWidget | None = None) -> None:
@@ -64,31 +63,43 @@ class MemorySearchPanel(QWidget):
         self._query_worker: MemoryQueryWorker | None = None
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(16)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(20)
 
-        self.card = CardWidget("Memory Search")
-        layout.addWidget(self.card)
+        self.card = CardWidget("Knowledge Retrieval")
+        layout.addWidget(self.card, 1)
 
-        search_layout = QHBoxLayout()
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Ask a question or enter keywords...")
+        self.search_input.setPlaceholderText("Search technical terms, tasks, or decisions across all meetings...")
+        self.search_input.setMinimumHeight(44)
+        self.search_input.setStyleSheet("font-size: 11pt; padding-left: 12px;")
         self.search_input.returnPressed.connect(self._handle_search)
         
-        self.search_button = QPushButton("Search")
+        self.search_button = QPushButton("Search Memory")
+        self.search_button.setMinimumHeight(44)
+        self.search_button.setMinimumWidth(140)
         self.search_button.clicked.connect(self._handle_search)
         
-        search_layout.addWidget(self.search_input)
+        search_layout.addWidget(self.search_input, 1)
         search_layout.addWidget(self.search_button)
-        self.card.body_layout.addLayout(search_layout)
+        self.card.body_layout.addWidget(search_container)
 
         self.results_list = QListWidget()
         self.results_list.itemDoubleClicked.connect(self._handle_item_double_clicked)
+        self.results_list.setSpacing(8)
+        self.results_list.setStyleSheet("""
+            QListWidget { border: none; background: transparent; }
+            QListWidget::item { border-radius: 8px; }
+        """)
         self.card.body_layout.addWidget(self.results_list, 1)
 
         self.empty_state = EmptyStateWidget(
-            "Search results will appear here",
-            "Enter technical terms, tasks, or decisions to find context across sessions."
+            "Global Memory Search",
+            "Enter keywords (e.g. 'FastAPI', 'kararlar') to find linked context from your entire session history."
         )
         self.card.body_layout.addWidget(self.empty_state)
         self.results_list.hide()
@@ -102,10 +113,8 @@ class MemorySearchPanel(QWidget):
             return
 
         self.search_button.setEnabled(False)
-        self.search_input.setEnabled(False)
         self.results_list.clear()
         self.empty_state.show()
-        self.empty_state.setToolTip("Searching...")
 
         self._query_thread = QThread()
         self._query_worker = MemoryQueryWorker(query, self._config)
@@ -121,7 +130,6 @@ class MemorySearchPanel(QWidget):
 
     def _handle_query_finished(self, response: QueryResponse) -> None:
         self.search_button.setEnabled(True)
-        self.search_input.setEnabled(True)
         
         if not response.results:
             self.empty_state.show()
@@ -132,30 +140,20 @@ class MemorySearchPanel(QWidget):
         self.results_list.show()
 
         for res in response.results:
-            item = QListWidgetItem()
+            card = ResultCard()
+            meta = f"Session: {res.source_session_id} | Score: {res.score:.2f}"
+            card.set_result(res.result_type, res.text, res.preview, meta, res.matched_terms)
+            
+            item = QListWidgetItem(self.results_list)
+            item.setSizeHint(card.sizeHint())
             item.setData(Qt.ItemDataRole.UserRole, (res.source_session_id, res.source_segment_id))
             
-            # Format text
-            type_label = f"[{res.result_type.upper()}]"
-            match_info = f" (Score: {res.score:.2f})"
-            header = f"{type_label} {res.text}{match_info}"
-            
-            body = res.preview or ""
-            if res.matched_terms:
-                body += f"\nMatched: {', '.join(res.matched_terms)}"
-            
-            footer = f"Session: {res.source_session_id}"
-            if res.timestamp:
-                footer += f" | {res.timestamp}"
-            
-            item.setText(f"{header}\n{body}\n{footer}")
             self.results_list.addItem(item)
+            self.results_list.setItemWidget(item, card)
 
     def _handle_query_failed(self, error: str) -> None:
         self.search_button.setEnabled(True)
-        self.search_input.setEnabled(True)
-        self.empty_state.show()
-        LOGGER.error("Memory query failed: %s", error)
+        LOGGER.error("Search failed: %s", error)
 
     def _handle_item_double_clicked(self, item: QListWidgetItem) -> None:
         session_id, segment_id = item.data(Qt.ItemDataRole.UserRole)

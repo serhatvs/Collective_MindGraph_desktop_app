@@ -8,14 +8,15 @@ from collective_mindgraph_desktop.transcription import (
     QueryResponse,
     RealtimeBackendTranscriptionConfig,
 )
-from collective_mindgraph_desktop.ui.memory_search_panel import MemorySearchPanel
+from collective_mindgraph_desktop.ui.pages.memory_search_page import MemorySearchPage
+from collective_mindgraph_desktop.ui.components.result_card import ResultCard
 
 # Set offscreen platform for CI
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-def test_memory_search_panel_displays_results(qtbot):
-    panel = MemorySearchPanel()
-    qtbot.addWidget(panel)
+def test_memory_search_page_displays_results(qtbot):
+    page = MemorySearchPage()
+    qtbot.addWidget(page)
     
     # Mock response
     response = QueryResponse(
@@ -34,18 +35,22 @@ def test_memory_search_panel_displays_results(qtbot):
         ]
     )
     
-    panel._handle_query_finished(response)
+    page._handle_query_finished(response)
     
-    assert panel.results_list.count() == 1
-    item = panel.results_list.item(0)
-    assert "[TASK]" in item.text()
-    assert "FastAPI" in item.text()
-    assert "Score: 1.10" in item.text()
-    assert "Session: conv_1" in item.text()
+    assert page.results_list.count() == 1
+    item = page.results_list.item(0)
+    
+    # Since we use setItemWidget, we need to check the widget
+    card = page.results_list.itemWidget(item)
+    assert isinstance(card, ResultCard)
+    assert card.type_badge.text() == "TASK"
+    assert "FastAPI" in card.title_label.text()
+    assert "Score: 1.10" in card.meta_label.text()
+    assert "Session: conv_1" in card.meta_label.text()
 
-def test_memory_search_panel_emits_navigation_signal(qtbot):
-    panel = MemorySearchPanel()
-    qtbot.addWidget(panel)
+def test_memory_search_page_emits_navigation_signal(qtbot):
+    page = MemorySearchPage()
+    qtbot.addWidget(page)
     
     response = QueryResponse(
         query="SQLite",
@@ -59,12 +64,12 @@ def test_memory_search_panel_emits_navigation_signal(qtbot):
             )
         ]
     )
-    panel._handle_query_finished(response)
+    page._handle_query_finished(response)
     
     # Track signal
-    with qtbot.waitSignal(panel.source_navigation_requested) as blocker:
+    with qtbot.waitSignal(page.source_navigation_requested) as blocker:
         # Simulate double click
-        panel.results_list.itemDoubleClicked.emit(panel.results_list.item(0))
+        page.results_list.itemDoubleClicked.emit(page.results_list.item(0))
         
     assert blocker.args == ["conv_2", "s2"]
 

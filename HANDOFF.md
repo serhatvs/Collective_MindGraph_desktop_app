@@ -26,12 +26,13 @@ Collective MindGraph is a local-first, privacy-focused desktop application for c
 Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
 
 ## Interface Definitions
-- **User-facing Frontend**: Native PySide6 Desktop Application in `src/collective_mindgraph_desktop/`.
+- **User-facing Frontend**: Rebuilt Native PySide6 Desktop Application in `src/collective_mindgraph_desktop/`.
+  - **Structure**: Uses a modular `ui/pages/` and `ui/components/` architecture.
 - **Backend API**: Local FastAPI service at `http://127.0.0.1:8081`.
 - **Optional Developer Docs**: API documentation at `http://127.0.0.1:8081/docs` (Use for debugging only).
 
 ## Architecture
-- **Desktop UI**: PySide6 application. This is the **primary user interface**.
+- **Desktop UI**: PySide6 application. Features a 3-area layout (Sidebar, Tabbed Content, Header Controls).
 - **Backend Service**: FastAPI service. This is a background processing service.
 - **Persistence**: SQLite (Desktop) and File-based (Backend).
 - **Core Pipeline**:

@@ -1,23 +1,22 @@
 # Collective MindGraph
 
-Collective MindGraph is a native Windows-first desktop application built with Python, PySide6, and SQLite. The desktop app stays local-first for session storage, and its voice transcription flow now connects to the sibling `realtime_backend/` FastAPI service for local, multi-speaker speech-to-text with privacy-focused offline processing.
+Collective MindGraph is a native desktop application built with Python, PySide6, and SQLite. The **rebuilt native MVP UI** provides a modern, user-friendly interface for capturing technical technical conversations and building an automated organizational memory.
 
-## Cloud AI providers removed
-- Amazon Bedrock / Nova support was removed.
-- Deepgram (online ASR) support was removed.
-- The project now expects local/offline providers only.
-- Old environment variables (AWS, Deepgram) should be deleted.
-- Users should configure local providers (e.g., faster-whisper, LM Studio).
+## Architecture
 
-## Features
+- **Primary Frontend**: Native PySide6 Desktop App (`src/`). Features a 3-area layout with tabbed functional navigation.
+- **Local Backend**: FastAPI service (`realtime_backend/`) for 100% offline Turkish transcription and intelligence extraction.
+- **Privacy First**: No cloud dependencies (AWS, Bedrock, and Deepgram have been removed).
 
-- Native `QMainWindow` application with a modern Qt widget UI
-- SQLite persistence created automatically on first launch
-- Session explorer with search, create, delete, and detail view
-- Transcript timeline, backend analysis panel, graph tree, and snapshot history panels
-- Demo data seeding and deterministic snapshot rebuilding
-- JSON export for a selected session
-- Voice capture UI that records locally, auto-stops after a short silence, auto-transcribes through the local realtime backend, and continues or starts sessions ChatGPT-style
+## Core Features
+
+- **Session Dashboard**: Overview of metadata, intelligence summaries, and organizational metrics.
+- **Transcript Audit**: Side-by-side comparison of **Raw ASR output** and **Cleaned Technical Transcript**.
+- **Intelligence Extraction**: Automated detection of Tasks (Action Items), Decisions, and Topics for Technical Turkish.
+- **Global Memory Search**: Cross-session keyword search with direct source-segment navigation (Traceability).
+- **Voice Ingest**: Local audio capture with automatic silence detection and local Faster-Whisper inference.
+- **Diagnostics**: Real-time visibility into pipeline performance and offline safety status.
+
 - Selectable microphone input in the voice settings dialog, persisted in `transcription_settings.json`
 - Optional VOSK-based wake trigger that listens for `command wake` to start hands-free capture and `command shut` to cancel the active voice turn while the listener stays armed, while still tolerating common VOSK variants such as `command wake up` or `command shutdown`
 - Configurable wake phrases, wake cooldown, live transcript streaming toggle, and auto-stop thresholds in the voice settings dialog

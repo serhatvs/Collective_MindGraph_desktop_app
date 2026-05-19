@@ -10,6 +10,11 @@ Collective MindGraph is a local-first, privacy-focused system for capturing, tra
 - **Traceable Memory**: Hierarchical SQLite storage (graph-node persistence) with results linked to source sessions and segments.
 - **Integrated Global Search**: A desktop interface for cross-session knowledge retrieval.
 
+## Interface Definitions (Frontend vs. Backend)
+- **Primary Frontend**: The native **PySide6 desktop application** (`src/collective_mindgraph_desktop/`). This is the only user-facing interface.
+- **Backend Service**: A local FastAPI background service (`realtime_backend/`) running on `127.0.0.1:8081`. It provides processing but is not the UI.
+- **Developer Debugging**: The `/docs` endpoint at `127.0.0.1:8081/docs` is for API inspection only and is NOT the project frontend.
+
 ## Current Runtime Flow
 The system processes information through the following stages:
 

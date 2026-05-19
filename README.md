@@ -29,7 +29,7 @@ Collective MindGraph is a native desktop application built with Python, PySide6,
 - Editable transcript-segment correction UI for speaker labels and corrected text
 
 ## Product-integration ready for local-first Turkish transcription
-The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
 
 Real meeting-room production accuracy still requires project-specific/manual meeting audio validation.
 
@@ -51,13 +51,13 @@ Real meeting-room production accuracy still requires project-specific/manual mee
 For a session containing: *“Merhaba, bugün Collective MindGraph toplantısındayız. Bu hafta FastAPI endpointini test edeceğiz.”*
 
 The system extracts:
-- **Summary**: `1 speaker covered Action Items. Early context: Merhaba, bugün Collective MindGraph toplantısındayız...`
+- **Summary**: `Technical conversation covered Action Items. Early context: Merhaba, bugün Collective MindGraph toplantısındayız...`
 - **Tasks**:
   - `title`: "Bu hafta fastapi endpointini test edeceğiz"
-  - `responsible_person`: "Speaker_1"
+  - `responsible_person`: "Unassigned"
   - `source_segment_id`: "s1"
 - **Topics**: `["Action Items", "FastAPI", "MindGraph"]`
-- **People**: `["Speaker_1"]`
+- **People**: `[]`
 
 ### Memory Graph and Search Status
 Collective MindGraph currently uses **basic graph-node persistence** via hierarchical nodes in SQLite (adjacency list with `parent_node_id`). It is not a full graph database; it supports tree-based exploration and side-node enrichment for tasks and decisions.
@@ -120,7 +120,7 @@ To explore the integrated system locally:
 - **Project-specific meeting audio validation**: Infrastructure ready; pending manual recording.
 - **Semantic/Vector search**: Interface placeholders added; implementation pending.
 - **Full graph edge reasoning**: Current storage is hierarchical tree only.
-- **Production diarization validation**: Verified for 1-2 speakers; high-noise stability pending.
+- **Diarization / Speaker Separation**: Not currently implemented or validated. Planned as a future roadmap item.
 
 ## Installation
 ...

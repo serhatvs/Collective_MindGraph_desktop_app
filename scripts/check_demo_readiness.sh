@@ -23,6 +23,9 @@ echo "✅ Local ASR config: faster-whisper (offline-safe)."
 # Cloud provider check
 echo "✅ Cloud providers: REMOVED (AWS/Deepgram logic gone)."
 
+# Diarization check
+echo "⚠️ Diarization: NOT ENABLED (Planned for future roadmap)."
+
 # Registry check
 if [ -f "transcription_settings.json" ]; then
     echo "✅ Desktop settings found."

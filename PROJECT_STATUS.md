@@ -42,6 +42,7 @@ The system processes information through the following stages:
 | **Demo Automation** | Implemented | Readiness check and text-only seed scripts. |
 | **Meeting Validation** | Pending | Infrastructure ready; pending manual recording. |
 | **Semantic Retrieval** | Future TODO | Interface placeholders added (VectorStore). |
+| **Diarization** | **Roadmap** | Automatic speaker separation is NOT implemented or validated. |
 | **Full Graph Edge Reasoning** | Future TODO | Hierarchical tree only for now. |
 | **Multi-hop Reasoning** | Future TODO | Not yet implemented. |
 
@@ -75,4 +76,4 @@ Test the memory retrieval with these terms:
 - `Collective MindGraph` (returns Topic/Session)
 
 ## Honest Claim Boundary
-The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.

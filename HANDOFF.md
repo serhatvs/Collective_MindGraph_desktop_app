@@ -1,7 +1,7 @@
 # Project Handoff: Collective MindGraph
 
 ## Status and Claim Boundary
-**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.**
+**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.**
 
 ## Overview
 Collective MindGraph is a local-first, privacy-focused desktop application for capturing, transcribing, and extracting knowledge from technical Turkish meetings. It has transitioned from a cloud-dependent architecture to a strictly offline-capable system.
@@ -39,7 +39,7 @@ Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
   1. `audio_process.py`: FFmpeg normalization.
   2. `vad.py`: Voice Activity Detection.
   3. `asr.py`: Speech-to-Text via Faster-Whisper.
-  4. `diarization.py`: Speaker identification.
+  4. `diarization.py`: (Roadmap) Speaker identification.
   5. `llm_postprocess.py`: Cleanup and structured extraction.
 
 ## Important Scripts
@@ -57,4 +57,4 @@ Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
 ## Pending TODOs
 - [ ] Record project-specific Turkish meeting WAV and run `test_project_turkish_meeting_asr_quality.py`.
 - [ ] Implement `SemanticQueryService` using vector embeddings.
-- [ ] Stabilize diarization for sessions with 3+ overlapping speakers.
+- [ ] Implement and validate Diarization / automatic speaker separation.

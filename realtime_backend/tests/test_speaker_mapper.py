@@ -57,3 +57,8 @@ def test_resolve_creates_new_speaker_when_no_reliable_prior_match_exists():
     )
 
     assert mapper.resolve("SPEAKER_99", 8.0, 9.0, prior_segments) == "Speaker_2"
+
+
+def test_resolve_uses_unknown_for_unresolved_labels():
+    mapper = StableSpeakerMapper()
+    assert mapper.resolve("UNRESOLVED_0", 0.0, 1.0, []) == "Unknown"

@@ -38,8 +38,9 @@ def test_summary_service_extracts_topics_actions_and_decisions():
     summary, topics, action_items, decisions = service.build_summary(transcript)
 
     assert summary is not None
+    assert "Technical conversation covered" in summary
     assert topics
-    assert any(item.responsible_person == "Speaker_1" for item in action_items)
-    assert any(item.responsible_person == "Speaker_2" for item in action_items)
+    # Speaker_1/2 are generic, so they should be mapped to Unassigned
+    assert all(item.responsible_person == "Unassigned" for item in action_items)
     assert any("freeze scope today" in item.decision.lower() for item in decisions)
 

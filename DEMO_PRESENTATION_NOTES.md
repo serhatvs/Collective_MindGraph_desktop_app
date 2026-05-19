@@ -42,7 +42,7 @@ These notes guide you through presenting the current local-first software MVP.
 - **Production-Ready**: Do not claim it is ready for critical production meeting rooms without further audio validation.
 - **Full Semantic AI**: The current search is keyword-based. Do not claim it "understands" concepts semantically yet.
 - **Full Graph Reasoning**: The system uses hierarchical nodes, not a multi-hop graph reasoning engine.
-- **Perfect Diarization**: State that diarization is optimized for local environments but can be model-limited in high noise.
+- **Diarization**: Clarify that automatic speaker separation is NOT currently active and is planned for future roadmap validation.
 
 ---
 **Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.

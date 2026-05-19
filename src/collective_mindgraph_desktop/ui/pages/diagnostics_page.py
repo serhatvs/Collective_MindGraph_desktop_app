@@ -57,6 +57,7 @@ class DiagnosticsPage(QWidget):
         self.form.addRow("ASR Provider", self.labels["asr_provider"])
         self.form.addRow("LLM Provider", self.labels["llm_provider"])
         self.form.addRow("Security Mode", self.labels["offline_mode"])
+        self.form.addRow("Diarization", QLabel("NOT ENABLED (Pending Roadmap)"))
         self.form.addRow("Analysis Duration", self.labels["processing_time"])
         self.form.addRow("Raw Transcript Char Count", self.labels["raw_length"])
         self.form.addRow("Clean Transcript Char Count", self.labels["clean_length"])

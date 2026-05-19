@@ -49,7 +49,7 @@ Observe the modern 3-area layout:
 5.  **Navigation**: Observe the app automatically switching to the **Transcript Tab** and highlighting the exact source segment.
 
 ---
-**Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+**Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
 
 ## Troubleshooting: Desktop App Window Not Appearing
 The **native PySide6 desktop app** is the only user-facing frontend. If the window does not appear after running `./scripts/dev_desktop.sh`:

@@ -58,3 +58,13 @@ def test_alignment_splits_asr_segment_on_word_level_speaker_change():
     assert merged[1].start == 1.0
     assert merged[1].end == 1.6
     assert merged[1].metadata["alignment_source"] == "word_timestamps"
+
+
+def test_alignment_uses_unknown_without_diarization():
+    merged = merge_transcript_segments(
+        asr_segments=[ASRSegment(start=0.0, end=1.0, text="hello")],
+        diarization_turns=[],
+        speaker_mapper=StableSpeakerMapper(),
+        prior_segments=[],
+    )
+    assert merged[0].speaker == "Unknown"

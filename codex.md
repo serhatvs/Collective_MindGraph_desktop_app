@@ -9,12 +9,12 @@
 ## Current State
 - **Architecture**: Transitions to a strictly local-first design. All cloud AI providers (Amazon Bedrock, Deepgram) have been removed.
 - **Desktop UI**: `src/collective_mindgraph_desktop` provides a `QMainWindow` with session explorer, voice command panel, and session detail view.
-- **Backend**: `realtime_backend` FastAPI service handles multi-speaker transcription, diarization, and LLM correction using local-only providers.
+- **Backend**: `realtime_backend` FastAPI service handles transcription and LLM correction using local-only providers. Diarization is planned for future release.
 - **Transcription**: Uses `faster-whisper` (local) for STT and `silero-vad` for voice activity detection.
 - **LLM Correction**: Defaults to `lmstudio` or other OpenAI-compatible local endpoints for transcript cleanup.
-- **Diarization**: Employs `pyannote.audio` (local) for speaker identification.
+- **Diarization**: (Roadmap) Automatic speaker separation is not currently implemented or validated.
 - **V2 Architecture**: A spreadsheet-driven V2 scaffold is under development in `src/collective_mindgraph` to formalize domain boundaries.
-- **Packaging**: Supports single-file Windows builds via PyInstaller, bundling the local backend (using lighter fallbacks for VAD/diarization).
+- **Packaging**: Supports single-file Windows builds via PyInstaller, bundling the local backend (using lighter fallbacks for VAD instead of the full `pyannote`/`torch` stack).
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.

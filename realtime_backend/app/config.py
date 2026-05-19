@@ -206,7 +206,7 @@ class Settings:
 
     # Diarization specific controls
     diarization_enabled: bool = field(
-        default_factory=lambda: _env("CMG_RT_DIARIZATION_ENABLED", "true").lower() == "true"
+        default_factory=lambda: _env("CMG_RT_DIARIZATION_ENABLED", "false").lower() == "true"
     )
 
     transcription_quality_mode: str = field(

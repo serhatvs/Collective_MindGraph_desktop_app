@@ -5,7 +5,7 @@ This roadmap outlines the transition from the current local software MVP to a pr
 ## Phase 1: Stabilization & Validation (Short-term)
 Focus on proving current software capabilities on real-world data.
 - **Meeting Audio Validation**: Record project-specific technical meeting WAVs and run full quality benchmarks.
-- **Diarization Audit**: Stress-test speaker identification with 3+ overlapping speakers in noisy environments.
+- **Diarization Development**: Implement and stress-test speaker identification with 3+ overlapping speakers in noisy environments.
 - **UI Polish**: Improve session timeline visualization and global search result ranking.
 - **Packaging**: Finalize single-file `.exe` installer with bundled lightweight models.
 
@@ -31,4 +31,4 @@ Develop a dedicated physical device for seamless meeting intelligence.
 - **Local Inference Workflow**: Seamless push/pull of memory between the hardware device and the desktop application.
 
 ---
-**Baseline**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+**Baseline**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.

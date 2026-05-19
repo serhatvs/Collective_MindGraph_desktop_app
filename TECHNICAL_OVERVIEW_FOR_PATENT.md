@@ -7,7 +7,8 @@ Collective MindGraph is a privacy-focused organizational memory system designed 
 While the current implementation is a software MVP (Minimum Viable Product), the conceptual design may include a dedicated hardware component. This hardware can be configured to integrate a high-fidelity microphone array and a local inference module, enabling real-time, on-premise transcription and memory extraction independent of external internet connectivity.
 
 ## 3. Local-First Privacy Model
-The system architecture prioritizes data sovereignty. All processing stages—including audio normalization, voice activity detection (VAD), speech-to-text (STT), speaker diarization, and heuristic extraction—are performed locally. The system can be configured to run in a strictly offline mode, with mandatory URL and path validation guards to prevent unintentional network egress.
+The system architecture prioritizes data sovereignty. All processing stages—including audio normalization, voice activity detection (VAD), speech-to-text (STT), and heuristic extraction—are performed locally.
+ The system can be configured to run in a strictly offline mode, with mandatory URL and path validation guards to prevent unintentional network egress.
 
 ## 4. Current Software MVP Implementation
 The current software implementation provides a foundational data processing pipeline:
@@ -33,6 +34,6 @@ The system identifies and extracts high-level organizational entities from the c
 - **Roadmap (Potential Future Capabilities)**: Semantic vector retrieval, multi-hop reasoning, arbitrary graph edge relationships, and hardware-specific status displays.
 
 ## 6. Project Status
-The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
 
 *Note: This document describes a prototype/MVP implementation. Actual performance in non-controlled environments or meeting-room conditions is pending further validation.*

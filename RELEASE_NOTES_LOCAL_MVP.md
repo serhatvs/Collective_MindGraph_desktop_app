@@ -1,7 +1,7 @@
 # Release Notes: Local MVP Demo Baseline
 
 ## Project Status
-**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.**
+**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.**
 
 ## Implemented Features
 - **Local-First Turkish Transcription**: 100% offline pipeline using Faster-Whisper and Silero-VAD.

@@ -16,7 +16,7 @@ Bu paket, projenin mevcut "Yerel MVP" durumuna sadık kalarak, abartılı iddial
 
 **Demo Akışı:** Bugün sizlere sistemin hazır bir teknik toplantı kaydı üzerinden nasıl anlık analiz yaptığını, görevleri nasıl listelediğini ve 'Global Search' arayüzü ile bu bilgilere kaynak konuşma satırına kadar nasıl ulaştığını göstereceğiz.
 
-**Durum:** Projemiz şu an yerel MVP demo aşamasındadır. Anahtar kelime bazlı hafıza taraması için entegrasyona hazırdır, ancak henüz yüksek gürültülü gerçek toplantı odaları için tam üretim sürümü değildir. İzlediğiniz için teşekkürler."
+**Durum:** Projemiz şu an yerel MVP demo aşamasındadır. Anahtar kelime bazlı hafıza taraması için entegrasyona hazırdır. Otomatik konuşmacı ayrımı (diarization) henüz uygulanmamıştır ve gelecek planları arasındadır. İzlediğiniz için teşekkürler."
 
 ---
 
@@ -93,4 +93,4 @@ Collective MindGraph, kurumsal hafızayı yerelde ve güvenli bir şekilde inşa
 - **Faz 4:** Donanım prototipi ve mikrofon dizisi entegrasyonu.
 
 ---
-**Resmi Durum Beyanı:** The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It is not yet a production-validated meeting intelligence platform.
+**Resmi Durum Beyanı:** The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.

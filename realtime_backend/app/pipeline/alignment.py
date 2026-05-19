@@ -45,7 +45,7 @@ def merge_transcript_segments(
             )
             notes = list(chunk.notes)
             if chunk.raw_speaker.startswith("UNRESOLVED"):
-                notes.append("speaker attribution fell back to unresolved diarization")
+                notes.append("diarization not enabled; using generic speaker label")
             if chunk.overlap:
                 notes.append("overlap detected; speaker attribution may be approximate")
 

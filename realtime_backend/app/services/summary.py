@@ -96,8 +96,11 @@ class ConversationSummaryService:
         action_items = self._action_items(transcript.segments)
         decisions = self._decisions(transcript.segments)
         
-        # Populate people list
-        transcript.people = sorted({s.speaker for s in transcript.segments})
+        # Populate people list - filter out generic/unknown labels
+        transcript.people = sorted({
+            s.speaker for s in transcript.segments 
+            if s.speaker and "Speaker_" not in s.speaker and "UNRESOLVED_" not in s.speaker and s.speaker != "Unknown"
+        })
         
         summary = self._heuristic_summary(
             transcript.segments,
@@ -115,10 +118,9 @@ class ConversationSummaryService:
         action_items: list[TaskItem],
         decisions: list[DecisionItem],
     ) -> str:
-        speakers = sorted({segment.speaker for segment in segments})
         summary_parts: list[str] = []
         summary_parts.append(
-            f"{len(speakers)} speaker{'s' if len(speakers) != 1 else ''} covered "
+            f"Technical conversation covered "
             f"{', '.join(topic.label for topic in topics[:3]) or 'general discussion'}."
         )
 
@@ -210,7 +212,12 @@ class ConversationSummaryService:
                     continue
                 
                 # Responsible person extraction logic
-                responsible = segment.speaker
+                raw_speaker = segment.speaker
+                responsible = raw_speaker
+                
+                # If speaker is generic/unknown, mark as Unassigned
+                if not raw_speaker or "Speaker_" in raw_speaker or "UNRESOLVED_" in raw_speaker or raw_speaker == "Unknown":
+                    responsible = "Unassigned"
                 
                 # Check if it was the name-based pattern (e.g. "Serhat ... yapsın")
                 # Group 1 is name, Group 2 is title
@@ -238,14 +245,11 @@ class ConversationSummaryService:
         if candidates:
             return candidates[:8]
 
-        speakers = Counter(segment.speaker for segment in segments)
-        if not speakers:
-            return []
-        dominant = speakers.most_common(1)[0][0]
+        # Use Unassigned for fallback
         return [
             TaskItem(
                 title="Review open points from the conversation.",
-                responsible_person=dominant,
+                responsible_person="Unassigned",
                 confidence_note="default fallback",
             )
         ]

@@ -582,9 +582,12 @@ class CollectiveMindGraphService:
     def _build_speaker_stats(speaker_stats: list[dict[str, object]]) -> list[TranscriptSpeakerStat]:
         built: list[TranscriptSpeakerStat] = []
         for item in speaker_stats:
+            speaker = str(item.get("speaker") or "Unknown")
+            if "Speaker_" in speaker:
+                speaker = "Unknown"
             built.append(
                 TranscriptSpeakerStat(
-                    speaker=str(item.get("speaker") or "Speaker"),
+                    speaker=speaker,
                     segment_count=int(item.get("segment_count") or 0),
                     speaking_seconds=float(item.get("speaking_seconds") or 0.0),
                     overlap_segments=int(item.get("overlap_segments") or 0),
@@ -605,11 +608,11 @@ class CollectiveMindGraphService:
                     segment_id="segment_1",
                     start=0.0,
                     end=0.0,
-                    speaker="Speaker_1",
+                    speaker="Unknown",
                     raw_text=fallback_text,
                     corrected_text=fallback_text,
                     confidence=1.0,
-                    speaker_confidence=1.0,
+                    speaker_confidence=0.0,
                     overlap=False,
                     notes=[],
                 )
@@ -617,12 +620,15 @@ class CollectiveMindGraphService:
         built: list[TranscriptAnalysisSegment] = []
         for item in segments:
             notes = item.get("notes")
+            speaker = str(item.get("speaker") or "Unknown")
+            if "Speaker_" in speaker:
+                speaker = "Unknown"
             built.append(
                 TranscriptAnalysisSegment(
                     segment_id=str(item.get("segment_id") or f"segment_{len(built) + 1}"),
                     start=float(item.get("start") or 0.0),
                     end=float(item.get("end") or 0.0),
-                    speaker=str(item.get("speaker") or "Speaker_1"),
+                    speaker=speaker,
                     raw_text=str(item.get("raw_text") or ""),
                     corrected_text=str(item.get("corrected_text") or item.get("raw_text") or ""),
                     confidence=float(item["confidence"]) if item.get("confidence") is not None else None,

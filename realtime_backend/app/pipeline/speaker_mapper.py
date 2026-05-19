@@ -104,8 +104,13 @@ class StableSpeakerMapper:
             self.record_segment(fallback_speaker, start, end)
             return fallback_speaker
 
-        stable = f"Speaker_{self.next_speaker_index}"
-        self.next_speaker_index += 1
+        # If we are resolving an unresolved placeholder, use 'Unknown'
+        if raw_label.startswith("UNRESOLVED"):
+            stable = "Unknown"
+        else:
+            stable = f"Speaker_{self.next_speaker_index}"
+            self.next_speaker_index += 1
+            
         self.chunk_assignments[raw_label] = stable
         self.record_segment(stable, start, end)
         return stable

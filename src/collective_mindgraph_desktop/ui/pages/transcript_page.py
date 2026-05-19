@@ -68,7 +68,8 @@ class TranscriptPage(QWidget):
             ts_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
             
             # 2. Speaker
-            speaker_item = QTableWidgetItem(segment.speaker)
+            speaker = segment.speaker if segment.speaker and "Speaker_" not in segment.speaker and "UNRESOLVED_" not in segment.speaker else "Unknown"
+            speaker_item = QTableWidgetItem(speaker)
             speaker_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
             
             # 3. Corrected

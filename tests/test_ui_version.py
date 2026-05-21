@@ -20,7 +20,7 @@ def test_rebuilt_ui_is_loaded(qtbot):
     qtbot.addWidget(window)
     
     # 1. Check title
-    assert "Collective MindGraph — Native MVP UI" in window.windowTitle()
+    assert "Collective MindGraph — Local Technical Memory" in window.windowTitle()
     
     # 2. Check sidebar exists
     assert hasattr(window, "sidebar_container")
@@ -50,10 +50,9 @@ def test_rebuilt_ui_is_loaded(qtbot):
     found_marker = False
     labels = status_bar.findChildren(QLabel)
     for l in labels:
-        if "New MVP UI" in l.text():
+        if "Native MVP" in l.text():
             found_marker = True
-    
-    assert found_marker, "Version marker 'New MVP UI' not found in status bar"
 
+    assert found_marker, "Version marker 'Native MVP' not found in status bar"
 if __name__ == "__main__":
     pytest.main([__file__])

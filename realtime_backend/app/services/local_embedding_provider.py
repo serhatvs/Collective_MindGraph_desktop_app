@@ -14,10 +14,11 @@ class SentenceTransformerEmbeddingProvider(LocalEmbeddingProvider):
     Requires local model path and 'sentence-transformers' library.
     """
 
-    def __init__(self, model_path: str, dimension: int = 384, allow_download: bool = False):
+    def __init__(self, model_path: str, dimension: int = 384, allow_download: bool = False, device: str = "cpu"):
         self._model_path = model_path
         self._dimension = dimension
         self._allow_download = allow_download
+        self._device = device
         self._model = None
         
         if not allow_download and not os.path.exists(model_path):
@@ -30,7 +31,11 @@ class SentenceTransformerEmbeddingProvider(LocalEmbeddingProvider):
         try:
             from sentence_transformers import SentenceTransformer
             # If allow_download is False, it will fail if path doesn't exist
-            self._model = SentenceTransformer(self._model_path, local_files_only=not self._allow_download)
+            self._model = SentenceTransformer(
+                self._model_path, 
+                local_files_only=not self._allow_download,
+                device=self._device
+            )
         except ImportError:
             raise RuntimeError("Library 'sentence-transformers' is not installed. Run 'pip install sentence-transformers'.")
         except Exception as e:

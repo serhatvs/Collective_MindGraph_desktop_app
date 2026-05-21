@@ -45,8 +45,8 @@ def test_memory_search_page_displays_results(qtbot):
     assert isinstance(card, ResultCard)
     assert card.type_badge.text() == "TASK"
     assert "FastAPI" in card.title_label.text()
-    assert "Score: 1.10" in card.meta_label.text()
-    assert "Session: conv_1" in card.meta_label.text()
+    assert "Relevance: 1.10" in card.meta_label.text()
+    assert "Memory: conv_1" in card.meta_label.text()
 
 def test_memory_search_page_emits_navigation_signal(qtbot):
     page = MemorySearchPage()

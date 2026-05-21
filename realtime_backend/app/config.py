@@ -192,6 +192,17 @@ class Settings:
         default_factory=lambda: _env_int("CMG_RT_LLM_CONTEXT_SEGMENTS", 4)
     )
 
+    # Embedding Provider
+    embedding_provider: str = field(
+        default_factory=lambda: _env("CMG_EMBEDDING_PROVIDER", "mock")
+    )
+    embedding_model_path: str = field(
+        default_factory=lambda: _env("CMG_EMBEDDING_MODEL_PATH", "")
+    )
+    embedding_dimension: int = field(
+        default_factory=lambda: _env_int("CMG_EMBEDDING_DIMENSION", 384)
+    )
+
     enable_summary: bool = field(
         default_factory=lambda: _env("CMG_RT_ENABLE_SUMMARY", "true").lower() == "true"
     )

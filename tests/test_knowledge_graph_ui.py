@@ -51,17 +51,19 @@ def test_knowledge_graph_selection_shows_detail(page, qtbot):
 def test_knowledge_graph_disabled_node_search_fallback():
     # This tests the reasoning logic in backend
     from realtime_backend.app.services.hybrid_memory_query_service import HybridMemoryQueryService
+    from realtime_backend.app.services.memory_graph import GraphNode, NodeType
     from unittest.mock import MagicMock
     import json
     
     mock_repo = MagicMock()
     # Mock SQLite execute for keyword search
     mock_conn = MagicMock()
+    # Ensure context manager returns the mock connection
+    mock_conn.__enter__.return_value = mock_conn
     mock_repo.database.connect.return_value = mock_conn
     
     # node_0 is active, node_1 is disabled
     def mock_get_node(node_id):
-        from collective_mindgraph.core.memory_graph import GraphNode, NodeType
         if node_id == "n0":
             return GraphNode(id="n0", type=NodeType.TASK, properties={"title": "Active"})
         return None

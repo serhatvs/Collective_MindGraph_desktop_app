@@ -23,13 +23,14 @@ def test_real_local_semantic_retrieval(tmp_path):
     # We detect dimension automatically from model
     try:
         from sentence_transformers import SentenceTransformer
-        tmp_model = SentenceTransformer(model_path, local_files_only=True)
+        tmp_model = SentenceTransformer(model_path, local_files_only=True, device="cpu")
         dimension = tmp_model.get_sentence_embedding_dimension()
         del tmp_model
     except Exception as e:
         pytest.fail(f"Failed to load model to detect dimension: {e}")
 
-    provider = SentenceTransformerEmbeddingProvider(model_path=model_path, dimension=dimension)
+    provider = SentenceTransformerEmbeddingProvider(model_path=model_path, device="cpu")
+
     graph_repo = ProductionGraphRepository(db)
     vector_repo = VectorRepository(db, expected_dim=dimension)
     

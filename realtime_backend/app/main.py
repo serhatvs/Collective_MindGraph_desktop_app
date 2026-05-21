@@ -36,10 +36,16 @@ def build_app() -> FastAPI:
     db = DatabaseProxy(db_path)
     db.initialize()
     graph_repo = ProductionGraphRepository(db)
-    vector_repo = VectorRepository(db, expected_dim=384)
-    
     # Embedding Provider
-    embedding_provider = MockLocalEmbeddingProvider(dim=384)
+    if settings.embedding_provider == "sentence_transformer":
+        embedding_provider = SentenceTransformerEmbeddingProvider(
+            model_path=settings.embedding_model_path,
+            device="cpu"  # Default to cpu for stability in backend
+        )
+    else:
+        embedding_provider = MockLocalEmbeddingProvider(dim=settings.embedding_dimension)
+    
+    vector_repo = VectorRepository(db, expected_dim=embedding_provider.dimension)
     
     normalizer = FFmpegAudioNormalizer(sample_rate=settings.sample_rate, channels=settings.channels)
     pipeline = TranscriptionPipeline(settings=settings)

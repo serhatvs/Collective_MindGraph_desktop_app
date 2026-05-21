@@ -70,12 +70,54 @@ class QueryResultItem:
     score: float = 1.0
     preview: str | None = None
     timestamp: str | None = None
+    # Phase 3 Fields
+    matched_by: str | None = None
+    score_breakdown: dict[str, float] = field(default_factory=dict)
+    edge_path: str | None = None
+    node_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class QueryResponse:
     query: str
     results: list[QueryResultItem] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceStep:
+    node_id: str
+    node_type: str
+    text: str
+    edge_type: str | None = None
+    direction: str = "out"
+
+
+@dataclass(frozen=True, slots=True)
+class EvidenceChain:
+    steps: list[EvidenceStep] = field(default_factory=list)
+    explanation: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ReasoningResponse:
+    query: str
+    chains: list[EvidenceChain] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class MemoryAskResponse:
+    query: str
+    mode: str
+    answer_type: str
+    short_answer: str
+    confidence_level: str
+    evidence_chains: list[EvidenceChain] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
+    source_session_ids: list[str] = field(default_factory=list)
+    source_segment_ids: list[str] = field(default_factory=list)
+    missing_evidence_note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +151,12 @@ class RealtimeBackendTranscriptionConfig:
     wake_phrase: str = DEFAULT_WAKE_PHRASE
     shutdown_phrase: str = DEFAULT_SHUTDOWN_PHRASE
     wake_cooldown_seconds: float = 2.0
+    # Phase 3 Fields
+    embeddings_enabled: bool = True
+    embedding_provider: str = "mock"
+    embedding_model_path: str = ""
+    embedding_dimension: int = 384
+    allow_remote_model_download: bool = False
 
     @classmethod
     def from_env(cls) -> "RealtimeBackendTranscriptionConfig":
@@ -138,6 +186,11 @@ class RealtimeBackendTranscriptionConfig:
                 os.getenv("CMG_SHUTDOWN_PHRASE") or DEFAULT_SHUTDOWN_PHRASE
             ).strip() or DEFAULT_SHUTDOWN_PHRASE,
             wake_cooldown_seconds=float(os.getenv("CMG_WAKE_COOLDOWN_SECONDS") or 2.0),
+            embeddings_enabled=_parse_bool(os.getenv("CMG_EMBEDDINGS_ENABLED"), True),
+            embedding_provider=os.getenv("CMG_EMBEDDING_PROVIDER", "mock"),
+            embedding_model_path=os.getenv("CMG_EMBEDDING_MODEL_PATH", ""),
+            embedding_dimension=int(os.getenv("CMG_EMBEDDING_DIMENSION") or 384),
+            allow_remote_model_download=_parse_bool(os.getenv("CMG_ALLOW_REMOTE_MODEL_DOWNLOAD"), False),
         )
 
     @classmethod
@@ -311,12 +364,52 @@ class RealtimeBackendTranscriptionService:
 
         return self.result_from_payload(response_payload, audio_path=path)
 
-    def query_memory(self, query: str) -> QueryResponse:
+    def reason_memory(self, query: str, max_depth: int = 3) -> ReasoningResponse:
         import urllib.parse
 
         safe_query = urllib.parse.quote(query)
         request = Request(
-            urljoin(f"{self._config.base_url}/", f"query?q={safe_query}"),
+            urljoin(f"{self._config.base_url}/", f"reason?q={safe_query}&max_depth={max_depth}"),
+            method="GET",
+            headers={"Accept": "application/json"},
+        )
+        try:
+            payload = self._read_json_response(request)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace").strip()
+            raise ValueError(f"Memory reasoning failed: {detail or exc.reason or exc.code}") from exc
+        except URLError as exc:
+            raise ValueError(_backend_unreachable_message(self._config.base_url)) from exc
+        except TimeoutError:
+            raise ValueError("Reasoning request timed out.")
+
+        chains_payload = payload.get("chains") or []
+        chains = [
+            EvidenceChain(
+                steps=[
+                    EvidenceStep(
+                        node_id=str(s.get("node_id") or ""),
+                        node_type=str(s.get("node_type") or "unknown"),
+                        text=str(s.get("text") or ""),
+                        edge_type=self._extract_string(s, "edge_type"),
+                        direction=str(s.get("direction") or "out"),
+                    )
+                    for s in (c.get("steps") or [])
+                ],
+                explanation=str(c.get("explanation") or ""),
+            )
+            for c in chains_payload
+            if isinstance(c, dict)
+        ]
+        return ReasoningResponse(query=query, chains=chains, warnings=payload.get("warnings") or [])
+
+    def query_memory(self, query: str, mode: str = "hybrid") -> QueryResponse:
+        import urllib.parse
+
+        safe_query = urllib.parse.quote(query)
+        safe_mode = urllib.parse.quote(mode)
+        request = Request(
+            urljoin(f"{self._config.base_url}/", f"query?q={safe_query}&mode={safe_mode}"),
             method="GET",
             headers={"Accept": "application/json"},
         )
@@ -342,11 +435,76 @@ class RealtimeBackendTranscriptionService:
                 score=float(item.get("score") or 1.0),
                 preview=self._extract_string(item, "preview"),
                 timestamp=self._extract_string(item, "timestamp"),
+                matched_by=self._extract_string(item, "matched_by"),
+                score_breakdown=item.get("score_breakdown") if isinstance(item.get("score_breakdown"), dict) else {},
+                edge_path=self._extract_string(item, "edge_path"),
+                node_id=self._extract_string(item, "node_id"),
             )
             for item in results_payload
             if isinstance(item, dict)
         ]
-        return QueryResponse(query=query, results=results)
+        return QueryResponse(query=query, results=results, warnings=payload.get("warnings") or [])
+
+    def ask_memory(
+        self, 
+        query: str, 
+        mode: str = "evidence_only", 
+        session_id: str | None = None,
+        include_pending: bool = False
+    ) -> MemoryAskResponse:
+        import urllib.parse
+
+        params = {"q": query, "mode": mode, "include_pending": str(include_pending).lower()}
+        if session_id:
+            params["session_id"] = session_id
+        
+        query_string = urllib.parse.urlencode(params)
+        request = Request(
+            urljoin(f"{self._config.base_url}/", f"memory/ask?{query_string}"),
+            method="GET",
+            headers={"Accept": "application/json"},
+        )
+        try:
+            payload = self._read_json_response(request)
+        except HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace").strip()
+            raise ValueError(f"Memory ask failed: {detail or exc.reason or exc.code}") from exc
+        except URLError as exc:
+            raise ValueError(_backend_unreachable_message(self._config.base_url)) from exc
+        except TimeoutError:
+            raise ValueError("Ask request timed out.")
+
+        chains_payload = payload.get("evidence_chains") or []
+        chains = [
+            EvidenceChain(
+                steps=[
+                    EvidenceStep(
+                        node_id=str(s.get("node_id") or ""),
+                        node_type=str(s.get("node_type") or "unknown"),
+                        text=str(s.get("text") or ""),
+                        edge_type=self._extract_string(s, "edge_type"),
+                        direction=str(s.get("direction") or "out"),
+                    )
+                    for s in (c.get("steps") or [])
+                ],
+                explanation=str(c.get("explanation") or ""),
+            )
+            for c in chains_payload
+            if isinstance(c, dict)
+        ]
+        
+        return MemoryAskResponse(
+            query=query,
+            mode=mode,
+            answer_type=str(payload.get("answer_type") or "evidence_only"),
+            short_answer=str(payload.get("short_answer") or ""),
+            evidence_chains=chains,
+            warnings=payload.get("warnings") or [],
+            confidence_level=str(payload.get("confidence_level") or "low"),
+            source_session_ids=self._extract_string_list(payload, "source_session_ids"),
+            source_segment_ids=self._extract_string_list(payload, "source_segment_ids"),
+            missing_evidence_note=self._extract_string(payload, "missing_evidence_note")
+        )
 
     def fetch_health(self) -> BackendHealthStatus:
         request = Request(

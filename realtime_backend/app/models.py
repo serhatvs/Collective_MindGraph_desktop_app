@@ -114,6 +114,24 @@ class QueryResultItem(BaseModel):
 class QueryResponse(BaseModel):
     query: str
     results: list[QueryResultItem] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+class EvidenceStep(BaseModel):
+    node_id: str
+    node_type: str
+    text: str
+    edge_type: str | None = None
+    direction: str = "out"
+
+class EvidenceChain(BaseModel):
+    steps: list[EvidenceStep] = Field(default_factory=list)
+    explanation: str = ""
+
+class ReasoningResponse(BaseModel):
+    query: str
+    answer_type: str = "graph_evidence"
+    chains: list[EvidenceChain] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
 
 # Future Semantic/Vector Interfaces (Placeholders)

@@ -1,7 +1,7 @@
 {
   "conversation_id": "demo_technical_turkish",
-  "created_at": "2026-05-17T21:35:56.734869Z",
-  "updated_at": "2026-05-17T21:35:56.734873Z",
+  "created_at": "2026-05-21T09:43:15.262960Z",
+  "updated_at": "2026-05-21T09:43:15.262962Z",
   "source": "demo_seed",
   "language": "tr",
   "quality_mode": null,
@@ -22,7 +22,7 @@
       "metadata": {}
     }
   ],
-  "summary": "1 speaker covered Decisions. Early context: Merhaba, bugün Collective MindGraph toplantısındayız. Transcript kalitesini artırmamız gerekiyor. Bu hafta FastAPI endpointini test edeceğiz. SQLite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. VAD a Decisions: Sqlite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak Action items: Transcript kalitesini artırmamız gerekiyor; Bu hafta fastapi endpointini test edeceğiz",
+  "summary": "Technical conversation covered Decisions. Early context: Merhaba, bugün Collective MindGraph toplantısındayız. Transcript kalitesini artırmamız gerekiyor. Bu hafta FastAPI endpointini test edeceğiz. SQLite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak. VAD a Decisions: Sqlite kayıtlarında raw transcript ve cleaned transcript ayrı tutulacak Action items: Transcript kalitesini artırmamız gerekiyor; Bu hafta fastapi endpointini test edeceğiz",
   "topics": [
     {
       "label": "Decisions",

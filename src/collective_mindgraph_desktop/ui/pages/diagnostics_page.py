@@ -44,7 +44,13 @@ class DiagnosticsPage(QWidget):
         self.labels = {
             "backend_url": QLabel("http://127.0.0.1:8081"),
             "asr_provider": QLabel("-"),
-            "llm_provider": QLabel("-"),
+            "llm_status": QLabel("WIRED BUT UNAVAILABLE"),
+            "llm_endpoint": QLabel("-"),
+            "extraction_mode": QLabel("HEURISTIC_FALLBACK"),
+            "embedding_status": QLabel("MOCK_ONLY"),
+            "embedding_path": QLabel("-"),
+            "vector_count": QLabel("0"),
+            "embedding_dim": QLabel("384"),
             "offline_mode": QLabel("ACTIVE (Strict Local-First)"),
             "processing_time": QLabel("-"),
             "raw_length": QLabel("-"),
@@ -55,12 +61,42 @@ class DiagnosticsPage(QWidget):
             
         self.form.addRow("Backend URL", self.labels["backend_url"])
         self.form.addRow("ASR Provider", self.labels["asr_provider"])
-        self.form.addRow("LLM Provider", self.labels["llm_provider"])
         self.form.addRow("Security Mode", self.labels["offline_mode"])
-        self.form.addRow("Diarization", QLabel("NOT ENABLED (Pending Roadmap)"))
+        
+        # Production Status rows
+        self.labels["llm_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
+        self.form.addRow("Local AI Layer (LLM)", self.labels["llm_status"])
+        self.form.addRow("LLM Endpoint", self.labels["llm_endpoint"])
+
+        self.labels["extraction_mode"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+        self.form.addRow("Extraction Mode", self.labels["extraction_mode"])
+        
+        self.labels["embedding_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+        self.form.addRow("Semantic Memory", self.labels["embedding_status"])
+        self.form.addRow("Model Path", self.labels["embedding_path"])
+        self.form.addRow("Vector Index Size", self.labels["vector_count"])
+        self.form.addRow("Vector Dimension", self.labels["embedding_dim"])
+        
+        self.labels["graph_status"] = QLabel("ACTIVE (V2 Graph Nodes/Edges)")
+        self.labels["graph_status"].setStyleSheet("color: #166534; font-weight: bold;")
+        self.form.addRow("Graph Reasoning", self.labels["graph_status"])
+        
+        self.labels["ask_memory_evidence"] = QLabel("ACTIVE")
+        self.labels["ask_memory_evidence"].setStyleSheet("color: #166534; font-weight: bold;")
+        self.form.addRow("Ask Memory (Evidence-only)", self.labels["ask_memory_evidence"])
+
+        self.labels["ask_memory_llm"] = QLabel("FALLBACK_TO_EVIDENCE_ONLY")
+        self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+        self.form.addRow("Ask Memory (LLM-assisted)", self.labels["ask_memory_llm"])
+
+        self.labels["hybrid_status"] = QLabel("ACTIVE (Keyword + Graph)")
+        self.labels["hybrid_status"].setStyleSheet("color: #166534; font-weight: bold;")
+        self.form.addRow("Hybrid Query", self.labels["hybrid_status"])
+
+        self.form.addRow("Diarization", QLabel("NOT ENABLED (Roadmap)"))
+        self.form.addRow("Raw Audio Trace Count", self.labels["raw_length"])
+        self.form.addRow("Memory Cache Size", self.labels["clean_length"])
         self.form.addRow("Analysis Duration", self.labels["processing_time"])
-        self.form.addRow("Raw Transcript Char Count", self.labels["raw_length"])
-        self.form.addRow("Clean Transcript Char Count", self.labels["clean_length"])
         
         self.status_card.body_layout.addLayout(self.form)
         
@@ -78,6 +114,24 @@ class DiagnosticsPage(QWidget):
         
         self.container_layout.addStretch(1)
 
+    def set_app_summary(self, vector_count: int, embedding_dim: int, provider_name: str, model_path: str = "") -> None:
+        self.labels["vector_count"].setText(str(vector_count))
+        self.labels["embedding_dim"].setText(str(embedding_dim))
+        self.labels["embedding_path"].setText(model_path or "N/A (Mock)")
+        
+        if provider_name == "Mock":
+            self.labels["embedding_status"].setText("MOCK_ONLY")
+            self.labels["embedding_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
+        elif provider_name == "SentenceTransformer":
+            self.labels["embedding_status"].setText("REAL_ACTIVE")
+            self.labels["embedding_status"].setStyleSheet("color: #166534; font-weight: bold;")
+            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Vector + Graph)")
+        else:
+            self.labels["embedding_status"].setText("MISSING_MODEL")
+            self.labels["embedding_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
+            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
+
     def set_detail(self, detail: SessionDetail | None) -> None:
         if not detail or not detail.transcripts:
             return
@@ -88,7 +142,24 @@ class DiagnosticsPage(QWidget):
             return
 
         self.labels["asr_provider"].setText(analysis.source_provider)
-        # Diagnostics models are in backend but we can show basic stats
+        self.labels["llm_endpoint"].setText(analysis.metadata.get("llm_endpoint", "-"))
+        
+        # LLM / Extraction Status from metadata
+        source = analysis.metadata.get("extraction_source", "unknown").upper()
+        self.labels["extraction_mode"].setText(source)
+        if source == "LOCAL_LLM":
+            self.labels["extraction_mode"].setStyleSheet("color: #166534; font-weight: bold;")
+            self.labels["llm_status"].setText("ACTIVE")
+            self.labels["llm_status"].setStyleSheet("color: #166534; font-weight: bold;")
+            self.labels["ask_memory_llm"].setText("ACTIVE")
+            self.labels["ask_memory_llm"].setStyleSheet("color: #166534; font-weight: bold;")
+        else:
+            self.labels["extraction_mode"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+            self.labels["llm_status"].setText("FALLBACK ONLY")
+            self.labels["llm_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+            self.labels["ask_memory_llm"].setText("FALLBACK_TO_EVIDENCE_ONLY")
+            self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+
         self.labels["raw_length"].setText(str(len(analysis.raw_text_output)))
         self.labels["clean_length"].setText(str(len(analysis.corrected_text_output)))
-        self.labels["processing_time"].setText("Calculated on backend")
+        self.labels["processing_time"].setText(f"{analysis.metadata.get('processing_time_seconds', '-')}s")

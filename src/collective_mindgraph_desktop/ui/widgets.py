@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -299,8 +301,23 @@ class TranscriptionSettingsDialog(QDialog):
         self.wake_cooldown_spin.setValue(config.wake_cooldown_seconds)
         self.wake_cooldown_spin.setSuffix(" s")
 
+        # Phase 3: Local AI & Semantic Memory
+        self.embeddings_checkbox = QCheckBox("Enable Semantic Retrieval")
+        self.embeddings_checkbox.setChecked(config.embeddings_enabled)
+        
+        self.embedding_path_edit = QLineEdit(config.embedding_model_path)
+        self.embedding_path_edit.setPlaceholderText("/path/to/local/model")
+        
+        self.llm_endpoint_edit = QLineEdit(os.getenv("CMG_RT_LLM_ENDPOINT", "http://127.0.0.1:1234/v1"))
+        self.llm_endpoint_edit.setPlaceholderText("http://127.0.0.1:1234/v1")
+
+        form_layout.addRow(QLabel("<b>Production AI</b>"), QLabel(""))
         form_layout.addRow("Backend URL", self.base_url_edit)
+        form_layout.addRow("LLM API Endpoint", self.llm_endpoint_edit)
+        form_layout.addRow("", self.embeddings_checkbox)
+        form_layout.addRow("Embedding Model Path", self.embedding_path_edit)
         form_layout.addRow("Language", self.language_edit)
+        form_layout.addRow(QLabel("<b>Voice Pipeline</b>"), QLabel(""))
         form_layout.addRow("Request Timeout", self.timeout_spin)
         form_layout.addRow("Live Transcript", self.live_stream_checkbox)
         form_layout.addRow("Stream Flush Interval", self.stream_flush_spin)
@@ -337,12 +354,15 @@ class TranscriptionSettingsDialog(QDialog):
             audio_input_device_label=None if is_default_selection else selected_label,
             auto_stop_enabled=self.auto_stop_checkbox.isChecked(),
             auto_stop_min_speech_seconds=self.auto_stop_min_speech_spin.value(),
-            auto_stop_silence_seconds=self.auto_stop_silence_spin.value(),
+            auto_stop_silence_seconds=self.auto_stop_silence_seconds_spin.value() if hasattr(self, "auto_stop_silence_seconds_spin") else 1.25,
             auto_stop_silence_threshold=self.auto_stop_threshold_spin.value(),
             wake_trigger_enabled=self.wake_enabled_checkbox.isChecked(),
             wake_phrase=self.wake_phrase_edit.text().strip() or DEFAULT_WAKE_PHRASE,
             shutdown_phrase=self.shutdown_phrase_edit.text().strip() or DEFAULT_SHUTDOWN_PHRASE,
             wake_cooldown_seconds=self.wake_cooldown_spin.value(),
+            embeddings_enabled=self.embeddings_checkbox.isChecked(),
+            embedding_model_path=self.embedding_path_edit.text().strip(),
+            # LLM endpoint is usually stored in env or re-applied to config if we expand it
         )
 
     def _validate_and_accept(self) -> None:

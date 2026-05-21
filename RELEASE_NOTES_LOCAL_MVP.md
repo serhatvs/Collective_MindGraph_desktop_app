@@ -5,6 +5,7 @@
 
 ## Implemented Features
 - **Local-First Turkish Transcription**: 100% offline pipeline using Faster-Whisper and Silero-VAD.
+- **Local LLM Extraction**: Structured knowledge extraction via LM Studio (OpenAI compatible).
 - **Dual-Transcript Model**: Concurrently preserves raw ASR output and cleaned, readable text.
 - **Heuristic Knowledge Extraction**: Automatic detection of Tasks, Decisions, and Topics for Technical Turkish.
 - **Traceable Memory Search**: Keyword-based retrieval across sessions with direct source-segment navigation.

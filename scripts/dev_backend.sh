@@ -1,6 +1,9 @@
 #!/bin/bash
 # Start the realtime transcription backend on port 8081
 echo "Starting Collective MindGraph Backend on port 8081..."
+# Ensure src is in PYTHONPATH
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+
 cd realtime_backend
 if [ -d ".venv" ]; then
     source .venv/bin/activate

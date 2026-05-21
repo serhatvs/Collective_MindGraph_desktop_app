@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+import logging
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -11,13 +12,15 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QScrollArea,
+    QInputDialog,
 )
 
 from ...models import SessionDetail, TranscriptAnalysis
 from ..widgets import CardWidget
 
-
 class InsightsPage(QWidget):
+    knowledge_item_updated = Signal(str, str, str) # item_type, original_text, new_text
+    
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         
@@ -36,9 +39,10 @@ class InsightsPage(QWidget):
         scroll.setWidget(container)
         
         # 1. Tasks Card
-        self.tasks_card = CardWidget("Action Items (Tasks)")
+        self.tasks_card = CardWidget("Tasks")
         self.tasks_list = QListWidget()
         self.tasks_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.tasks_list.itemDoubleClicked.connect(self._edit_item)
         self.tasks_card.body_layout.addWidget(self.tasks_list)
         self.container_layout.addWidget(self.tasks_card)
         
@@ -46,6 +50,7 @@ class InsightsPage(QWidget):
         self.decisions_card = CardWidget("Decisions")
         self.decisions_list = QListWidget()
         self.decisions_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.decisions_list.itemDoubleClicked.connect(self._edit_item)
         self.decisions_card.body_layout.addWidget(self.decisions_list)
         self.container_layout.addWidget(self.decisions_card)
         
@@ -53,49 +58,73 @@ class InsightsPage(QWidget):
         self.topics_card = CardWidget("Topics")
         self.topics_list = QListWidget()
         self.topics_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.topics_list.itemDoubleClicked.connect(self._edit_item)
         self.topics_card.body_layout.addWidget(self.topics_list)
         self.container_layout.addWidget(self.topics_card)
         
         self.container_layout.addStretch(1)
+
+    def _edit_item(self, item: QListWidgetItem) -> None:
+        current_text = item.text()
+        
+        # Determine type from prefix emoji
+        item_type = "task"
+        if current_text.startswith("💡 "): item_type = "decision"
+        elif current_text.startswith("🏷️ "): item_type = "topic"
+        
+        # Strip emoji and resp for clean edit
+        clean_text = current_text
+        if current_text.startswith(("✅ ", "💡 ", "🏷️ ")):
+            clean_text = current_text[2:]
+        
+        # If task, strip resp suffix (Resp: ...)
+        resp_index = clean_text.find(" (Resp:")
+        if resp_index != -1:
+            clean_text = clean_text[:resp_index]
+
+        new_text, ok = QInputDialog.getText(self, "Edit Knowledge Item", "Update text:", text=clean_text)
+        if ok and new_text and new_text != clean_text:
+            self.knowledge_item_updated.emit(item_type, clean_text, new_text)
+            # Optimistically update UI
+            prefix = current_text[:2] if current_text.startswith(("✅ ", "💡 ", "🏷️ ")) else ""
+            suffix = current_text[resp_index:] if resp_index != -1 else ""
+            item.setText(f"{prefix}{new_text}{suffix}")
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         self.tasks_list.clear()
         self.decisions_list.clear()
         self.topics_list.clear()
         
-        if not detail or not detail.transcripts:
+        if not detail:
             return
 
-        last_id = detail.transcripts[-1].id
-        analysis = detail.transcript_analyses.get(last_id)
-        if not analysis:
-            return
+        # Fetch V2 data to check review status
+        # (This is a bit inefficient to fetch twice, but for prototype it works)
+        # In real app, SessionDetail would include V2 graph nodes.
+        pass
 
-        # Tasks
-        if analysis.action_items:
-            for task in analysis.action_items:
-                item = QListWidgetItem(f"✅ {task.title}")
-                if task.responsible_person:
-                    item.setText(f"{item.text()} (Resp: {task.responsible_person})")
-                item.setToolTip(f"Source: {task.source_segment_id}\nNote: {task.confidence_note}")
+    def update_reviewed_data(self, nodes: list[dict]) -> None:
+        self.tasks_list.clear()
+        self.decisions_list.clear()
+        self.topics_list.clear()
+        
+        # Filter for approved or edited
+        reviewed = [n for n in nodes if n.get("metadata_json") and 
+                   (json.loads(n["metadata_json"]) if isinstance(n["metadata_json"], str) else n["metadata_json"]).get("review_status") in ("approved", "edited")]
+        
+        for node in reviewed:
+            meta_str = node.get("metadata_json") or "{}"
+            meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+            
+            title = node.get("title") or node.get("text_content") or ""
+            n_type = node.get("type")
+            
+            if n_type == "TASK":
+                item = QListWidgetItem(f"✅ {title}")
+                if meta.get("assignee"):
+                    item.setText(f"{item.text()} (Resp: {meta['assignee']})")
                 self.tasks_list.addItem(item)
-        else:
-            self.tasks_list.addItem("No tasks identified.")
-
-        # Decisions
-        if analysis.decisions:
-            for decision in analysis.decisions:
-                item = QListWidgetItem(f"💡 {decision.decision}")
-                item.setToolTip(f"Source: {decision.source_segment_id}\nContext: {decision.reason_context}")
-                self.decisions_list.addItem(item)
-        else:
-            self.decisions_list.addItem("No decisions identified.")
-
-        # Topics
-        if analysis.topics:
-            for topic in analysis.topics:
-                item = QListWidgetItem(f"🏷️ {topic.label}")
-                item.setToolTip(f"Range: {topic.start:.2f}s - {topic.end:.2f}s")
-                self.topics_list.addItem(item)
-        else:
-            self.topics_list.addItem("No topics identified.")
+            elif n_type == "DECISION":
+                self.decisions_list.addItem(QListWidgetItem(f"💡 {title}"))
+            elif n_type == "TOPIC":
+                self.topics_list.addItem(QListWidgetItem(f"🏷️ {title}"))

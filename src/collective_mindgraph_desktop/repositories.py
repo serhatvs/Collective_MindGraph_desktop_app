@@ -161,11 +161,16 @@ def _analysis_from_row(row: sqlite3.Row) -> TranscriptAnalysis:
     segments = json.loads(row["segments_json"])
     quality_payload = json.loads(row["quality_report_json"]) if row["quality_report_json"] else None
     
-    # Backward compatibility for people_json
+    # Backward compatibility for people_json and metadata_json
     try:
         people = json.loads(row["people_json"])
     except (KeyError, sqlite3.IndexError):
         people = []
+        
+    try:
+        metadata = json.loads(row["metadata_json"])
+    except (KeyError, sqlite3.IndexError):
+        metadata = {}
 
     return TranscriptAnalysis(
         transcript_id=row["transcript_id"],
@@ -183,6 +188,7 @@ def _analysis_from_row(row: sqlite3.Row) -> TranscriptAnalysis:
         quality_report=_quality_report_from_payload(quality_payload),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        metadata=metadata,
     )
 
 
@@ -516,13 +522,14 @@ class TranscriptAnalysisRepository:
                     action_items_json,
                     decisions_json,
                     people_json,
+                    metadata_json,
                     speaker_stats_json,
                     segments_json,
                     quality_report_json,
                     created_at,
                     updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(transcript_id) DO UPDATE SET
                     source_provider = excluded.source_provider,
                     backend_conversation_id = excluded.backend_conversation_id,
@@ -533,6 +540,7 @@ class TranscriptAnalysisRepository:
                     action_items_json = excluded.action_items_json,
                     decisions_json = excluded.decisions_json,
                     people_json = excluded.people_json,
+                    metadata_json = excluded.metadata_json,
                     speaker_stats_json = excluded.speaker_stats_json,
                     segments_json = excluded.segments_json,
                     quality_report_json = excluded.quality_report_json,
@@ -549,6 +557,7 @@ class TranscriptAnalysisRepository:
                     _dump_json(action_items_payload),
                     _dump_json(decisions_payload),
                     _dump_json(draft.people),
+                    _dump_json(draft.metadata),
                     _dump_json(speaker_stats_payload),
                     _dump_json(segments_payload),
                     _dump_json(quality_payload) if quality_payload is not None else None,

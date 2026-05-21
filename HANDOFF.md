@@ -14,13 +14,11 @@ Collective MindGraph is a local-first, privacy-focused desktop application for c
 | **Raw/Clean Transcript Separation** | Implemented | Preserves original ASR and cleaned text. |
 | **Turkish ASR Regression Benchmark** | Implemented | 91% keyword overlap on Common Voice. |
 | **Heuristic Structured Extraction** | Implemented | Extracts tasks, decisions, and topics. |
-| **Keyword Memory Query** | Implemented | Local cross-session search with source linking. |
-| **Desktop Global Search UI** | Implemented | Integrated search with source navigation. |
-| **Offline Safety Guards** | Implemented | Prevents silent internet access. |
-| **Basic Graph Persistence** | Implemented | Hierarchical SQLite-based storage. |
-| **Project Meeting Validation** | Pending | Infrastructure ready; pending manual audio. |
-| **Semantic/Vector Search** | Future TODO | Interface placeholders added. |
-| **Full Graph Edge Reasoning** | Future TODO | Hierarchical tree only for now. |
+| **Local LLM Extraction** | **ACTIVE** | Structured JSON extraction via LM Studio (meta-llama-3.1). |
+| **Hybrid Memory Query** | Implemented | Combined Keyword, Vector, and Graph search active. |
+| **Ask Memory** | **ACTIVE** | Auditable layers with hallucination rejection and coverage scoring. |
+| **Graph Edge Reasoning** | Implemented | Multi-hop structural reasoning (neighbors, paths) active. |
+| **Desktop Global Search UI** | Implemented | Integrated search and "Ask Your Memory" panel. |
 
 ## How to Run the Local Demo
 Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
@@ -51,10 +49,9 @@ Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
 
 ## Known Limitations
 - **Meeting-room accuracy**: Production-level accuracy is not claimed yet; pending project-specific validation.
-- **Graph Complexity**: Currently supports hierarchical (tree) relationships, not arbitrary edges.
-- **Search**: Strictly keyword-based; no semantic similarity yet.
+- **Search**: Hybrid query active; semantic retrieval requires real local model configuration (currently using infrastructure placeholders).
 
 ## Pending TODOs
 - [ ] Record project-specific Turkish meeting WAV and run `test_project_turkish_meeting_asr_quality.py`.
-- [ ] Implement `SemanticQueryService` using vector embeddings.
+- [ ] Finalize local embedding model validation for production semantic retrieval.
 - [ ] Implement and validate Diarization / automatic speaker separation.

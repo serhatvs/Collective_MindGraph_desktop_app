@@ -91,6 +91,7 @@ class Database:
             action_items_json TEXT NOT NULL,
             decisions_json TEXT NOT NULL,
             people_json TEXT NOT NULL,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
             speaker_stats_json TEXT NOT NULL,
             segments_json TEXT NOT NULL,
             quality_report_json TEXT,
@@ -106,11 +107,69 @@ class Database:
         CREATE INDEX IF NOT EXISTS idx_graph_nodes_session ON graph_nodes(session_id, created_at);
         CREATE INDEX IF NOT EXISTS idx_snapshots_session ON snapshots(session_id, created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_transcript_analyses_conversation_id ON transcript_analyses(backend_conversation_id);
+
+        -- V2 Production Graph Persistence (Runs alongside MVP)
+        CREATE TABLE IF NOT EXISTS v2_source_references (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            segment_id TEXT,
+            document_id TEXT,
+            chunk_id TEXT,
+            timestamp_start REAL,
+            timestamp_end REAL,
+            text_preview TEXT,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS v2_graph_nodes (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            title TEXT,
+            text_content TEXT,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            source_reference_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (source_reference_id) REFERENCES v2_source_references(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS v2_graph_edges (
+            id TEXT PRIMARY KEY,
+            source_node_id TEXT NOT NULL,
+            target_node_id TEXT NOT NULL,
+            edge_type TEXT NOT NULL,
+            metadata_json TEXT NOT NULL DEFAULT '{}',
+            confidence REAL NOT NULL DEFAULT 1.0,
+            source_reference_id TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (source_node_id) REFERENCES v2_graph_nodes(id) ON DELETE CASCADE,
+            FOREIGN KEY (target_node_id) REFERENCES v2_graph_nodes(id) ON DELETE CASCADE,
+            FOREIGN KEY (source_reference_id) REFERENCES v2_source_references(id) ON DELETE SET NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS v2_embeddings (
+            id TEXT PRIMARY KEY,
+            node_id TEXT NOT NULL,
+            node_type TEXT NOT NULL,
+            source_reference_id TEXT,
+            vector_json TEXT NOT NULL,
+            text_chunk TEXT NOT NULL,
+            dimension INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_v2_graph_nodes_type ON v2_graph_nodes(type);
+        CREATE INDEX IF NOT EXISTS idx_v2_graph_edges_source ON v2_graph_edges(source_node_id);
+        CREATE INDEX IF NOT EXISTS idx_v2_graph_edges_target ON v2_graph_edges(target_node_id);
+        CREATE INDEX IF NOT EXISTS idx_v2_embeddings_node ON v2_embeddings(node_id);
         """
         with self.connect() as connection:
             connection.executescript(schema)
-            # Lightweight migration: Ensure people_json exists in transcript_analyses
+            # Lightweight migration: Ensure people_json and metadata_json exist in transcript_analyses
             cursor = connection.execute("PRAGMA table_info(transcript_analyses)")
             columns = [row["name"] for row in cursor.fetchall()]
-            if columns and "people_json" not in columns:
-                connection.execute("ALTER TABLE transcript_analyses ADD COLUMN people_json TEXT NOT NULL DEFAULT '[]'")
+            if columns:
+                if "people_json" not in columns:
+                    connection.execute("ALTER TABLE transcript_analyses ADD COLUMN people_json TEXT NOT NULL DEFAULT '[]'")
+                if "metadata_json" not in columns:
+                    connection.execute("ALTER TABLE transcript_analyses ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")

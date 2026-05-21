@@ -38,13 +38,19 @@ The system processes information through the following stages:
 | **Turkish Benchmark** | Implemented | Regression suite using Common Voice data. |
 | **Heuristic Extraction** | Implemented | Technical Turkish task/decision patterns. |
 | **Keyword Query Service** | Implemented | Cross-session traceable lookup with scoring. |
-| **Global Search UI** | Implemented | Desktop search panel with source linking. |
+| Global Search UI | Implemented | Desktop search panel with source linking. |
+| **Local LLM Extraction** | **ACTIVE** | LM Studio integration (meta-llama-3.1-8b-instruct) verified. |
 | **Demo Automation** | Implemented | Readiness check and text-only seed scripts. |
 | **Meeting Validation** | Pending | Infrastructure ready; pending manual recording. |
-| **Semantic Retrieval** | Future TODO | Interface placeholders added (VectorStore). |
+| **Semantic Retrieval** | Implemented | Local embedding provider with SQLite Vector store active. |
 | **Diarization** | **Roadmap** | Automatic speaker separation is NOT implemented or validated. |
-| **Full Graph Edge Reasoning** | Future TODO | Hierarchical tree only for now. |
-| **Multi-hop Reasoning** | Future TODO | Not yet implemented. |
+| **Knowledge Review/Edit** | **Implemented** | Double-click to edit extracted items with graph persistence. |
+| **Export/Import** | **Implemented** | Full V2 Graph context (nodes/edges/refs) roundtrip supported. |
+| **Job Management** | **Implemented** | Background task registry with progress tracking in status bar. |
+| **Graph Reasoning** | Implemented | Multi-hop structural reasoning (neighbors, paths) without LLM dependency. |
+| **Ask Memory** | **ACTIVE** | Auditable layers (Evidence-only/LLM) with coverage scoring and term validation. |
+| **Reasoning Trace** | Implemented | UI evidence chains showing Session -> Segment -> Insight paths. |
+| **Hallucination Guard** | **ACTIVE** | Automated rejection of unsupported LLM claims with technical term detection. |
 
 ## Validation Status
 - **Common Voice Turkish**: Active Clean-speech benchmark.

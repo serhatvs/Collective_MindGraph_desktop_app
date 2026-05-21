@@ -178,10 +178,10 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_PIPELINE_WINDOW_OVERLAP_SECONDS", 2.0)
     )
 
-    llm_provider: str = field(default_factory=lambda: _env("CMG_RT_LLM_PROVIDER", "lmstudio"))
+    llm_provider: str = field(default_factory=lambda: _env("CMG_LOCAL_LLM_PROVIDER", _env("CMG_RT_LLM_PROVIDER", "lmstudio")))
     llm_model_name: str = field(default_factory=lambda: _env("CMG_RT_LLM_MODEL", "auto"))
     llm_endpoint: str | None = field(
-        default_factory=lambda: os.getenv("CMG_RT_LLM_ENDPOINT") or "http://127.0.0.1:1234/v1"
+        default_factory=lambda: os.getenv("CMG_LOCAL_LLM_ENDPOINT") or os.getenv("CMG_RT_LLM_ENDPOINT") or "http://127.0.0.1:1234/v1"
     )
     llm_api_key: str | None = field(default_factory=lambda: os.getenv("CMG_RT_LLM_API_KEY") or None)
     llm_timeout_seconds: float = field(
@@ -198,7 +198,7 @@ class Settings:
 
     # Offline Safety & Internet Constraints
     allow_remote_access: bool = field(
-        default_factory=lambda: _env("CMG_RT_ALLOW_REMOTE_ACCESS", "false").lower() == "true"
+        default_factory=lambda: (_env("CMG_ALLOW_REMOTE_ACCESS", _env("CMG_RT_ALLOW_REMOTE_ACCESS", "false"))).lower() == "true"
     )
     allow_remote_download: bool = field(
         default_factory=lambda: _env("CMG_RT_ALLOW_REMOTE_DOWNLOAD", "false").lower() == "true"

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 BranchType = Literal["root", "main", "side"]
@@ -132,6 +132,7 @@ class TranscriptAnalysis:
     quality_report: TranscriptQualityReport | None
     created_at: str
     updated_at: str
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,6 +176,7 @@ class TranscriptAnalysisDraft:
     quality_report: TranscriptQualityReport | None
     created_at: str
     updated_at: str
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

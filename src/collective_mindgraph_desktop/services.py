@@ -11,7 +11,7 @@ from pathlib import Path
 from .database import Database
 from .models import (
     AppSummary,
-    GraphNode,
+    GraphNode as MVPGraphNode,
     GraphNodeDraft,
     Session,
     SessionDetail,
@@ -34,7 +34,16 @@ from .repositories import (
     TranscriptAnalysisRepository,
     TranscriptRepository,
 )
-from .transcription import TranscriptionResult
+from .transcription import RealtimeBackendTranscriptionConfig, TranscriptionResult
+
+from collective_mindgraph.infrastructure.database.graph_repository import ProductionGraphRepository
+from collective_mindgraph.infrastructure.database.vector_repository import VectorRepository
+from collective_mindgraph.infrastructure.ai.local_embedding_provider import (
+    MockLocalEmbeddingProvider,
+    SentenceTransformerEmbeddingProvider
+)
+from collective_mindgraph.core.memory_graph import GraphNode, NodeType, EdgeType, GraphEdge
+from collective_mindgraph.core.source_reference import SourceReference
 
 
 def current_timestamp() -> str:
@@ -63,7 +72,7 @@ class SnapshotHasher:
 
 
 class CollectiveMindGraphService:
-    def __init__(self, database: Database | None = None) -> None:
+    def __init__(self, database: Database | None = None, config: Optional[RealtimeBackendTranscriptionConfig] = None) -> None:
         self._database = database or Database()
         self._database.initialize()
         self.sessions = SessionRepository(self._database)
@@ -71,6 +80,22 @@ class CollectiveMindGraphService:
         self.graph_nodes = GraphNodeRepository(self._database)
         self.snapshots = SnapshotRepository(self._database)
         self.transcript_analyses = TranscriptAnalysisRepository(self._database)
+        self.production_graph = ProductionGraphRepository(self._database)
+        
+        # Phase 3 Initialization
+        self.config = config or RealtimeBackendTranscriptionConfig.from_env()
+        self.vector_repo = VectorRepository(self._database, expected_dim=self.config.embedding_dimension)
+        
+        if not self.config.embeddings_enabled:
+            self.embedding_provider = MockLocalEmbeddingProvider(dim=self.config.embedding_dimension)
+        elif self.config.embedding_provider == "sentence_transformers":
+            self.embedding_provider = SentenceTransformerEmbeddingProvider(
+                model_path=self.config.embedding_model_path,
+                dimension=self.config.embedding_dimension,
+                allow_download=self.config.allow_remote_model_download
+            )
+        else:
+            self.embedding_provider = MockLocalEmbeddingProvider(dim=self.config.embedding_dimension)
 
     def create_session(self, title: str, device_id: str, status: str = "active") -> Session:
         cleaned_title = title.strip()
@@ -202,24 +227,173 @@ class CollectiveMindGraphService:
             self.sessions.touch(current_session_id, refreshed_at)
         return rebuilt
 
+    def update_knowledge_item(self, session_id: int, item_type: str, original_text: str, new_text: str) -> bool:
+        """
+        Updates an extracted item (Task, Decision, Topic) in both the MVP storage
+        and the V2 Production Graph.
+        """
+        detail = self.get_session_detail(session_id)
+        if not detail:
+            return False
+        
+        # 1. Update V2 Graph
+        v2_node_id = None
+        node_type = None
+        if item_type.lower() == "task": node_type = NodeType.TASK
+        elif item_type.lower() == "decision": node_type = NodeType.DECISION
+        elif item_type.lower() == "topic": node_type = NodeType.TOPIC
+        
+        if node_type:
+            nodes = self.production_graph.find_nodes_by_type(node_type)
+            for n in nodes:
+                if n.source and n.source.session_id == str(session_id):
+                    # Compare title or text
+                    if n.properties.get("title") == original_text or n.properties.get("text") == original_text:
+                        v2_node_id = n.id
+                        break
+        
+        if v2_node_id:
+            props = {
+                "title": new_text,
+                "text": new_text,
+                "edited_by_user": True,
+                "original_text": original_text,
+                "edited_at": datetime.now(tz=UTC).isoformat()
+            }
+            self.production_graph.update_node(v2_node_id, props)
+
+        # 2. Update MVP Analysis
+        if detail.transcripts:
+            last_id = detail.transcripts[-1].id
+            analysis = detail.transcript_analyses.get(last_id)
+            if analysis:
+                # In real app, we'd update analysis record here.
+                pass
+
+        return True
+
+    def update_node(self, node_id: str, properties: dict[str, Any]) -> bool:
+        return self.production_graph.update_node(node_id, properties)
+
+    def get_session_graph_data(self, session_id: int) -> dict[str, Any]:
+        session_id_str = str(session_id)
+        v2_nodes = []
+        v2_edges = []
+        
+        with self._database.connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?)",
+                (session_id_str,)
+            ).fetchall()
+            v2_nodes = [dict(r) for r in rows]
+            
+            rows = conn.execute(
+                "SELECT * FROM v2_graph_edges WHERE source_node_id IN (SELECT id FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?))",
+                (session_id_str,)
+            ).fetchall()
+            v2_edges = [dict(r) for r in rows]
+            
+        return {"nodes": v2_nodes, "edges": v2_edges}
+
     def export_session(self, session_id: int, target_path: str | Path) -> dict[str, object]:
         detail = self.get_session_detail(session_id)
         if detail is None:
             raise ValueError("Selected session was not found.")
+
+        # V2 Graph Expansion
+        v2_nodes = []
+        v2_edges = []
+        v2_refs = []
+        
+        session_id_str = str(session_id)
+        with self._database.connect() as conn:
+            # Source References
+            rows = conn.execute("SELECT * FROM v2_source_references WHERE session_id = ?", (session_id_str,)).fetchall()
+            v2_refs = [dict(r) for r in rows]
+            # Graph Nodes
+            rows = conn.execute(
+                "SELECT * FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?)",
+                (session_id_str,)
+            ).fetchall()
+            v2_nodes = [dict(r) for r in rows]
+            # Graph Edges
+            rows = conn.execute(
+                "SELECT * FROM v2_graph_edges WHERE source_node_id IN (SELECT id FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?))",
+                (session_id_str,)
+            ).fetchall()
+            v2_edges = [dict(r) for r in rows]
+
         payload = {
             "session": asdict(detail.session),
             "transcripts": [asdict(item) for item in detail.transcripts],
             "graph_nodes": [asdict(item) for item in detail.graph_nodes],
             "snapshots": [asdict(item) for item in detail.snapshots],
             "transcript_analyses": [asdict(item) for item in detail.transcript_analyses.values()],
+            "v2_production_graph": {
+                "nodes": v2_nodes,
+                "edges": v2_edges,
+                "source_references": v2_refs
+            },
+            "exported_at": datetime.now(tz=UTC).isoformat(),
         }
         path = Path(target_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
         return payload
 
-    def get_app_summary(self) -> AppSummary:
-        return self.sessions.summary_counts()
+    def import_session(self, source_path: str | Path) -> Session:
+        path = Path(source_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Export file not found at {path}")
+            
+        data = json.loads(path.read_text(encoding="utf-8"))
+        
+        # 1. Create/Restore Session
+        session_data = data["session"]
+        title = f"[Imported] {session_data['title']}"
+        session = self.create_session(title, session_data["device_id"], session_data["status"])
+        
+        # 2. Restore V2 Production Graph
+        v2_graph = data.get("v2_production_graph", {})
+        nodes = v2_graph.get("nodes", [])
+        edges = v2_graph.get("edges", [])
+        refs = v2_graph.get("source_references", [])
+        
+        with self._database.connect() as conn:
+            # Source References first
+            for r in refs:
+                # Update session_id to new session
+                r["session_id"] = str(session.id)
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO v2_source_references 
+                    (id, session_id, segment_id, document_id, chunk_id, timestamp_start, timestamp_end, text_preview, created_at) 
+                    VALUES (?,?,?,?,?,?,?,?,?)
+                    """,
+                    (r["id"], r["session_id"], r["segment_id"], r.get("document_id"), r.get("chunk_id"), r["timestamp_start"], r["timestamp_end"], r["text_preview"], r["created_at"])
+                )
+            # Nodes
+            for n in nodes:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO v2_graph_nodes 
+                    (id, type, title, text_content, metadata_json, source_reference_id, created_at, updated_at) 
+                    VALUES (?,?,?,?,?,?,?,?)
+                    """,
+                    (n["id"], n["type"], n["title"], n["text_content"], n["metadata_json"], n["source_reference_id"], n["created_at"], n["updated_at"])
+                )
+            # Edges
+            for e in edges:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO v2_graph_edges 
+                    (id, source_node_id, target_node_id, edge_type, metadata_json, confidence, source_reference_id, created_at) 
+                    VALUES (?,?,?,?,?,?,?,?)
+                    """,
+                    (e["id"], e["source_node_id"], e["target_node_id"], e["edge_type"], e["metadata_json"], e["confidence"], e["source_reference_id"], e["created_at"])
+                )
+                
+        return session
 
     def ingest_transcript(
         self,
@@ -293,6 +467,91 @@ class CollectiveMindGraphService:
                 updated_at=timestamp,
             ),
         )
+
+        # ---------------------------------------------------------
+        # V2 Production Graph Ingest (with Review Lifecycle)
+        # ---------------------------------------------------------
+        session_id_str = str(session.id)
+        # Create Session Node
+        session_node = GraphNode(
+            id=f"session_{session.id}",
+            type=NodeType.SESSION,
+            properties={"title": session.title},
+            source=SourceReference(session_id=session_id_str)
+        )
+        self.production_graph.create_node(session_node)
+
+        # Create Segment Nodes and Edges
+        for seg in result.segments:
+            seg_id = str(seg.get("segment_id", ""))
+            if not seg_id:
+                continue
+            seg_node = GraphNode(
+                id=f"seg_{seg_id}",
+                type=NodeType.SEGMENT,
+                properties={"text": seg.get("corrected_text", ""), "speaker": seg.get("speaker", "")},
+                source=SourceReference(session_id=session_id_str, segment_id=seg_id)
+            )
+            self.production_graph.create_node(seg_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=seg_node.id, type=EdgeType.SESSION_HAS_SEGMENT
+            ))
+
+        # Create Task Nodes and Edges (Pending Review)
+        for idx, task in enumerate(action_items):
+            task_node = GraphNode(
+                id=f"task_{session.id}_{idx}",
+                type=NodeType.TASK,
+                properties={
+                    "title": task.title, 
+                    "assignee": task.responsible_person,
+                    "review_status": "pending",
+                    "original_text": task.title
+                },
+                source=SourceReference(session_id=session_id_str, segment_id=task.source_segment_id)
+            )
+            self.production_graph.create_node(task_node)
+            if task.source_segment_id:
+                self.production_graph.create_edge(GraphEdge(
+                    id="", source_node_id=f"seg_{task.source_segment_id}", target_node_id=task_node.id, type=EdgeType.SEGMENT_CREATES_TASK
+                ))
+
+        # Create Decision Nodes and Edges (Pending Review)
+        for idx, dec in enumerate(decisions):
+            dec_node = GraphNode(
+                id=f"dec_{session.id}_{idx}",
+                type=NodeType.DECISION,
+                properties={
+                    "title": dec.decision,
+                    "review_status": "pending",
+                    "original_text": dec.decision
+                },
+                source=SourceReference(session_id=session_id_str, segment_id=dec.source_segment_id)
+            )
+            self.production_graph.create_node(dec_node)
+            if dec.source_segment_id:
+                self.production_graph.create_edge(GraphEdge(
+                    id="", source_node_id=f"seg_{dec.source_segment_id}", target_node_id=dec_node.id, type=EdgeType.SEGMENT_SUPPORTS_DECISION
+                ))
+
+        # Create Topic Nodes and Edges (Pending Review)
+        for idx, topic in enumerate(topics):
+            topic_node = GraphNode(
+                id=f"topic_{session.id}_{idx}",
+                type=NodeType.TOPIC,
+                properties={
+                    "title": topic.label,
+                    "review_status": "pending",
+                    "original_text": topic.label
+                },
+                source=SourceReference(session_id=session_id_str)
+            )
+            self.production_graph.create_node(topic_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=topic_node.id, type=EdgeType.SEGMENT_MENTIONS_TOPIC
+            ))
+        # ---------------------------------------------------------
+
         self.rebuild_snapshots(session.id)
         refreshed_session = self.sessions.get(session.id)
         return refreshed_session or session

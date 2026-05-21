@@ -6,11 +6,26 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 
-from ..models import FileTranscriptionResponse, HealthResponse, QualityReport, QueryResponse, SummaryResponse, TranscriptResponse
+from ..models import (
+    FileTranscriptionResponse, 
+    HealthResponse, 
+    QualityReport, 
+    QueryResponse, 
+    QueryResultItem,
+    ReasoningResponse,
+    EvidenceChain,
+    EvidenceStep,
+    SummaryResponse, 
+    TranscriptResponse
+)
 from ..pipeline.transcript_formatter import build_transcript_response
 
 router = APIRouter()
 
+
+@router.get("/jobs")
+async def list_jobs(request: Request, active_only: bool = False):
+    return request.app.state.job_manager.list_jobs(active_only=active_only)
 
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:
@@ -94,11 +109,99 @@ async def get_quality(request: Request, conversation_id: str) -> QualityReport:
     return request.app.state.quality_service.build_report(transcript)
 
 
-@router.get("/query", response_model=QueryResponse)
-async def query_memory(request: Request, q: str) -> QueryResponse:
-    # Get all conversation IDs from the store
-    store = request.app.state.transcription_service._store
-    conv_ids = [p.stem for p in store._base_dir.glob("*.json")]
+@router.get("/reason", response_model=ReasoningResponse)
+async def reason_memory(request: Request, q: str, max_depth: int = 3) -> ReasoningResponse:
+    reasoning_service = request.app.state.reasoning_service
+    
+    # 1. Parse intent or use heuristic reasoning
+    result = reasoning_service.get_intent_based_reasoning(q)
+    
+    # 2. Map ReasoningResult to ReasoningResponse
+    chains = []
+    for chain in result.chains:
+        steps = []
+        for step in chain.steps:
+            steps.append(
+                EvidenceStep(
+                    node_id=step.node.id,
+                    node_type=step.node.type.value,
+                    text=step.node.properties.get("title") or step.node.properties.get("text") or "",
+                    edge_type=step.edge.type.value if step.edge else None,
+                    direction=step.direction
+                )
+            )
+        chains.append(EvidenceChain(steps=steps, explanation=chain.explanation))
+        
+    return ReasoningResponse(query=q, chains=chains, warnings=result.warnings)
 
-    results = request.app.state.query_service.search(q, conv_ids)
-    return QueryResponse(query=q, results=results)
+from ..api.memory_models import MemoryAskResponse
+
+# ... (rest of imports)
+
+@router.get("/memory/ask", response_model=MemoryAskResponse)
+async def ask_memory(
+    request: Request, 
+    q: str, 
+    mode: str = "evidence_only", 
+    session_id: str | None = None,
+    include_pending: bool = False
+) -> MemoryAskResponse:
+    evidence_service = request.app.state.evidence_service
+    llm_assisted_service = request.app.state.llm_assisted_service
+    
+    # 1. Always get evidence-only response first
+    response = evidence_service.ask(
+        query=q, 
+        session_id=session_id, 
+        include_pending=include_pending,
+        mode=mode
+    )
+    
+    # 2. If llm_assisted and evidence exists, enhance it
+    if mode == "llm_assisted" and response.evidence_chains:
+        return await llm_assisted_service.generate_answer(q, response)
+        
+    return response
+
+@router.get("/query", response_model=QueryResponse)
+async def query_memory(request: Request, q: str, mode: str = "hybrid") -> QueryResponse:
+    query_service = request.app.state.query_service
+    
+    use_keyword = mode in {"keyword", "hybrid"}
+    use_vector = mode in {"semantic", "hybrid"}
+    use_graph = mode in {"hybrid"}
+
+    hybrid_result = query_service.execute_query(
+        q, 
+        use_keyword=use_keyword, 
+        use_vector=use_vector, 
+        use_graph=use_graph
+    )
+    
+    results = []
+    for node in hybrid_result.nodes:
+        # Map GraphNode to QueryResultItem
+        results.append(
+            QueryResultItem(
+                result_type=node.type.value.lower(),
+                text=node.properties.get("title") or node.properties.get("text") or "",
+                source_session_id=node.source.session_id if node.source else "unknown",
+                source_segment_id=node.source.segment_id if node.source else None,
+                matched_by=node.properties.get("matched_by"),
+                score=node.properties.get("score", 1.0),
+                score_breakdown=node.properties.get("score_breakdown", {}),
+                edge_path=node.properties.get("edge_path"),
+                node_id=node.id,
+                preview=node.properties.get("text")[:200] if node.properties.get("text") else None
+            )
+        )
+
+    # ---------------------------------------------------------
+    # Phase 4 Skeleton: Future AI Answer Generation
+    # ---------------------------------------------------------
+    # if mode == "hybrid" and results:
+    #     # check if real LLM is available via readiness check logic
+    #     # if active: results.append(generated_answer_item)
+    # ---------------------------------------------------------
+
+    return QueryResponse(query=q, results=results, warnings=hybrid_result.warnings)

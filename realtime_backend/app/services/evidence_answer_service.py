@@ -130,18 +130,34 @@ class EvidenceAnswerService:
             for step in chain.steps:
                 node_types.add(step.node.type)
         
-        if "görev" in q or "task" in q:
+        if "görev" in q or "task" in q or "yapması" in q:
             topic = self._extract_topic_from_query(query)
             return f"{topic} ile ilgili {count} adet görev bulundu.", "high"
             
-        if "karar" in q or "decision" in q:
+        if "karar" in q or "decision" in q or "kararlaştırıldı" in q:
             topic = self._extract_topic_from_query(query)
             return f"{topic} hakkında {count} adet karar tespit edildi.", "high"
+            
+        if "risk" in q or "tehlike" in q:
+            topic = self._extract_topic_from_query(query)
+            return f"{topic} ile ilgili {count} adet risk bulundu.", "high"
+            
+        if "açık soru" in q or "soru" in q or "open question" in q:
+            topic = self._extract_topic_from_query(query)
+            return f"{topic} konusunda {count} adet açık soru tespit edildi.", "high"
+            
+        if "entity" in q or "tool" in q or "library" in q or "kütüphane" in q or "teknoloji" in q:
+            topic = self._extract_topic_from_query(query)
+            return f"{topic} alanında {count} adet entity (teknoloji/kavram) konuşuldu.", "high"
+            
+        if "follow-up" in q or "takip" in q:
+            topic = self._extract_topic_from_query(query)
+            return f"{topic} hakkında {count} adet follow-up maddesi var.", "high"
             
         if "onaylanmamış" in q or "pending" in q:
             return f"Sistemde onaylanmamış {count} adet bilgi bulunuyor.", "high"
 
-        if "ayrımı" in q or "neden" in q or "source" in q:
+        if "ayrımı" in q or "neden" in q or "source" in q or "nasıl" in q or "niye" in q:
              # Look for decision or segment text
              evidence_texts = []
              for chain in chains:
@@ -160,7 +176,8 @@ class EvidenceAnswerService:
     def _extract_topic_from_query(self, query: str) -> str:
         # Simple heuristic to extract the main subject
         words = query.split()
+        ignore = ["görev", "task", "ilgili", "karar", "decision", "nedir", "neler", "risk", "riskler", "açık", "soru", "sorular", "entity", "tool", "library", "follow-up", "takip", "hangi", "var", "mı", "kimin", "ne", "yapması", "gerekiyor"]
         for word in words:
-            if len(word) > 3 and word.lower() not in ["görev", "task", "ilgili", "karar", "decision", "nedir", "neler"]:
+            if len(word) > 3 and word.lower() not in ignore:
                 return word
         return "İlgili konu"

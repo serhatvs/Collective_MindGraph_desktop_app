@@ -40,6 +40,7 @@ The system processes information through the following stages:
 | **Keyword Query Service** | Implemented | Cross-session traceable lookup with scoring. |
 | Global Search UI | Implemented | Desktop search panel with source linking. |
 | **Local LLM Extraction** | **ACTIVE** | LM Studio integration (meta-llama-3.1-8b-instruct) verified. |
+| **Native Schema Expansion** | **Implemented** | Native graph support for ENTITY, RISK, OPEN_QUESTION, FOLLOW_UP. |
 | **Demo Automation** | Implemented | Readiness check and text-only seed scripts. |
 | **Meeting Validation** | Pending | Infrastructure ready; pending manual recording. |
 | **Semantic Retrieval** | Implemented | Local embedding provider with SQLite Vector store active. |

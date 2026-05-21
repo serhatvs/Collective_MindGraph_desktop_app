@@ -242,6 +242,10 @@ class CollectiveMindGraphService:
         if item_type.lower() == "task": node_type = NodeType.TASK
         elif item_type.lower() == "decision": node_type = NodeType.DECISION
         elif item_type.lower() == "topic": node_type = NodeType.TOPIC
+        elif item_type.lower() == "entity": node_type = NodeType.ENTITY
+        elif item_type.lower() == "risk": node_type = NodeType.RISK
+        elif item_type.lower() == "open_question": node_type = NodeType.OPEN_QUESTION
+        elif item_type.lower() == "follow_up": node_type = NodeType.FOLLOW_UP
         
         if node_type:
             nodes = self.production_graph.find_nodes_by_type(node_type)
@@ -550,9 +554,82 @@ class CollectiveMindGraphService:
             self.production_graph.create_edge(GraphEdge(
                 id="", source_node_id=session_node.id, target_node_id=topic_node.id, type=EdgeType.SEGMENT_MENTIONS_TOPIC
             ))
+            
+        # Create Extended Node Types from Metadata
+        metadata = getattr(result, "metadata", {})
+        
+        for idx, entity in enumerate(metadata.get("entities", [])):
+            entity_node = GraphNode(
+                id=f"entity_{session.id}_{idx}",
+                type=NodeType.ENTITY,
+                properties={
+                    "title": str(entity),
+                    "review_status": "pending",
+                    "original_text": str(entity),
+                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                },
+                source=SourceReference(session_id=session_id_str)
+            )
+            self.production_graph.create_node(entity_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=entity_node.id, type=EdgeType.SEGMENT_MENTIONS_ENTITY
+            ))
+            
+        for idx, risk in enumerate(metadata.get("risks", [])):
+            risk_node = GraphNode(
+                id=f"risk_{session.id}_{idx}",
+                type=NodeType.RISK,
+                properties={
+                    "title": str(risk),
+                    "review_status": "pending",
+                    "original_text": str(risk),
+                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                },
+                source=SourceReference(session_id=session_id_str)
+            )
+            self.production_graph.create_node(risk_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=risk_node.id, type=EdgeType.SEGMENT_RAISES_RISK
+            ))
+            
+        for idx, q in enumerate(metadata.get("open_questions", [])):
+            q_node = GraphNode(
+                id=f"openq_{session.id}_{idx}",
+                type=NodeType.OPEN_QUESTION,
+                properties={
+                    "title": str(q),
+                    "review_status": "pending",
+                    "original_text": str(q),
+                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                },
+                source=SourceReference(session_id=session_id_str)
+            )
+            self.production_graph.create_node(q_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=q_node.id, type=EdgeType.SEGMENT_RAISES_OPEN_QUESTION
+            ))
+            
+        for idx, f in enumerate(metadata.get("follow_ups", [])):
+            f_node = GraphNode(
+                id=f"followup_{session.id}_{idx}",
+                type=NodeType.FOLLOW_UP,
+                properties={
+                    "title": str(f),
+                    "review_status": "pending",
+                    "original_text": str(f),
+                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                },
+                source=SourceReference(session_id=session_id_str)
+            )
+            self.production_graph.create_node(f_node)
+            self.production_graph.create_edge(GraphEdge(
+                id="", source_node_id=session_node.id, target_node_id=f_node.id, type=EdgeType.SEGMENT_CREATES_FOLLOW_UP
+            ))
+            
         # ---------------------------------------------------------
 
         self.rebuild_snapshots(session.id)
+
         refreshed_session = self.sessions.get(session.id)
         return refreshed_session or session
 

@@ -5,10 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 import mimetypes
 import os
+import json
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
-import json
+from pathlib import Path
+from typing import Any
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
@@ -42,6 +44,7 @@ class TranscriptionResult:
     speaker_stats: list[dict[str, object]] = field(default_factory=list)
     segments: list[dict[str, object]] = field(default_factory=list)
     quality_report: dict[str, object] | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -564,6 +567,10 @@ class RealtimeBackendTranscriptionService:
             if quality_payload is None:
                 quality_payload = self._fetch_optional_json(f"quality/{conversation_id}")
 
+        metadata = {}
+        if transcript_payload and "metadata" in transcript_payload:
+            metadata = transcript_payload.get("metadata", {})
+            
         return TranscriptionResult(
             text=transcript_text,
             model_id="realtime_backend",
@@ -580,6 +587,7 @@ class RealtimeBackendTranscriptionService:
             speaker_stats=[item for item in normalized_speaker_stats if isinstance(item, dict)],
             segments=[item for item in normalized_segments if isinstance(item, dict)],
             quality_report=quality_payload,
+            metadata=metadata,
         )
 
     def stream_update_from_payload(

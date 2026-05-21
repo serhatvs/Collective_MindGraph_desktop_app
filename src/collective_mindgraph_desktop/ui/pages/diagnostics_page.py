@@ -154,8 +154,11 @@ class DiagnosticsPage(QWidget):
             self.labels["ask_memory_llm"].setText("ACTIVE")
             self.labels["ask_memory_llm"].setStyleSheet("color: #166534; font-weight: bold;")
         else:
+            status_text = "DISABLED / FALLBACK ONLY"
+            self.labels["extraction_mode"].setText(source or "HEURISTIC_FALLBACK")
             self.labels["extraction_mode"].setStyleSheet("color: #ca8a04; font-weight: bold;")
-            self.labels["llm_status"].setText("FALLBACK ONLY")
+            self.labels["llm_status"].setText(status_text)
+            self.labels["llm_status"].setToolTip("Local LLM support is implemented, but currently disabled/unavailable. The system is running in stable evidence-only and heuristic fallback mode.")
             self.labels["llm_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
             self.labels["ask_memory_llm"].setText("FALLBACK_TO_EVIDENCE_ONLY")
             self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")

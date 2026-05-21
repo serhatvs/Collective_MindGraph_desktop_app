@@ -24,7 +24,7 @@ class AIExtractionService:
             timeout=int(settings.llm_timeout_seconds),
             allow_remote=settings.allow_remote_access
         )
-        self.mode = os.getenv("CMG_EXTRACTION_MODE", "auto")
+        self.mode = settings.extraction_mode
 
     async def extract_intelligence(self, transcript: ConversationTranscript) -> ConversationTranscript:
         """
@@ -38,16 +38,24 @@ class AIExtractionService:
         use_llm = False
         fallback_reason = None
         
-        if self.mode == "local_llm":
+        # Fast exit if LLM is explicitly disabled in provider config
+        if self.settings.llm_provider == "disabled":
+            use_llm = False
+            fallback_reason = "local_llm_disabled_in_config"
+        elif self.mode == "local_llm":
             use_llm = True
         elif self.mode == "auto":
             try:
+                # Use a very short timeout for auto probe to not block pipeline
                 use_llm = await asyncio.to_thread(self.llm_provider.is_available)
                 if not use_llm:
-                    fallback_reason = "Local LLM server not reachable"
+                    fallback_reason = "local_llm_server_not_reachable"
             except Exception as e:
                 use_llm = False
-                fallback_reason = f"Availability check failed: {str(e)}"
+                fallback_reason = f"availability_check_failed: {str(e)}"
+        else:
+            use_llm = False
+            fallback_reason = "mode_set_to_heuristic_fallback"
 
         if use_llm:
             try:

@@ -9,6 +9,7 @@ from realtime_backend.app.pipeline.local_llm_provider import LocalLLMEndpointPro
 def mock_llm():
     provider = MagicMock(spec=LocalLLMEndpointProvider)
     provider.is_available.return_value = True
+    provider.base_url = "http://localhost:1234/v1"
     return provider
 
 @pytest.mark.asyncio

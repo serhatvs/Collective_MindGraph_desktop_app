@@ -62,6 +62,38 @@ class InsightsPage(QWidget):
         self.topics_card.body_layout.addWidget(self.topics_list)
         self.container_layout.addWidget(self.topics_card)
         
+        # 4. Entities Card
+        self.entities_card = CardWidget("Entities")
+        self.entities_list = QListWidget()
+        self.entities_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.entities_list.itemDoubleClicked.connect(self._edit_item)
+        self.entities_card.body_layout.addWidget(self.entities_list)
+        self.container_layout.addWidget(self.entities_card)
+        
+        # 5. Risks Card
+        self.risks_card = CardWidget("Risks")
+        self.risks_list = QListWidget()
+        self.risks_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.risks_list.itemDoubleClicked.connect(self._edit_item)
+        self.risks_card.body_layout.addWidget(self.risks_list)
+        self.container_layout.addWidget(self.risks_card)
+        
+        # 6. Open Questions Card
+        self.open_qs_card = CardWidget("Open Questions")
+        self.open_qs_list = QListWidget()
+        self.open_qs_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.open_qs_list.itemDoubleClicked.connect(self._edit_item)
+        self.open_qs_card.body_layout.addWidget(self.open_qs_list)
+        self.container_layout.addWidget(self.open_qs_card)
+        
+        # 7. Follow-ups Card
+        self.followups_card = CardWidget("Follow-ups")
+        self.followups_list = QListWidget()
+        self.followups_list.setStyleSheet("QListWidget::item { padding: 8px; }")
+        self.followups_list.itemDoubleClicked.connect(self._edit_item)
+        self.followups_card.body_layout.addWidget(self.followups_list)
+        self.container_layout.addWidget(self.followups_card)
+        
         self.container_layout.addStretch(1)
 
     def _edit_item(self, item: QListWidgetItem) -> None:
@@ -71,10 +103,14 @@ class InsightsPage(QWidget):
         item_type = "task"
         if current_text.startswith("💡 "): item_type = "decision"
         elif current_text.startswith("🏷️ "): item_type = "topic"
+        elif current_text.startswith("📦 "): item_type = "entity"
+        elif current_text.startswith("⚠️ "): item_type = "risk"
+        elif current_text.startswith("❓ "): item_type = "open_question"
+        elif current_text.startswith("⏭️ "): item_type = "follow_up"
         
         # Strip emoji and resp for clean edit
         clean_text = current_text
-        if current_text.startswith(("✅ ", "💡 ", "🏷️ ")):
+        if current_text.startswith(("✅ ", "💡 ", "🏷️ ", "📦 ", "⚠️ ", "❓ ", "⏭️ ")):
             clean_text = current_text[2:]
         
         # If task, strip resp suffix (Resp: ...)
@@ -107,6 +143,10 @@ class InsightsPage(QWidget):
         self.tasks_list.clear()
         self.decisions_list.clear()
         self.topics_list.clear()
+        self.entities_list.clear()
+        self.risks_list.clear()
+        self.open_qs_list.clear()
+        self.followups_list.clear()
         
         # Filter for approved or edited
         reviewed = [n for n in nodes if n.get("metadata_json") and 
@@ -128,3 +168,11 @@ class InsightsPage(QWidget):
                 self.decisions_list.addItem(QListWidgetItem(f"💡 {title}"))
             elif n_type == "TOPIC":
                 self.topics_list.addItem(QListWidgetItem(f"🏷️ {title}"))
+            elif n_type == "ENTITY":
+                self.entities_list.addItem(QListWidgetItem(f"📦 {title}"))
+            elif n_type == "RISK":
+                self.risks_list.addItem(QListWidgetItem(f"⚠️ {title}"))
+            elif n_type == "OPEN_QUESTION":
+                self.open_qs_list.addItem(QListWidgetItem(f"❓ {title}"))
+            elif n_type == "FOLLOW_UP":
+                self.followups_list.addItem(QListWidgetItem(f"⏭️ {title}"))

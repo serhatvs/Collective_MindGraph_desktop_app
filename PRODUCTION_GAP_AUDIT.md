@@ -123,7 +123,7 @@ Stabilize the system for long-term organizational use.
 *   **Local LLM**: ACTIVE. Local LLM provider (LM Studio) is verified and used for extraction and auditable assisted-ask.
 *   **Ask Memory**: ACTIVE. Evidence-grounded with automated hallucination rejection and coverage scoring.
 *   **Semantic Retrieval**: MOCK_ONLY. Infrastructure exists, but production semantic retrieval requires configuring a real local embedding model.
-*   **Memory Graph**: ACTIVE. V2 graph node/edge persistence is fully active.
+*   **Memory Graph**: ACTIVE. V2 graph node/edge persistence is fully active. Native schema expansion added for ENTITY, RISK, OPEN_QUESTION, and FOLLOW_UP nodes with corresponding edges.
 *   **Hybrid Query**: ACTIVE. Multi-modal query engine is serving Keyword and Graph results.
 
 ## Required Tests

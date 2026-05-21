@@ -81,27 +81,60 @@ class GraphReasoningService:
 
     def find_related_items(self, topic_text: str, item_type: NodeType) -> ReasoningResult:
         """
-        Finds nodes of item_type related to a topic by text.
-        Logic: Find TOPIC node matching text -> follow edges to SEGMENT -> follow edges to item_type.
+        Finds nodes of item_type related to a topic by text, supporting 2-hop traversal.
         """
         result = ReasoningResult()
         
         # 1. Find the topic node(s)
         topics = self.repo.find_nodes_by_type(NodeType.TOPIC)
-        matched_topics = [t for t in topics if topic_text.lower() in (t.properties.get("title") or "").lower()]
+        # Also check ENTITY nodes if they match the topic_text as they act similarly in technical discussions
+        entities = self.repo.find_nodes_by_type(NodeType.ENTITY)
         
-        if not matched_topics:
-            result.warnings.append(f"No topic found matching '{topic_text}'.")
+        matched_nodes = []
+        for t in topics:
+            if topic_text.lower() in (t.properties.get("title") or "").lower():
+                matched_nodes.append(t)
+        for e in entities:
+            if topic_text.lower() in (e.properties.get("title") or "").lower():
+                matched_nodes.append(e)
+                
+        # If user asks for general items like "Riskler neler?", topic_text might be generic.
+        # So if topic_text is "risk" or "ilgili", we might want to just fetch all risks.
+        # But this method is usually called with a specific topic.
+        # Let's support global fetching if topic_text is empty or too generic.
+        if topic_text in ["risk", "açık", "entity", "follow", "ilgili", "karar", "görev", "topic"]:
+            all_items = self.repo.find_nodes_by_type(item_type)
+            for item_node in all_items:
+                status = item_node.properties.get("review_status", "pending")
+                if item_node.properties.get("disabled") or status == "rejected":
+                    continue
+                chain = EvidenceChain(steps=[EvidenceStep(node=item_node)])
+                result.chains.append(chain)
             return result
 
-        for topic in matched_topics:
+        if not matched_nodes:
+            # Fallback: if we didn't find a topic, let's just search all items of that type that contain the text
+            all_items = self.repo.find_nodes_by_type(item_type)
+            for item_node in all_items:
+                if topic_text.lower() in (item_node.properties.get("title") or "").lower():
+                    status = item_node.properties.get("review_status", "pending")
+                    if item_node.properties.get("disabled") or status == "rejected":
+                        continue
+                    chain = EvidenceChain(steps=[EvidenceStep(node=item_node)])
+                    result.chains.append(chain)
+            
+            if not result.chains:
+                result.warnings.append(f"No topic or item found matching '{topic_text}'.")
+            return result
+
+        for start_node in matched_nodes:
             # 2. Find neighbors (incoming from segments usually)
-            # Edge: SEGMENT --(MENTIONS_TOPIC)--> TOPIC
-            topic_neighbors = self.repo.get_neighbors(topic.id, direction="in")
+            # Edge: SEGMENT --(MENTIONS_TOPIC)--> TOPIC or SEGMENT --(MENTIONS_ENTITY)--> ENTITY
+            topic_neighbors = self.repo.get_neighbors(start_node.id, direction="in")
             for edge, neighbor in topic_neighbors:
                 if neighbor.type == NodeType.SEGMENT:
                     # 3. Find items from segment
-                    # Edge: SEGMENT --(CREATES_TASK/SUPPORTS_DECISION)--> ITEM
+                    # Edge: SEGMENT --(CREATES_TASK/SUPPORTS_DECISION/RAISES_RISK/etc)--> ITEM
                     seg_neighbors = self.repo.get_neighbors(neighbor.id, direction="out")
                     for seg_edge, item_node in seg_neighbors:
                         if item_node.type == item_type:
@@ -111,7 +144,7 @@ class GraphReasoningService:
                                 continue
                             
                             chain = EvidenceChain(steps=[
-                                EvidenceStep(node=topic),
+                                EvidenceStep(node=start_node),
                                 EvidenceStep(node=neighbor, edge=edge, direction="in"),
                                 EvidenceStep(node=item_node, edge=seg_edge, direction="out")
                             ])
@@ -139,13 +172,49 @@ class GraphReasoningService:
             return self.find_related_items(topic, NodeType.TASK)
             
         # Intent: Decisions related to topic
-        if "karar" in q or "decision" in q:
+        if "karar" in q or "decision" in q or "kararlaştırıldı" in q:
             topic = query.split(" ")[0]
             for word in query.split():
-                if len(word) > 3 and word not in ["karar", "decision", "ilgili", "about"]:
+                if len(word) > 3 and word not in ["karar", "decision", "ilgili", "about", "kararlaştırıldı", "hangi"]:
                     topic = word
                     break
             return self.find_related_items(topic, NodeType.DECISION)
+            
+        # Intent: Risks related to topic
+        if "risk" in q or "tehlike" in q:
+            topic = query.split(" ")[0]
+            for word in query.split():
+                if len(word) > 3 and word not in ["risk", "riskler", "tehlike", "ilgili", "hakkında", "neler"]:
+                    topic = word
+                    break
+            return self.find_related_items(topic, NodeType.RISK)
+            
+        # Intent: Open Questions related to topic
+        if "açık soru" in q or "soru" in q or "open question" in q:
+            topic = query.split(" ")[0]
+            for word in query.split():
+                if len(word) > 3 and word not in ["açık", "soru", "sorular", "open", "question", "ilgili", "neler"]:
+                    topic = word
+                    break
+            return self.find_related_items(topic, NodeType.OPEN_QUESTION)
+            
+        # Intent: Entities related to topic
+        if "entity" in q or "tool" in q or "library" in q or "kütüphane" in q or "teknoloji" in q:
+            topic = query.split(" ")[0]
+            for word in query.split():
+                if len(word) > 3 and word not in ["entity", "tool", "library", "kütüphane", "teknoloji", "hangi", "konuşuldu"]:
+                    topic = word
+                    break
+            return self.find_related_items(topic, NodeType.ENTITY)
+            
+        # Intent: Follow-ups related to topic
+        if "follow-up" in q or "takip" in q:
+            topic = query.split(" ")[0]
+            for word in query.split():
+                if len(word) > 3 and word not in ["follow-up", "takip", "maddeleri", "neler", "hangi"]:
+                    topic = word
+                    break
+            return self.find_related_items(topic, NodeType.FOLLOW_UP)
 
         # Intent: Unreviewed items in session
         if "onaylanmamış" in q or "pending" in q or "unreviewed" in q:

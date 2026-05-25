@@ -8,7 +8,7 @@ from collective_mindgraph.infrastructure.database.vector_repository import Vecto
 from collective_mindgraph.infrastructure.ai.local_embedding_provider import SentenceTransformerEmbeddingProvider
 from collective_mindgraph.core.memory_graph import GraphNode, NodeType
 from collective_mindgraph.core.source_reference import SourceReference
-from collective_mindgraph.reasoning.hybrid_memory_query_service import HybridMemoryQueryService
+from collective_mindgraph.services.hybrid_memory_query_service import HybridMemoryQueryService
 
 def test_real_local_semantic_retrieval(tmp_path):
     model_path = os.getenv("CMG_EMBEDDING_MODEL_PATH")

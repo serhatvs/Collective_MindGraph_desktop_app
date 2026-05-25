@@ -4,7 +4,7 @@ from collective_mindgraph_desktop.database import Database
 from collective_mindgraph.infrastructure.database.graph_repository import ProductionGraphRepository
 from collective_mindgraph.infrastructure.database.vector_repository import VectorRepository
 from collective_mindgraph.infrastructure.ai.local_embedding_provider import MockLocalEmbeddingProvider
-from collective_mindgraph.reasoning.hybrid_memory_query_service import HybridMemoryQueryService
+from collective_mindgraph.services.hybrid_memory_query_service import HybridMemoryQueryService
 from collective_mindgraph.core.memory_graph import GraphNode, GraphEdge, NodeType, EdgeType
 from collective_mindgraph.core.source_reference import SourceReference
 

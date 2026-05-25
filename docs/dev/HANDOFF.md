@@ -21,7 +21,7 @@ Collective MindGraph is a local-first, privacy-focused desktop application for c
 | **Desktop Global Search UI** | Implemented | Integrated search and "Ask Your Memory" panel. |
 
 ## How to Run the Local Demo
-Follow the steps in [DEMO_FLOW.md](DEMO_FLOW.md) for a guided walkthrough.
+Follow the steps in [DEMO_FLOW.md](../demo/DEMO_FLOW.md) for a guided walkthrough.
 
 ## Interface Definitions
 - **User-facing Frontend**: Rebuilt Native PySide6 Desktop Application in `src/collective_mindgraph_desktop/`.

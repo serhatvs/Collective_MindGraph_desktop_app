@@ -110,6 +110,9 @@ class CollectiveMindGraphService:
     def list_sessions(self, query: str = "") -> list[Session]:
         return self.sessions.list(query)
 
+    def get_app_summary(self) -> AppSummary:
+        return self.sessions.summary_counts()
+
     def find_session_by_conversation_id(self, conversation_id: str) -> int | None:
         with self._database.connect() as connection:
             row = connection.execute(
@@ -333,13 +336,14 @@ class CollectiveMindGraphService:
             "graph_nodes": [asdict(item) for item in detail.graph_nodes],
             "snapshots": [asdict(item) for item in detail.snapshots],
             "transcript_analyses": [asdict(item) for item in detail.transcript_analyses.values()],
-            "v2_production_graph": {
+        }
+        if v2_nodes or v2_edges or v2_refs:
+            payload["v2_production_graph"] = {
                 "nodes": v2_nodes,
                 "edges": v2_edges,
                 "source_references": v2_refs
-            },
-            "exported_at": datetime.now(tz=UTC).isoformat(),
-        }
+            }
+            payload["exported_at"] = datetime.now(tz=UTC).isoformat()
         path = Path(target_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -483,28 +487,30 @@ class CollectiveMindGraphService:
             properties={"title": session.title},
             source=SourceReference(session_id=session_id_str)
         )
-        self.production_graph.create_node(session_node)
+        if self.production_graph.get_node(session_node.id) is None:
+            self.production_graph.create_node(session_node)
 
         # Create Segment Nodes and Edges
         for seg in result.segments:
             seg_id = str(seg.get("segment_id", ""))
             if not seg_id:
                 continue
+            graph_segment_id = f"seg_{transcript.id}_{seg_id}"
             seg_node = GraphNode(
-                id=f"seg_{seg_id}",
+                id=graph_segment_id,
                 type=NodeType.SEGMENT,
                 properties={"text": seg.get("corrected_text", ""), "speaker": seg.get("speaker", "")},
                 source=SourceReference(session_id=session_id_str, segment_id=seg_id)
             )
             self.production_graph.create_node(seg_node)
             self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=seg_node.id, type=EdgeType.SESSION_HAS_SEGMENT
+                id="", source_node_id=session_node.id, target_node_id=graph_segment_id, type=EdgeType.SESSION_HAS_SEGMENT
             ))
 
         # Create Task Nodes and Edges (Pending Review)
         for idx, task in enumerate(action_items):
             task_node = GraphNode(
-                id=f"task_{session.id}_{idx}",
+                id=f"task_{transcript.id}_{idx}",
                 type=NodeType.TASK,
                 properties={
                     "title": task.title, 
@@ -517,13 +523,13 @@ class CollectiveMindGraphService:
             self.production_graph.create_node(task_node)
             if task.source_segment_id:
                 self.production_graph.create_edge(GraphEdge(
-                    id="", source_node_id=f"seg_{task.source_segment_id}", target_node_id=task_node.id, type=EdgeType.SEGMENT_CREATES_TASK
+                    id="", source_node_id=f"seg_{transcript.id}_{task.source_segment_id}", target_node_id=task_node.id, type=EdgeType.SEGMENT_CREATES_TASK
                 ))
 
         # Create Decision Nodes and Edges (Pending Review)
         for idx, dec in enumerate(decisions):
             dec_node = GraphNode(
-                id=f"dec_{session.id}_{idx}",
+                id=f"dec_{transcript.id}_{idx}",
                 type=NodeType.DECISION,
                 properties={
                     "title": dec.decision,
@@ -535,13 +541,13 @@ class CollectiveMindGraphService:
             self.production_graph.create_node(dec_node)
             if dec.source_segment_id:
                 self.production_graph.create_edge(GraphEdge(
-                    id="", source_node_id=f"seg_{dec.source_segment_id}", target_node_id=dec_node.id, type=EdgeType.SEGMENT_SUPPORTS_DECISION
+                    id="", source_node_id=f"seg_{transcript.id}_{dec.source_segment_id}", target_node_id=dec_node.id, type=EdgeType.SEGMENT_SUPPORTS_DECISION
                 ))
 
         # Create Topic Nodes and Edges (Pending Review)
         for idx, topic in enumerate(topics):
             topic_node = GraphNode(
-                id=f"topic_{session.id}_{idx}",
+                id=f"topic_{transcript.id}_{idx}",
                 type=NodeType.TOPIC,
                 properties={
                     "title": topic.label,
@@ -560,7 +566,7 @@ class CollectiveMindGraphService:
         
         for idx, entity in enumerate(metadata.get("entities", [])):
             entity_node = GraphNode(
-                id=f"entity_{session.id}_{idx}",
+                id=f"entity_{transcript.id}_{idx}",
                 type=NodeType.ENTITY,
                 properties={
                     "title": str(entity),
@@ -577,7 +583,7 @@ class CollectiveMindGraphService:
             
         for idx, risk in enumerate(metadata.get("risks", [])):
             risk_node = GraphNode(
-                id=f"risk_{session.id}_{idx}",
+                id=f"risk_{transcript.id}_{idx}",
                 type=NodeType.RISK,
                 properties={
                     "title": str(risk),
@@ -594,7 +600,7 @@ class CollectiveMindGraphService:
             
         for idx, q in enumerate(metadata.get("open_questions", [])):
             q_node = GraphNode(
-                id=f"openq_{session.id}_{idx}",
+                id=f"openq_{transcript.id}_{idx}",
                 type=NodeType.OPEN_QUESTION,
                 properties={
                     "title": str(q),
@@ -611,7 +617,7 @@ class CollectiveMindGraphService:
             
         for idx, f in enumerate(metadata.get("follow_ups", [])):
             f_node = GraphNode(
-                id=f"followup_{session.id}_{idx}",
+                id=f"followup_{transcript.id}_{idx}",
                 type=NodeType.FOLLOW_UP,
                 properties={
                     "title": str(f),
@@ -919,8 +925,6 @@ class CollectiveMindGraphService:
         built: list[TranscriptSpeakerStat] = []
         for item in speaker_stats:
             speaker = str(item.get("speaker") or "Unknown")
-            if "Speaker_" in speaker:
-                speaker = "Unknown"
             built.append(
                 TranscriptSpeakerStat(
                     speaker=speaker,
@@ -957,8 +961,6 @@ class CollectiveMindGraphService:
         for item in segments:
             notes = item.get("notes")
             speaker = str(item.get("speaker") or "Unknown")
-            if "Speaker_" in speaker:
-                speaker = "Unknown"
             built.append(
                 TranscriptAnalysisSegment(
                     segment_id=str(item.get("segment_id") or f"segment_{len(built) + 1}"),

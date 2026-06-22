@@ -129,9 +129,18 @@ requests_module.parse_options_header = _parse_options_header
 
 
 class StubProviderInfo:
-    def __init__(self, provider_name: str | None = None, fallback_provider_name: str | None = None) -> None:
+    def __init__(
+        self,
+        provider_name: str | None = None,
+        fallback_provider_name: str | None = None,
+        *,
+        asr_status: str | None = None,
+        mock_fallback_used: bool = False,
+    ) -> None:
         self.provider_name = provider_name
         self.fallback_provider_name = fallback_provider_name
+        self.asr_status = asr_status
+        self.mock_fallback_used = mock_fallback_used
 
 
 class StubTranscriptionService:
@@ -217,6 +226,8 @@ def build_client(
         diarizer_provider="pyannote",
         llm_provider="auto_local",
         temp_dir=Path(tempfile.gettempdir()),
+        asr_model_name="large-v3",
+        transcription_quality_mode="max_quality",
     )
     app.state.transcription_service = transcription_service
     app.state.quality_service = quality_service
@@ -281,6 +292,9 @@ def test_transcribe_file_route_returns_transcript_renderings_and_stats():
                 "last_end": 1.0,
             }
         ],
+        "asr_status": None,
+        "warnings": [],
+        "metadata": {},
     }
     assert len(transcription_service.transcribe_requests) == 1
     request = transcription_service.transcribe_requests[0]
@@ -392,8 +406,10 @@ def test_health_route_returns_provider_and_fallback_status():
             asr_provider="auto",
             diarizer_provider="pyannote",
             llm_provider="auto_local",
+            asr_model_name="large-v3",
+            transcription_quality_mode="max_quality",
         ),
-        asr_provider=StubProviderInfo("faster_whisper", "mock"),
+        asr_provider=StubProviderInfo("faster_whisper", "mock", asr_status="ASR_STATUS=OK"),
         llm_provider=StubProviderInfo("lmstudio", "mock"),
     )
 
@@ -407,6 +423,10 @@ def test_health_route_returns_provider_and_fallback_status():
         "asr_provider": "auto",
         "asr_provider_resolved": "faster_whisper",
         "asr_fallback_provider": "mock",
+        "asr_status": "ASR_STATUS=OK",
+        "asr_mock_fallback_used": False,
+        "asr_model_name": "large-v3",
+        "asr_quality_profile": "max_quality",
         "diarizer_provider": "pyannote",
         "llm_provider": "auto_local",
         "llm_provider_resolved": "lmstudio",
@@ -444,6 +464,10 @@ def test_health_route_allows_missing_resolved_provider_fields():
         "asr_provider": "auto",
         "asr_provider_resolved": None,
         "asr_fallback_provider": None,
+        "asr_status": None,
+        "asr_mock_fallback_used": False,
+        "asr_model_name": "large-v3",
+        "asr_quality_profile": "max_quality",
         "diarizer_provider": "pyannote",
         "llm_provider": "auto_local",
         "llm_provider_resolved": None,
@@ -691,6 +715,9 @@ def test_transcript_route_returns_renderings_and_speaker_stats():
                 "last_end": 2.0,
             },
         ],
+        "asr_status": None,
+        "warnings": [],
+        "metadata": {},
     }
     assert transcription_service.requested_ids == ["conv_transcript_route"]
 

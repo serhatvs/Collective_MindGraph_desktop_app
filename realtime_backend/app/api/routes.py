@@ -39,6 +39,10 @@ async def health(request: Request) -> HealthResponse:
         asr_provider=settings.asr_provider,
         asr_provider_resolved=getattr(asr_provider, "provider_name", None),
         asr_fallback_provider=getattr(asr_provider, "fallback_provider_name", None),
+        asr_status=getattr(asr_provider, "asr_status", None),
+        asr_mock_fallback_used=bool(getattr(asr_provider, "mock_fallback_used", False)),
+        asr_model_name=getattr(settings, "asr_model_name", None),
+        asr_quality_profile=getattr(settings, "transcription_quality_mode", None),
         diarizer_provider=settings.diarizer_provider,
         llm_provider=settings.llm_provider,
         llm_provider_resolved=getattr(llm_provider, "provider_name", None),
@@ -76,6 +80,9 @@ async def transcribe_file(
         raw_text_output=response.renderings.raw_text_output,
         corrected_text_output=response.renderings.corrected_text_output,
         speaker_stats=response.speaker_stats,
+        asr_status=transcript.metadata.get("asr_status"),
+        warnings=list(transcript.metadata.get("warnings", [])),
+        metadata=dict(transcript.metadata),
     )
 
 

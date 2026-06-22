@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 from ..config import Settings
@@ -15,10 +16,67 @@ from ..utils.turkish_cleanup import GLOSSARY_TERMS
 
 LOGGER = logging.getLogger(__name__)
 
+ASR_STATUS_OK = "ASR_STATUS=OK"
+ASR_STATUS_MOCK_EXPLICIT = "ASR_STATUS=MOCK_EXPLICIT"
+ASR_STATUS_MOCK_FALLBACK = "ASR_STATUS=MOCK_FALLBACK"
+
+
+@dataclass(frozen=True, slots=True)
+class ASRQualityProfile:
+    name: str
+    beam_size: int
+    word_timestamps: bool
+    vad_filter: bool
+    condition_on_previous_text: bool
+    no_speech_threshold: float
+
+
+def resolve_asr_quality_profile(settings: Settings, quality_mode: str | None = None) -> ASRQualityProfile:
+    requested = (quality_mode or settings.transcription_quality_mode or "max_quality").strip().lower()
+    if requested == "accurate":
+        requested = "max_quality"
+    if requested not in {"fast", "balanced", "max_quality"}:
+        LOGGER.warning("Unknown ASR quality profile %r; using max_quality.", requested)
+        requested = "max_quality"
+
+    word_timestamps = bool(settings.asr_word_timestamps)
+    vad_filter = bool(settings.asr_internal_vad_enabled)
+    condition_on_previous_text = bool(settings.asr_condition_on_previous_text)
+
+    if requested == "fast":
+        return ASRQualityProfile(
+            name="fast",
+            beam_size=1,
+            word_timestamps=word_timestamps,
+            vad_filter=vad_filter,
+            condition_on_previous_text=condition_on_previous_text,
+            no_speech_threshold=0.5,
+        )
+    if requested == "balanced":
+        return ASRQualityProfile(
+            name="balanced",
+            beam_size=max(3, settings.asr_beam_size),
+            word_timestamps=word_timestamps,
+            vad_filter=vad_filter,
+            condition_on_previous_text=condition_on_previous_text,
+            no_speech_threshold=0.6,
+        )
+    return ASRQualityProfile(
+        name="max_quality",
+        beam_size=max(5, settings.asr_max_quality_beam_size, settings.asr_beam_size),
+        word_timestamps=word_timestamps,
+        vad_filter=vad_filter,
+        condition_on_previous_text=condition_on_previous_text,
+        no_speech_threshold=0.7,
+    )
+
 
 class BaseASR(ABC):
     provider_name: str = "base"
     fallback_provider_name: str | None = None
+    asr_status: str = ASR_STATUS_OK
+    mock_fallback_used: bool = False
+    fallback_reason: str | None = None
 
     @abstractmethod
     def transcribe(
@@ -96,19 +154,7 @@ class FasterWhisperASR(BaseASR):
         quality_mode: str | None = None,
     ) -> list[ASRSegment]:
         resolved_language = language or self._settings.default_language
-        resolved_quality = quality_mode or self._settings.transcription_quality_mode
-
-        # Quality mode parameter mapping
-        beam_size = self._settings.asr_beam_size
-        word_timestamps = True
-        no_speech_threshold = 0.6
-
-        if resolved_quality == "fast":
-            beam_size = 1
-            no_speech_threshold = 0.5
-        elif resolved_quality == "accurate":
-            beam_size = max(beam_size, 5)
-            no_speech_threshold = 0.7
+        profile = resolve_asr_quality_profile(self._settings, quality_mode)
 
         # Turkish specific transcription enhancements
         initial_prompt = None
@@ -119,13 +165,13 @@ class FasterWhisperASR(BaseASR):
         segments, _info = self._model.transcribe(
             str(audio_path),
             language=resolved_language,
-            beam_size=beam_size,
-            word_timestamps=word_timestamps,
-            vad_filter=False,
-            condition_on_previous_text=False,
+            beam_size=profile.beam_size,
+            word_timestamps=profile.word_timestamps,
+            vad_filter=profile.vad_filter,
+            condition_on_previous_text=profile.condition_on_previous_text,
             task="transcribe",
             initial_prompt=initial_prompt,
-            no_speech_threshold=no_speech_threshold,
+            no_speech_threshold=profile.no_speech_threshold,
         )
         items: list[ASRSegment] = []
         for segment in segments:
@@ -153,12 +199,25 @@ class FasterWhisperASR(BaseASR):
 class MockASR(BaseASR):
     provider_name = "mock"
 
+    def __init__(
+        self,
+        *,
+        asr_status: str = ASR_STATUS_MOCK_EXPLICIT,
+        fallback_reason: str | None = None,
+    ) -> None:
+        self.asr_status = asr_status
+        self.mock_fallback_used = asr_status == ASR_STATUS_MOCK_FALLBACK
+        self.fallback_provider_name = "mock" if self.mock_fallback_used else None
+        self.fallback_reason = fallback_reason
+
     def transcribe(
         self,
         audio_path: Path,
         language: str | None = None,
         regions: list[SpeechRegion] | None = None,
+        quality_mode: str | None = None,
     ) -> list[ASRSegment]:
+        warning_text = f"[{self.asr_status}] Mock ASR placeholder; no real transcription was produced."
         if regions:
             segments: list[ASRSegment] = []
             for index, region in enumerate(regions, start=1):
@@ -166,8 +225,8 @@ class MockASR(BaseASR):
                     ASRSegment(
                         start=region.start,
                         end=region.end,
-                        text=f"Mock transcription {index} generated from {audio_path.name}.",
-                        confidence=0.8,
+                        text=f"{warning_text} Region {index} from {audio_path.name}.",
+                        confidence=0.0,
                     )
                 )
             return segments
@@ -175,30 +234,32 @@ class MockASR(BaseASR):
             ASRSegment(
                 start=0.0,
                 end=2.5,
-                text=f"Mock transcription generated from {audio_path.name}.",
-                confidence=0.8,
+                text=f"{warning_text} Source file: {audio_path.name}.",
+                confidence=0.0,
             )
         ]
 
 
 def build_asr(settings: Settings) -> BaseASR:
-    if settings.asr_provider == "mock":
-        return MockASR()
-    if settings.asr_provider == "auto":
-        local = _build_optional_local_asr(settings)
+    provider = settings.asr_provider.strip().lower()
+    if provider == "mock":
+        return MockASR(asr_status=ASR_STATUS_MOCK_EXPLICIT)
+    if provider == "auto":
+        local, error = _build_optional_local_asr(settings)
         if local is not None:
             return local
-        LOGGER.warning("Local ASR is unavailable. Falling back to MockASR.")
-        return MockASR()
+        reason = str(error) if error is not None else "unknown local ASR error"
+        LOGGER.warning("%s: Local ASR is unavailable. Falling back to MockASR. reason=%s", ASR_STATUS_MOCK_FALLBACK, reason)
+        return MockASR(asr_status=ASR_STATUS_MOCK_FALLBACK, fallback_reason=reason)
     return FasterWhisperASR(settings)
 
 
-def _build_optional_local_asr(settings: Settings) -> BaseASR | None:
+def _build_optional_local_asr(settings: Settings) -> tuple[BaseASR | None, Exception | None]:
     try:
-        return FasterWhisperASR(settings)
+        return FasterWhisperASR(settings), None
     except Exception as exc:
         LOGGER.warning("Local faster-whisper ASR is unavailable: %s", exc)
-        return None
+        return None, exc
 
 
 def _regions_for_asr(regions: list[SpeechRegion], padding_seconds: float) -> list[SpeechRegion]:

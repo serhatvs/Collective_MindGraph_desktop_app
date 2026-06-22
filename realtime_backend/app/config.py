@@ -80,6 +80,13 @@ def _env_int(name: str, default: int) -> int:
     return int(os.getenv(name, str(default)))
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass(slots=True)
 class Settings:
     app_name: str = "Collective MindGraph Realtime Backend"
@@ -139,13 +146,25 @@ class Settings:
 
     asr_provider: str = field(default_factory=lambda: _env("CMG_RT_ASR_PROVIDER", "auto"))
     asr_model_name: str = field(
-        default_factory=lambda: _env("CMG_RT_ASR_MODEL", "large-v3-turbo")
+        default_factory=lambda: _env("CMG_RT_ASR_MODEL", "large-v3")
     )
     asr_device: str = field(default_factory=lambda: _env("CMG_RT_ASR_DEVICE", "cuda"))
     asr_compute_type: str = field(
         default_factory=lambda: _env("CMG_RT_ASR_COMPUTE_TYPE", "float16")
     )
     asr_beam_size: int = field(default_factory=lambda: _env_int("CMG_RT_ASR_BEAM_SIZE", 5))
+    asr_max_quality_beam_size: int = field(
+        default_factory=lambda: _env_int("CMG_RT_ASR_MAX_QUALITY_BEAM_SIZE", 8)
+    )
+    asr_word_timestamps: bool = field(
+        default_factory=lambda: _env_bool("CMG_RT_ASR_WORD_TIMESTAMPS", True)
+    )
+    asr_internal_vad_enabled: bool = field(
+        default_factory=lambda: _env_bool("CMG_RT_ASR_INTERNAL_VAD", False)
+    )
+    asr_condition_on_previous_text: bool = field(
+        default_factory=lambda: _env_bool("CMG_RT_ASR_CONDITION_ON_PREVIOUS_TEXT", False)
+    )
     asr_region_padding_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_ASR_REGION_PADDING_SECONDS", 0.10)
     )
@@ -226,7 +245,10 @@ class Settings:
     )
 
     transcription_quality_mode: str = field(
-        default_factory=lambda: _env("CMG_RT_TRANSCRIPTION_QUALITY_MODE", "balanced")
+        default_factory=lambda: _env("CMG_RT_TRANSCRIPTION_QUALITY_MODE", "max_quality")
+    )
+    transcript_cleanup_mode: str = field(
+        default_factory=lambda: _env("CMG_RT_TRANSCRIPT_CLEANUP_MODE", "conservative")
     )
 
     def ensure_directories(self) -> None:

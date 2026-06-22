@@ -6,10 +6,22 @@ import json
 import re
 from pathlib import Path
 
-# Common Turkish fillers to remove when safe
+# Common Turkish fillers to remove only in aggressive cleanup mode.
 TURKISH_FILLERS = {
-    "şey", "yani", "ııı", "eee", "aa", "işte", "falan", "filan"
+    "\u015fey",
+    "yani",
+    "\u0131\u0131\u0131",
+    "eee",
+    "aa",
+    "i\u015fte",
+    "falan",
+    "filan",
+    # Mojibake variants kept so aggressive mode can still repair older outputs.
+    "\u00c5\u0178ey",
+    "\u00c4\u00b1\u00c4\u00b1\u00c4\u00b1",
+    "i\u00c5\u0178te",
 }
+
 
 def load_glossary() -> list[str]:
     glossary_path = Path(__file__).parent.parent.parent / "config" / "transcription_glossary.tr.json"
@@ -24,58 +36,58 @@ def load_glossary() -> list[str]:
     except Exception:
         return []
 
+
 GLOSSARY_TERMS = load_glossary()
 
-def clean_turkish_transcript(text: str) -> str:
+
+def clean_turkish_transcript(text: str, *, mode: str = "conservative") -> str:
     """
     Deterministic cleanup for Turkish transcripts.
     Preserves Turkish characters, timestamps (if part of text), and glossary terms.
-    Removes repeated fillers and fixes common punctuation/spacing issues.
+    Conservative mode avoids filler deletion. Aggressive mode removes filler tokens.
     """
     if not text:
         return text
 
-    # 1. Normalize spacing
+    cleanup_mode = (mode or "conservative").strip().lower()
+    if cleanup_mode not in {"conservative", "aggressive"}:
+        cleanup_mode = "conservative"
+
     cleaned = " ".join(text.strip().split())
+    cleaned = re.sub(r"([.!?])\1+", r"\1", cleaned)
+    cleaned = re.sub(r"\s+([.!?])", r"\1", cleaned)
 
-    # 2. Fix repeated punctuation
-    cleaned = re.sub(r'([.!?])\1+', r'\1', cleaned)
-    cleaned = re.sub(r'\s+([.!?])', r'\1', cleaned)
-
-    # 3. Capitalize sentence starts where safe
-    # Split by sentence boundaries and capitalize
-    sentences = re.split(r'([.!?]\s*)', cleaned)
+    sentences = re.split(r"([.!?]\s*)", cleaned)
     capitalized_sentences = []
-    for i in range(0, len(sentences), 2):
-        s = sentences[i]
-        if s:
-            s = s[:1].upper() + s[1:]
-        capitalized_sentences.append(s)
-        if i + 1 < len(sentences):
-            capitalized_sentences.append(sentences[i+1])
+    for index in range(0, len(sentences), 2):
+        sentence = sentences[index]
+        if sentence:
+            sentence = sentence[:1].upper() + sentence[1:]
+        capitalized_sentences.append(sentence)
+        if index + 1 < len(sentences):
+            capitalized_sentences.append(sentences[index + 1])
     cleaned = "".join(capitalized_sentences)
 
-    # 4. Remove obvious repeated fillers when safe (case insensitive)
-    # We do this carefully to not remove meaningful words
-    for filler in TURKISH_FILLERS:
-        pattern = re.compile(rf'\b{filler}\b', re.IGNORECASE)
-        # Only remove if it's repeated or clearly a filler at the start/end
-        cleaned = pattern.sub("", cleaned)
+    if cleanup_mode == "aggressive":
+        cleaned = _remove_fillers(cleaned)
 
-    # 5. Fix glossary term casing (optional but helpful)
     for term in GLOSSARY_TERMS:
-        pattern = re.compile(rf'\b{term}\b', re.IGNORECASE)
+        pattern = re.compile(rf"\b{re.escape(term)}\b", re.IGNORECASE)
         cleaned = pattern.sub(term, cleaned)
 
-    # 6. Final spacing cleanup
     cleaned = " ".join(cleaned.strip().split())
-    
-    # If we removed everything, return original to be safe
     if not cleaned and text:
         return text
 
-    # Ensure it ends with punctuation if it was reasonably long
     if cleaned and cleaned[-1] not in ".!?" and len(cleaned) > 5:
         cleaned += "."
 
+    return cleaned
+
+
+def _remove_fillers(text: str) -> str:
+    cleaned = text
+    for filler in TURKISH_FILLERS:
+        pattern = re.compile(rf"\b{re.escape(filler)}\b", re.IGNORECASE)
+        cleaned = pattern.sub("", cleaned)
     return cleaned

@@ -49,6 +49,9 @@ async def transcribe_stream(websocket: WebSocket) -> None:
                             "raw_text_output": response.renderings.raw_text_output,
                             "corrected_text_output": response.renderings.corrected_text_output,
                             "speaker_stats": [item.model_dump() for item in response.speaker_stats],
+                            "asr_status": partial.metadata.get("asr_status"),
+                            "warnings": list(partial.metadata.get("warnings", [])),
+                            "metadata": dict(partial.metadata),
                             "is_final": False,
                         }
                     )
@@ -71,6 +74,9 @@ async def transcribe_stream(websocket: WebSocket) -> None:
                         "raw_text_output": response.renderings.raw_text_output,
                         "corrected_text_output": response.renderings.corrected_text_output,
                         "speaker_stats": [item.model_dump() for item in response.speaker_stats],
+                        "asr_status": partial.metadata.get("asr_status"),
+                        "warnings": list(partial.metadata.get("warnings", [])),
+                        "metadata": dict(partial.metadata),
                         "is_final": False,
                     }
                 )
@@ -92,6 +98,9 @@ async def transcribe_stream(websocket: WebSocket) -> None:
                         "raw_text_output": response.renderings.raw_text_output,
                         "corrected_text_output": response.renderings.corrected_text_output,
                         "speaker_stats": [item.model_dump() for item in response.speaker_stats],
+                        "asr_status": partial.metadata.get("asr_status"),
+                        "warnings": list(partial.metadata.get("warnings", [])),
+                        "metadata": dict(partial.metadata),
                         "is_final": True,
                     }
                 )

@@ -7,10 +7,13 @@ from app.config import Settings
 from app.models import ASRSegment, SpeechRegion
 from app.pipeline import asr as asr_module
 from app.pipeline.asr import (
+    ASR_STATUS_MOCK_EXPLICIT,
+    ASR_STATUS_MOCK_FALLBACK,
     MockASR,
     _dedupe_segments,
     _extract_wav_region,
     _regions_for_asr,
+    resolve_asr_quality_profile,
 )
 
 
@@ -70,6 +73,8 @@ def test_mock_asr_emits_segments_per_vad_region():
     assert len(segments) == 2
     assert segments[0].start == 0.0
     assert segments[1].end == 1.7
+    assert segments[0].text.startswith("[ASR_STATUS=MOCK_EXPLICIT]")
+    assert segments[0].confidence == 0.0
 
 
 def test_build_asr_auto_prefers_local(monkeypatch):
@@ -97,6 +102,36 @@ def test_build_asr_auto_falls_back_to_mock_when_local_unavailable(monkeypatch):
     provider = asr_module.build_asr(Settings())
 
     assert isinstance(provider, MockASR)
+    assert provider.asr_status == ASR_STATUS_MOCK_FALLBACK
+    assert provider.mock_fallback_used is True
+
+
+def test_explicit_mock_asr_status_is_not_fallback():
+    provider = asr_module.build_asr(Settings(asr_provider="mock"))
+
+    assert isinstance(provider, MockASR)
+    assert provider.asr_status == ASR_STATUS_MOCK_EXPLICIT
+    assert provider.mock_fallback_used is False
+
+
+def test_resolve_asr_quality_profiles_are_explicit():
+    settings = Settings()
+
+    fast = resolve_asr_quality_profile(settings, "fast")
+    balanced = resolve_asr_quality_profile(settings, "balanced")
+    max_quality = resolve_asr_quality_profile(settings, "max_quality")
+    accurate_alias = resolve_asr_quality_profile(settings, "accurate")
+
+    assert fast.name == "fast"
+    assert fast.beam_size == 1
+    assert balanced.name == "balanced"
+    assert balanced.word_timestamps is True
+    assert balanced.vad_filter is False
+    assert max_quality.name == "max_quality"
+    assert max_quality.beam_size >= 5
+    assert max_quality.word_timestamps is True
+    assert max_quality.vad_filter is False
+    assert accurate_alias.name == "max_quality"
 
 
 def _write_constant_wav(path: Path, sample_rate: int, duration_seconds: float) -> None:

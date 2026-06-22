@@ -25,6 +25,8 @@ LOGGER = logging.getLogger(__name__)
 
 
 class BaseVAD(ABC):
+    provider_name: str = "base"
+
     @abstractmethod
     def detect(self, audio_path: Path) -> list[SpeechRegion]:
         raise NotImplementedError
@@ -32,6 +34,7 @@ class BaseVAD(ABC):
 
 class EnergyVAD(BaseVAD):
     """Approximate fallback VAD when silero is unavailable."""
+    provider_name = "energy"
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -110,6 +113,8 @@ class EnergyVAD(BaseVAD):
 
 
 class SileroVAD(BaseVAD):
+    provider_name = "silero"
+
     def __init__(self, settings: Settings) -> None:
         try:
             import torch

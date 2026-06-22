@@ -19,11 +19,11 @@ from ..models import (
 )
 from ..services.summary import ConversationSummaryService
 from ..utils.audio import extract_wav_region, wav_duration_seconds
-from ..utils.audio_process import normalize_audio
+from ..utils.audio_process import inspect_audio, normalize_audio
 from ..utils.ids import new_conversation_id
 from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
-from .asr import BaseASR, build_asr
+from .asr import ASR_STATUS_MOCK_FALLBACK, ASR_STATUS_OK, BaseASR, build_asr, resolve_asr_quality_profile
 from .diarization import BaseDiarizer, build_diarizer
 from .llm_postprocess import LLMPostProcessor, build_llm_postprocessor
 from .speaker_mapper import StableSpeakerMapper
@@ -74,11 +74,14 @@ class TranscriptionPipeline:
         start_process = datetime.now(tz=UTC)
         resolved_conversation_id = conversation_id or new_conversation_id()
         resolved_language = language or self._settings.default_language
-        resolved_quality = quality_mode or self._settings.transcription_quality_mode
+        resolved_profile = resolve_asr_quality_profile(self._settings, quality_mode)
+        resolved_quality = resolved_profile.name
         prior = list(prior_segments or [])
         mapper = speaker_mapper or StableSpeakerMapper()
+        warnings: list[str] = []
 
         # 1. Audio Preprocessing
+        input_inspection = await asyncio.to_thread(inspect_audio, audio_path)
         normalized_path = self._settings.temp_dir / f"{resolved_conversation_id}_pipeline_norm.wav"
         normalize_success = await asyncio.to_thread(
             normalize_audio,
@@ -87,8 +90,15 @@ class TranscriptionPipeline:
             self._settings.sample_rate
         )
         working_path = normalized_path if normalize_success else audio_path
+        preprocessing_status = "ffmpeg_normalized" if normalize_success else "ffmpeg_failed_original_used"
+        if not normalize_success:
+            warnings.append("ffmpeg normalization failed; original file used for transcription.")
 
         try:
+            output_inspection = await asyncio.to_thread(inspect_audio, working_path)
+            if output_inspection is None:
+                warnings.append("Audio inspection unavailable for the file passed to VAD/ASR.")
+
             total_duration = await asyncio.to_thread(wav_duration_seconds, working_path)
             vad_regions = await asyncio.to_thread(self._vad.detect, working_path)
             processing_windows = _build_processing_windows(
@@ -121,7 +131,7 @@ class TranscriptionPipeline:
                         window_path,
                         resolved_language,
                         local_regions or None,
-                        resolved_quality,
+                        resolved_profile.name,
                     )
                     window_diarization_turns = await asyncio.to_thread(
                         self._diarizer.diarize,
@@ -162,20 +172,94 @@ class TranscriptionPipeline:
             # 3. Deterministic Turkish cleanup
             if resolved_language == "tr":
                 for segment in corrected_segments:
-                    segment.corrected_text = clean_turkish_transcript(segment.corrected_text)
+                    segment.corrected_text = clean_turkish_transcript(
+                        segment.corrected_text,
+                        mode=self._settings.transcript_cleanup_mode,
+                    )
 
             end_process = datetime.now(tz=UTC)
+            processing_time_seconds = (end_process - start_process).total_seconds()
+            raw_asr_status = getattr(self._asr, "asr_status", ASR_STATUS_OK)
+            asr_status = raw_asr_status if isinstance(raw_asr_status, str) else ASR_STATUS_OK
+            raw_mock_fallback = getattr(self._asr, "mock_fallback_used", False)
+            mock_fallback_used = raw_mock_fallback if isinstance(raw_mock_fallback, bool) else False
+            raw_fallback_reason = getattr(self._asr, "fallback_reason", None)
+            fallback_reason = raw_fallback_reason if isinstance(raw_fallback_reason, str) else None
+            if mock_fallback_used:
+                warnings.append(f"{ASR_STATUS_MOCK_FALLBACK}: Mock ASR fallback used; transcript is not real ASR output.")
+                for segment in corrected_segments:
+                    if ASR_STATUS_MOCK_FALLBACK not in segment.notes:
+                        segment.notes.append(ASR_STATUS_MOCK_FALLBACK)
+                    segment.metadata["mock_fallback_used"] = True
+                    segment.metadata["asr_status"] = ASR_STATUS_MOCK_FALLBACK
+            elif asr_status != ASR_STATUS_OK:
+                warnings.append(f"{asr_status}: Mock ASR used; transcript is not real ASR output.")
+                for segment in corrected_segments:
+                    if asr_status not in segment.notes:
+                        segment.notes.append(asr_status)
+                    segment.metadata["asr_status"] = asr_status
+
+            metadata = {
+                "asr_provider": self._asr.provider_name,
+                "asr_status": asr_status,
+                "ASR_STATUS": asr_status.removeprefix("ASR_STATUS="),
+                "model_name": self._settings.asr_model_name,
+                "quality_profile": resolved_profile.name,
+                "language": resolved_language,
+                "beam_size": resolved_profile.beam_size,
+                "compute_type": self._settings.asr_compute_type,
+                "word_timestamps": resolved_profile.word_timestamps,
+                "internal_faster_whisper_vad": resolved_profile.vad_filter,
+                "condition_on_previous_text": resolved_profile.condition_on_previous_text,
+                "vad_provider": getattr(self._vad, "provider_name", self._settings.vad_provider),
+                "preprocessing_status": preprocessing_status,
+                "ffmpeg_normalization_succeeded": normalize_success,
+                "input_audio": _audio_inspection_metadata(input_inspection),
+                "asr_input_audio": _audio_inspection_metadata(output_inspection),
+                "processing_time_seconds": processing_time_seconds,
+                "mock_fallback_used": mock_fallback_used,
+                "transcript_cleanup_mode": self._settings.transcript_cleanup_mode,
+                "raw_asr_text_preserved": True,
+                "warnings": warnings,
+            }
+            if fallback_reason:
+                metadata["asr_fallback_reason"] = fallback_reason
             
             diagnostics = TranscriptionDiagnostics(
                 provider=self._asr.provider_name,
                 model=self._settings.asr_model_name,
+                asr_status=asr_status,
+                mock_fallback_used=mock_fallback_used,
                 language=resolved_language,
                 quality_mode=resolved_quality,
+                quality_profile=resolved_profile.name,
+                beam_size=resolved_profile.beam_size,
+                compute_type=self._settings.asr_compute_type,
+                word_timestamps_enabled=resolved_profile.word_timestamps,
+                internal_vad_enabled=resolved_profile.vad_filter,
+                condition_on_previous_text=resolved_profile.condition_on_previous_text,
+                preprocessing_status=preprocessing_status,
+                preprocessing_format=output_inspection.format if output_inspection else None,
                 audio_duration=total_duration,
+                sample_rate_in=input_inspection.sample_rate if input_inspection else None,
+                sample_rate_out=output_inspection.sample_rate if output_inspection else None,
+                channels_in=input_inspection.channels if input_inspection else None,
+                channels_out=output_inspection.channels if output_inspection else None,
+                vad_settings={
+                    "provider": getattr(self._vad, "provider_name", self._settings.vad_provider),
+                    "frame_ms": self._settings.vad_frame_ms,
+                    "min_speech_ms": self._settings.vad_min_speech_ms,
+                    "min_silence_ms": self._settings.vad_min_silence_ms,
+                    "padding_ms": self._settings.vad_padding_ms,
+                    "merge_gap_ms": self._settings.vad_merge_gap_ms,
+                    "max_region_seconds": self._settings.vad_max_region_seconds,
+                    "target_region_seconds": self._settings.vad_target_region_seconds,
+                },
                 chunk_count=len(processing_windows),
-                processing_time_seconds=(end_process - start_process).total_seconds(),
+                processing_time_seconds=processing_time_seconds,
                 raw_transcript_length=sum(len(s.raw_text) for s in corrected_segments),
                 cleaned_transcript_length=sum(len(s.corrected_text) for s in corrected_segments),
+                warnings=warnings,
             )
 
             transcript = ConversationTranscript(
@@ -184,6 +268,7 @@ class TranscriptionPipeline:
                 language=resolved_language,
                 quality_mode=resolved_quality,
                 segments=corrected_segments,
+                metadata=metadata,
                 diagnostics=diagnostics,
                 debug=ProcessingDebug(
                     vad_regions=vad_regions,
@@ -327,3 +412,16 @@ def _offset_diarization_turns(items: list[DiarizationTurn], offset_seconds: floa
 
 def _is_full_audio_window(window: SpeechRegion, total_duration: float) -> bool:
     return window.start <= 0.0 and window.end >= total_duration
+
+
+def _audio_inspection_metadata(inspection: object | None) -> dict[str, object] | None:
+    if inspection is None:
+        return None
+    return {
+        "sample_rate": getattr(inspection, "sample_rate", None),
+        "channels": getattr(inspection, "channels", None),
+        "sample_width_bytes": getattr(inspection, "sample_width_bytes", None),
+        "frame_count": getattr(inspection, "frame_count", None),
+        "duration_seconds": getattr(inspection, "duration_seconds", None),
+        "format": getattr(inspection, "format", None),
+    }

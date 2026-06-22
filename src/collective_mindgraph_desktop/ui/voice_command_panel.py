@@ -182,6 +182,9 @@ class VoiceCommandPanel(QWidget):
         self.transcribe_button = QPushButton()
         self.wake_toggle_button = QPushButton()
         self.refresh_backend_button = QPushButton()
+        self.transcribe_button.clicked.connect(self._handle_transcribe)
+        self.wake_toggle_button.clicked.connect(self._handle_toggle_wake_trigger)
+        self.refresh_backend_button.clicked.connect(lambda: self._refresh_backend_health(auto_start=True))
 
         # Wire signals
         self._capture_controller.recording_started.connect(self._handle_capture_started)
@@ -313,6 +316,7 @@ class VoiceCommandPanel(QWidget):
 
     def _handle_capture_stopped(self, output_path: str) -> None:
         self._apply_state(self._workflow.stop_recording(output_path))
+        self.activity_reported.emit("Recording stopped and will be transcribed.")
         if self._live_stream_attempted and self._live_stream_controller.is_active and not self._live_stream_failed:
             self._live_stream_finalizing = True
             self._apply_state(self._workflow.transcribe())
@@ -356,6 +360,9 @@ class VoiceCommandPanel(QWidget):
         self._handle_start()
 
     def _handle_shutdown_requested(self, recognized_text: str) -> None:
+        if self._workflow.state.stage == "transcribing":
+            self.activity_reported.emit("Current transcription will finish before shutdown.")
+            return
         if self._workflow.state.stage != "recording":
             return
         self.activity_reported.emit(f"Shutdown phrase detected: {recognized_text}")
@@ -372,10 +379,12 @@ class VoiceCommandPanel(QWidget):
     def _handle_live_partial_received(self, update: StreamingTranscriptionUpdate) -> None:
         if self._live_stream_finalizing:
             return
-        self._transcript_output_override = update.text
+        self._transcript_output_override = update.corrected_text_output or update.text
         self._apply_state(self._workflow.state)
 
     def _handle_live_finalized(self, result: TranscriptionResult) -> None:
+        self._live_stream_attempted = False
+        self._live_stream_failed = False
         self._live_stream_finalizing = False
         self._complete_transcription_result(result)
 
@@ -384,6 +393,8 @@ class VoiceCommandPanel(QWidget):
             self.activity_reported.emit(f"Live stream failed: {message}. Falling back to upload.")
             return
         self._live_stream_finalizing = False
+        self._live_stream_failed = True
+        self.activity_reported.emit(f"{message} Falling back to final file upload.")
         QTimer.singleShot(0, self._handle_transcribe)
 
     def _handle_live_state_changed(self, message: str) -> None:
@@ -395,7 +406,7 @@ class VoiceCommandPanel(QWidget):
             self.activity_reported.emit(message)
 
     def _handle_backend_manager_error(self, message: str) -> None:
-        self.activity_reported.emit(f"Backend manager error: {message}")
+        self.activity_reported.emit(message)
 
     def _refresh_backend_health(self, auto_start: bool = False) -> None:
         try:
@@ -425,7 +436,8 @@ class VoiceCommandPanel(QWidget):
 
     def _handle_backend_health_failed(self, message: str) -> None:
         self._backend_health = None
-        if self._backend_health_retry_after_start and not is_frozen_build():
+        can_retry = self._backend_health_retry_after_start or self._backend_manager.can_manage(self._transcription_config.base_url)
+        if can_retry and not is_frozen_build():
             self._backend_status_override = "Starting local backend and retrying health check..."
             self._backend_manager.ensure_running(self._transcription_config.base_url)
             self._backend_health_retry_after_start = False
@@ -444,12 +456,16 @@ class VoiceCommandPanel(QWidget):
         self._health_worker = None
 
     def _complete_transcription_result(self, result: TranscriptionResult) -> None:
-        self._transcript_output_override = result.text
-        self._apply_state(self._workflow.complete_transcription(result.text))
+        display_text = result.corrected_text_output or result.text
+        self._transcript_output_override = display_text
+        self._apply_state(self._workflow.complete_transcription(display_text))
         self.transcript_captured.emit(result)
 
     def _cancel_live_stream(self) -> None:
-        self._live_stream_controller.stop()
+        if hasattr(self._live_stream_controller, "stop"):
+            self._live_stream_controller.stop()
+        elif hasattr(self._live_stream_controller, "cancel"):
+            self._live_stream_controller.cancel()
         self._live_stream_attempted = False
         self._live_stream_failed = False
         self._live_stream_finalizing = False
@@ -461,8 +477,23 @@ class VoiceCommandPanel(QWidget):
             return f"Backend unreachable at {self._transcription_config.base_url}"
         
         h = self._backend_health
-        lang = self._transcription_config.language or "auto"
-        return f"ASR: {h.asr_provider_resolved} | LLM: {h.llm_provider_resolved} | Lang: {lang}"
+        asr_resolved = h.asr_provider_resolved or h.asr_provider
+        llm_resolved = h.llm_provider_resolved or h.llm_provider
+        asr_fallback = f" (fallback {h.asr_fallback_provider})" if h.asr_fallback_provider else ""
+        llm_fallback = f" (fallback {h.llm_fallback_provider})" if h.llm_fallback_provider else ""
+        llm_reachability = (
+            "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
+            if llm_resolved == "lmstudio"
+            else "LLM fallback active: LM Studio is unreachable, so mock cleanup is handling corrections."
+            if llm_resolved == "mock"
+            else f"LLM provider resolved: {llm_resolved}."
+        )
+        return (
+            f"{h.app_name} [{h.status}] | "
+            f"STT: {h.asr_provider} -> {asr_resolved}{asr_fallback} | "
+            f"LLM: {h.llm_provider} -> {llm_resolved}{llm_fallback} | "
+            f"{llm_reachability}"
+        )
 
     def _processing_hint(self, state: VoiceCommandState) -> str:
         if state.stage == "recording":

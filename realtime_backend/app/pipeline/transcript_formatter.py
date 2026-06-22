@@ -53,4 +53,7 @@ def build_transcript_response(transcript: ConversationTranscript) -> TranscriptR
         transcript=transcript,
         renderings=build_renderings(transcript),
         speaker_stats=build_speaker_stats(transcript),
+        asr_status=transcript.metadata.get("asr_status"),
+        warnings=list(transcript.metadata.get("warnings", [])),
+        metadata=dict(transcript.metadata),
     )

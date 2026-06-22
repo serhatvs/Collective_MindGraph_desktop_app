@@ -19,8 +19,9 @@ class LLMAssistedAskService:
         """
         Takes an evidence-only response and uses LLM to synthesize a natural language answer.
         """
-        if self.llm_provider.base_url == "disabled" or not self.llm_provider.is_available():
-            status = "disabled" if self.llm_provider.base_url == "disabled" else "unavailable"
+        base_url = getattr(self.llm_provider, "base_url", "")
+        if base_url == "disabled" or not self.llm_provider.is_available():
+            status = "disabled" if base_url == "disabled" else "unavailable"
             evidence_response.warnings.append(f"Local LLM {status}. Falling back to evidence-only.")
             evidence_response.answer_type = "fallback_to_evidence_only"
             evidence_response.mode_used = "evidence_only_fallback"

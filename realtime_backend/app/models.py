@@ -83,8 +83,18 @@ class ProcessingDebug(BaseModel):
 class TranscriptionDiagnostics(BaseModel):
     provider: str
     model: str
+    asr_status: str | None = None
+    mock_fallback_used: bool = False
     language: str | None = None
     quality_mode: str | None = None
+    quality_profile: str | None = None
+    beam_size: int | None = None
+    compute_type: str | None = None
+    word_timestamps_enabled: bool | None = None
+    internal_vad_enabled: bool | None = None
+    condition_on_previous_text: bool | None = None
+    preprocessing_status: str | None = None
+    preprocessing_format: str | None = None
     audio_duration: float
     sample_rate_in: int | None = None
     sample_rate_out: int | None = None
@@ -97,6 +107,7 @@ class TranscriptionDiagnostics(BaseModel):
     processing_time_seconds: float | None = None
     raw_transcript_length: int | None = None
     cleaned_transcript_length: int | None = None
+    warnings: list[str] = Field(default_factory=list)
 
 
 class QueryResultItem(BaseModel):
@@ -206,6 +217,10 @@ class HealthResponse(BaseModel):
     asr_provider: str
     asr_provider_resolved: str | None = None
     asr_fallback_provider: str | None = None
+    asr_status: str | None = None
+    asr_mock_fallback_used: bool = False
+    asr_model_name: str | None = None
+    asr_quality_profile: str | None = None
     diarizer_provider: str
     llm_provider: str
     llm_provider_resolved: str | None = None
@@ -218,12 +233,18 @@ class FileTranscriptionResponse(BaseModel):
     raw_text_output: str
     corrected_text_output: str
     speaker_stats: list[SpeakerStats] = Field(default_factory=list)
+    asr_status: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class TranscriptResponse(BaseModel):
     transcript: ConversationTranscript
     renderings: TranscriptRenderings
     speaker_stats: list[SpeakerStats] = Field(default_factory=list)
+    asr_status: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class SummaryResponse(BaseModel):

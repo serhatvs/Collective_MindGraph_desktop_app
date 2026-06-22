@@ -14,12 +14,14 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
     Enforces local-only URLs.
     """
 
-    def __init__(self, base_url: str = "http://127.0.0.1:1234/v1", timeout: int = 30, allow_remote: bool = False):
+    def __init__(self, base_url: str | None = "http://127.0.0.1:1234/v1", timeout: int = 30, allow_remote: bool = False):
+        if base_url is None:
+            base_url = "disabled"
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         
         # Security: Prevent cloud endpoint usage unless explicitly allowed
-        if not allow_remote and not self._is_local_endpoint(self.base_url):
+        if self.base_url != "disabled" and not allow_remote and not self._is_local_endpoint(self.base_url):
             raise ValueError(f"Provider strictly requires a local endpoint. Received: {base_url}")
 
     def _is_local_endpoint(self, url: str) -> bool:
@@ -32,6 +34,8 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
         return "Local Endpoint (LM Studio / Ollama)"
 
     def is_available(self) -> bool:
+        if self.base_url == "disabled":
+            return False
         try:
             req = urllib.request.Request(f"{self.base_url}/models", method="GET")
             with urllib.request.urlopen(req, timeout=5) as response:

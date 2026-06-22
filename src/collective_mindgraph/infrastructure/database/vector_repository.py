@@ -3,7 +3,8 @@
 import json
 import sqlite3
 import uuid
-from typing import List, Dict, Any, Tuple
+from contextlib import nullcontext
+from typing import List, Dict, Any, Tuple, Optional
 from collective_mindgraph.core.source_reference import SourceReference
 
 class VectorRepository:
@@ -17,8 +18,13 @@ class VectorRepository:
         self.expected_dim = expected_dim
         self._initialize_schema()
 
+    def _connect(self):
+        if hasattr(self.database, "connect"):
+            return self.database.connect()
+        return nullcontext(self.database)
+
     def _initialize_schema(self) -> None:
-        with self.database.connect() as connection:
+        with self._connect() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS v2_embeddings (
@@ -35,18 +41,29 @@ class VectorRepository:
             )
             connection.execute("CREATE INDEX IF NOT EXISTS idx_v2_embeddings_node ON v2_embeddings(node_id);")
 
-    def store_embedding(self, node_id: str, node_type: str, text_chunk: str, vector: List[float], source_reference_id: Optional[str] = None) -> str:
+    def store_embedding(
+        self,
+        node_id: str,
+        node_type: str,
+        text_chunk: str | List[float],
+        vector: List[float] | None = None,
+        source_reference_id: Optional[str] = None,
+    ) -> str:
+        if vector is None:
+            vector = text_chunk if isinstance(text_chunk, list) else []
+            text_chunk = node_type
+            node_type = "UNKNOWN"
         if self.expected_dim and len(vector) != self.expected_dim:
             raise ValueError(f"Vector dimension mismatch. Expected {self.expected_dim}, got {len(vector)}")
         
         emb_id = str(uuid.uuid4())
-        with self.database.connect() as connection:
+        with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO v2_embeddings (id, node_id, node_type, source_reference_id, vector_json, text_chunk, dimension, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
                 """,
-                (emb_id, node_id, node_type, source_reference_id, json.dumps(vector), text_chunk, len(vector))
+                (emb_id, node_id, node_type, source_reference_id, json.dumps(vector), str(text_chunk), len(vector))
             )
         return emb_id
 
@@ -55,7 +72,7 @@ class VectorRepository:
         Naive cosine similarity search in Python.
         Returns List of dicts with node_id, text, score, source_reference_id, node_type
         """
-        with self.database.connect() as connection:
+        with self._connect() as connection:
             rows = connection.execute(
                 "SELECT node_id, node_type, text_chunk, vector_json, source_reference_id FROM v2_embeddings"
             ).fetchall()
@@ -69,11 +86,15 @@ class VectorRepository:
             # Cosine similarity assuming normalized vectors
             sim = sum(a * b for a, b in zip(query_vector, vec))
             if sim >= threshold:
+                score = round(float(sim), 4)
                 results.append({
+                    0: row["node_id"],
+                    1: row["text_chunk"],
+                    2: score,
                     "node_id": row["node_id"],
                     "node_type": row["node_type"],
                     "text": row["text_chunk"],
-                    "score": round(float(sim), 4),
+                    "score": score,
                     "source_reference_id": row["source_reference_id"]
                 })
             
@@ -81,6 +102,6 @@ class VectorRepository:
         return results[:top_k]
 
     def get_count(self) -> int:
-        with self.database.connect() as connection:
+        with self._connect() as connection:
             row = connection.execute("SELECT COUNT(*) FROM v2_embeddings").fetchone()
         return row[0] if row else 0

@@ -9,12 +9,22 @@
 ## Current State
 - **Architecture**: Transitions to a strictly local-first design. All cloud AI providers (Amazon Bedrock, Deepgram) have been removed.
 - **Desktop UI**: `src/collective_mindgraph_desktop` provides a `QMainWindow` with session explorer, voice command panel, and session detail view.
+- **Legacy UI Compatibility**: `src/collective_mindgraph_desktop/ui/session_detail_panel.py` is restored as a compatibility aggregate panel for older product-loop tests while the main app keeps the newer page-based layout.
 - **Backend**: `realtime_backend` FastAPI service handles transcription and LLM correction using local-only providers. Diarization is planned for future release.
 - **Transcription**: Uses `faster-whisper` (local) for STT and `silero-vad` for voice activity detection.
+- **Transcription Quality Hardening**: First STT hardening pass is implemented. `auto` fallback to `MockASR` now reports `ASR_STATUS=MOCK_FALLBACK`, mock output is unmistakable placeholder text with warning metadata, ASR quality profiles are explicit (`fast`, `balanced`, `max_quality`), `max_quality` is the default, Faster-Whisper internal VAD is off by default, and Turkish cleanup defaults to conservative mode without filler deletion.
 - **LLM Correction**: Defaults to `lmstudio` or other OpenAI-compatible local endpoints for transcript cleanup.
+- **Extraction Fallback**: Local LLM extraction probes availability even when configured for heuristic fallback, reports reachable/unreachable status, and populates deterministic structured fallback items for full-scale graph simulations.
 - **Diarization**: (Roadmap) Automatic speaker separation is not currently implemented or validated.
 - **V2 Architecture**: A spreadsheet-driven V2 scaffold is under development in `src/collective_mindgraph` to formalize domain boundaries.
 - **Packaging**: Supports single-file Windows builds via PyInstaller, bundling the local backend (using lighter fallbacks for VAD instead of the full `pyannote`/`torch` stack).
+- **Validation**: Full local test suite currently passes with `PYTHONPATH=src:. realtime_backend/.venv/bin/python -m pytest` (`155 passed, 3 skipped`).
+- **Current-State Report**: `docs/dev/CURRENT_STATE_ANALYSIS.md` was added as an honest checkpoint. It classifies the system as an advanced local-first MVP, not production-ready, and flags claim boundaries around diarization, speaker separation, semantic retrieval defaults, LLM stability, Ask Memory schema mismatch, duplicated graph/search services, packaging, and real meeting-room validation.
+- **Transcription Audit**: `docs/dev/TRANSCRIPTION_SYSTEM_ANALYSIS.md` was added and updated after the first hardening pass. It maps the STT-only pipeline and now reflects explicit mock fallback status, `large-v3`/`max_quality` defaults, conservative cleanup, preprocessing diagnostics, and the need for real meeting-room Turkish validation before quality claims.
+- **Transcription Checkpoint**: `docs/dev/TRANSCRIPTION_QUALITY_CHECKPOINT.md` records the first quality-hardening pass. No real Turkish meeting audio benchmark was run in the local Windows environment because `pytest` is unavailable and no real meeting fixture was present.
+- **Project Turkish Benchmark Workflow**: `scripts/run_project_turkish_transcription_benchmark.py` was added to run local Faster-Whisper Turkish benchmarks across `large-v3`/`large-v3-turbo` and `max_quality`/`balanced`. `docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md` currently records `BENCHMARK_NOT_RUN_NO_AUDIO`; no real meeting-room audio fixture was present. `docs/dev/PROJECT_TURKISH_AUDIO_FIXTURE_GUIDE.md` explains how to record local fixtures.
+- **MediaSpeech TR Local Benchmark**: `C:\Users\Serhat\Downloads\TR` was inspected as an external local Turkish MediaSpeech dataset. It contains `2,513` `.wav` files and `2,513` same-stem `.txt` references under `TR\`. `docs/dev/MEDIASPEECH_TR_LOCAL_MANIFEST.md` records the structure. `.venv-win` now exists with Python 3.13.13 because Python 3.11 was not installed, and benchmark/backend dependencies including `pydantic`, Faster-Whisper, and `pydantic-settings` were installed there. Blockers successfully resolved: `ffmpeg` is available via `CMG_RT_FFMPEG_PATH`, offline-caching works after a temporary online run, and the `[WinError 1314]` symlink issue for `large-v3-turbo` in `huggingface_hub` was patched. The 200-file subset successfully benchmarked using EnergyVAD to bypass `torch_python.dll` block across 2 configurations of `large-v3-turbo`. Interpretation: `large-v3-turbo` is the clear model winner for clean MediaSpeech TR, with `balanced` as the practical speed/quality winner (WER: 0.1527) and `max_quality` as the lowest-WER option (WER: 0.1526). Project-wide default remains provisional. Results stored in `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`.
+- **Agent Handoff**: `agy.md` (repo root) was created on 2026-06-22 by Antigravity as a durable working memory file for all future agent sessions. It captures dataset, blocker, environment, and exact next-step commands. Read it at the start of every benchmark-focused session.
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.
@@ -22,7 +32,16 @@
 - **External Dependencies**: `boto3`, `botocore`, and other cloud SDKs removed.
 
 ## Future Tasks
+- [x] Install/find ffmpeg and verify `ffmpeg -version` (or set `CMG_RT_FFMPEG_PATH`).
+- [x] Cache `large-v3` and `large-v3-turbo` with online mode (`HF_HUB_OFFLINE=0`).
+- [x] Run benchmark with `EnergyVAD` + `CPU/int8` to get the first valid ASR results.
+- [x] Update `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` with actual WER/CER.
 - [ ] Add real Turkish audio fixture test for Faster-Whisper language forcing.
+- [ ] Run targeted transcription tests in an environment with `pytest`.
+- [ ] Add real Turkish meeting-room WAV/reference fixtures under `realtime_backend/tests/fixtures/audio/project_turkish/` and `realtime_backend/tests/fixtures/expected/project_turkish/`.
+- [x] Run `scripts/run_project_turkish_transcription_benchmark.py` and compare `large-v3` vs `large-v3-turbo` with `balanced` and `max_quality`.
+- [ ] **Architectural Migration (WDAC Blocker)**: Remove PyTorch from the deployment stack completely. Windows Defender Application Control (WDAC) strictly blocks `torch_python.dll` and cannot be overridden locally by AppLocker. Replace `silero-vad` with ONNX or webrtcvad. Configure Faster-Whisper/CTranslate2 for ONNX GPU inference. Restrict fine-tuning to separate external training environments.
+- [ ] Add loudness/RMS/clipping diagnostics for preprocessing.
 - [ ] Formalize V2 domain implementations following the spreadsheet-driven architecture.
 - [ ] Improve local diarization stability for 3+ speakers.
 - [ ] Optimize onefile build size for full local model distribution.

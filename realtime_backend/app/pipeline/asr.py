@@ -7,12 +7,14 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from ..config import Settings
 from ..models import ASRSegment, SpeechRegion, WordTimestamp
 from ..utils.audio import extract_wav_region
 from ..utils.time import overlap_ratio
 from ..utils.turkish_cleanup import GLOSSARY_TERMS
+from .asr_runtime_config import add_cuda_dll_directories
 
 LOGGER = logging.getLogger(__name__)
 
@@ -92,7 +94,14 @@ class BaseASR(ABC):
 class FasterWhisperASR(BaseASR):
     provider_name = "faster_whisper"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        requested_device: str | None = None,
+        gpu_fallback_reason: str | None = None,
+    ) -> None:
+        cuda_dll_directories = add_cuda_dll_directories()
         try:
             faster_whisper_module = importlib.import_module("faster_whisper")
             whisper_model_cls = getattr(faster_whisper_module, "WhisperModel")
@@ -105,6 +114,17 @@ class FasterWhisperASR(BaseASR):
             compute_type=settings.asr_compute_type,
         )
         self._settings = settings
+        self.requested_device = requested_device or settings.asr_device
+        self.gpu_requested = _is_cuda_device(self.requested_device)
+        self.gpu_loaded = _is_cuda_device(settings.asr_device)
+        self.gpu_fallback_happened = bool(gpu_fallback_reason)
+        self.gpu_fallback_reason = gpu_fallback_reason
+        self.cuda_load_status = _cuda_load_status(
+            requested_device=self.requested_device,
+            loaded_device=settings.asr_device,
+            fallback_reason=gpu_fallback_reason,
+        )
+        self.cuda_dll_directories = cuda_dll_directories
 
     def transcribe(
         self,
@@ -248,18 +268,73 @@ def build_asr(settings: Settings) -> BaseASR:
         local, error = _build_optional_local_asr(settings)
         if local is not None:
             return local
+        if _gpu_required(settings):
+            reason = str(error) if error is not None else "unknown local ASR error"
+            raise RuntimeError(f"CMG_REQUIRE_GPU=1 but CUDA ASR could not load: {reason}") from error
         reason = str(error) if error is not None else "unknown local ASR error"
         LOGGER.warning("%s: Local ASR is unavailable. Falling back to MockASR. reason=%s", ASR_STATUS_MOCK_FALLBACK, reason)
         return MockASR(asr_status=ASR_STATUS_MOCK_FALLBACK, fallback_reason=reason)
-    return FasterWhisperASR(settings)
+    local, error = _build_optional_local_asr(settings)
+    if local is not None:
+        return local
+    reason = str(error) if error is not None else "unknown local ASR error"
+    if _gpu_required(settings):
+        raise RuntimeError(f"CMG_REQUIRE_GPU=1 but CUDA ASR could not load: {reason}") from error
+    raise RuntimeError(f"faster-whisper ASR could not load: {reason}") from error
 
 
 def _build_optional_local_asr(settings: Settings) -> tuple[BaseASR | None, Exception | None]:
     try:
         return FasterWhisperASR(settings), None
     except Exception as exc:
+        if _should_retry_cpu(settings):
+            requested_device = settings.asr_device
+            requested_compute_type = settings.asr_compute_type
+            fallback_reason = (
+                f"CUDA ASR load failed for {requested_device}/{requested_compute_type}: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            LOGGER.warning("%s Falling back to CPU/int8 because CMG_REQUIRE_GPU is not set.", fallback_reason)
+            settings.asr_device = "cpu"
+            settings.asr_compute_type = "int8"
+            try:
+                return (
+                    FasterWhisperASR(
+                        settings,
+                        requested_device=requested_device,
+                        gpu_fallback_reason=fallback_reason,
+                    ),
+                    None,
+                )
+            except Exception as fallback_exc:
+                settings.asr_device = requested_device
+                settings.asr_compute_type = requested_compute_type
+                LOGGER.warning("CPU fallback for faster-whisper ASR also failed: %s", fallback_exc)
+                return None, fallback_exc
         LOGGER.warning("Local faster-whisper ASR is unavailable: %s", exc)
         return None, exc
+
+
+def _gpu_required(settings: Settings) -> bool:
+    return bool(getattr(settings, "gpu_required", False))
+
+
+def _should_retry_cpu(settings: Settings) -> bool:
+    return _is_cuda_device(settings.asr_device) and not _gpu_required(settings)
+
+
+def _is_cuda_device(device: str | None) -> bool:
+    return (device or "").strip().lower().startswith("cuda")
+
+
+def _cuda_load_status(*, requested_device: str | None, loaded_device: str | None, fallback_reason: str | None) -> str:
+    if not _is_cuda_device(requested_device):
+        return "not_requested"
+    if fallback_reason:
+        return "fallback_to_cpu"
+    if _is_cuda_device(loaded_device):
+        return "loaded_on_cuda"
+    return "requested_but_not_loaded"
 
 
 def _regions_for_asr(regions: list[SpeechRegion], padding_seconds: float) -> list[SpeechRegion]:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import FastAPI
 
 from .api.routes import router as http_router
@@ -23,6 +25,10 @@ from .services.job_manager import JobManager
 from .utils.ids import new_segment_id
 from .utils.logging import configure_logging
 from .database_proxy import DatabaseProxy
+from .pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 def build_app() -> FastAPI:
@@ -40,7 +46,7 @@ def build_app() -> FastAPI:
     if settings.embedding_provider == "sentence_transformer":
         embedding_provider = SentenceTransformerEmbeddingProvider(
             model_path=settings.embedding_model_path,
-            device="cpu"  # Default to cpu for stability in backend
+            device=settings.embedding_device,
         )
     else:
         embedding_provider = MockLocalEmbeddingProvider(dim=settings.embedding_dimension)
@@ -49,6 +55,16 @@ def build_app() -> FastAPI:
     
     normalizer = FFmpegAudioNormalizer(sample_rate=settings.sample_rate, channels=settings.channels)
     pipeline = TranscriptionPipeline(settings=settings)
+    LOGGER.info(
+        "ASR runtime diagnostics\n%s",
+        format_asr_diagnostics(
+            build_asr_diagnostics(
+                settings,
+                pipeline._asr,
+                llm_provider=pipeline._llm_postprocessor._provider,
+            )
+        ),
+    )
     quality_service = TranscriptQualityService()
     transcription_service = TranscriptionService(
         settings=settings,

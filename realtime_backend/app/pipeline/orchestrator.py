@@ -185,6 +185,7 @@ class TranscriptionPipeline:
             mock_fallback_used = raw_mock_fallback if isinstance(raw_mock_fallback, bool) else False
             raw_fallback_reason = getattr(self._asr, "fallback_reason", None)
             fallback_reason = raw_fallback_reason if isinstance(raw_fallback_reason, str) else None
+            gpu_fallback_reason = getattr(self._asr, "gpu_fallback_reason", None)
             if mock_fallback_used:
                 warnings.append(f"{ASR_STATUS_MOCK_FALLBACK}: Mock ASR fallback used; transcript is not real ASR output.")
                 for segment in corrected_segments:
@@ -207,6 +208,8 @@ class TranscriptionPipeline:
                 "quality_profile": resolved_profile.name,
                 "language": resolved_language,
                 "beam_size": resolved_profile.beam_size,
+                "runtime_profile": getattr(self._settings, "asr_runtime_profile", "cpu"),
+                "device": self._settings.asr_device,
                 "compute_type": self._settings.asr_compute_type,
                 "word_timestamps": resolved_profile.word_timestamps,
                 "internal_faster_whisper_vad": resolved_profile.vad_filter,
@@ -218,6 +221,13 @@ class TranscriptionPipeline:
                 "asr_input_audio": _audio_inspection_metadata(output_inspection),
                 "processing_time_seconds": processing_time_seconds,
                 "mock_fallback_used": mock_fallback_used,
+                "gpu_requested": bool(getattr(self._asr, "gpu_requested", False)),
+                "gpu_loaded": bool(getattr(self._asr, "gpu_loaded", False)),
+                "gpu_fallback_happened": bool(getattr(self._asr, "gpu_fallback_happened", False)),
+                "gpu_fallback_reason": gpu_fallback_reason,
+                "faster_whisper_cuda_load_status": getattr(self._asr, "cuda_load_status", None),
+                "gpu_required": bool(getattr(self._settings, "gpu_required", False)),
+                "gpu_enabled": bool(getattr(self._settings, "gpu_enabled", False)),
                 "transcript_cleanup_mode": self._settings.transcript_cleanup_mode,
                 "raw_asr_text_preserved": True,
                 "warnings": warnings,
@@ -230,6 +240,8 @@ class TranscriptionPipeline:
                 model=self._settings.asr_model_name,
                 asr_status=asr_status,
                 mock_fallback_used=mock_fallback_used,
+                runtime_profile=getattr(self._settings, "asr_runtime_profile", "cpu"),
+                device=self._settings.asr_device,
                 language=resolved_language,
                 quality_mode=resolved_quality,
                 quality_profile=resolved_profile.name,
@@ -257,6 +269,11 @@ class TranscriptionPipeline:
                 },
                 chunk_count=len(processing_windows),
                 processing_time_seconds=processing_time_seconds,
+                gpu_requested=bool(getattr(self._asr, "gpu_requested", False)),
+                gpu_loaded=bool(getattr(self._asr, "gpu_loaded", False)),
+                gpu_fallback_happened=bool(getattr(self._asr, "gpu_fallback_happened", False)),
+                gpu_fallback_reason=gpu_fallback_reason,
+                faster_whisper_cuda_load_status=getattr(self._asr, "cuda_load_status", None),
                 raw_transcript_length=sum(len(s.raw_text) for s in corrected_segments),
                 cleaned_transcript_length=sum(len(s.corrected_text) for s in corrected_segments),
                 warnings=warnings,

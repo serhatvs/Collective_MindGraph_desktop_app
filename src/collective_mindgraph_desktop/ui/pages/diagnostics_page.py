@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...models import SessionDetail, TranscriptAnalysis
+from ...transcription import BackendHealthStatus
 from ..widgets import CardWidget
 
 
@@ -44,6 +45,22 @@ class DiagnosticsPage(QWidget):
         self.labels = {
             "backend_url": QLabel("http://127.0.0.1:8081"),
             "asr_provider": QLabel("-"),
+            "asr_backend_resolved": QLabel("-"),
+            "asr_model": QLabel("-"),
+            "asr_device": QLabel("-"),
+            "asr_compute_type": QLabel("-"),
+            "asr_language": QLabel("-"),
+            "asr_runtime_profile": QLabel("-"),
+            "gpu_enabled": QLabel("-"),
+            "gpu_required": QLabel("-"),
+            "cuda_available": QLabel("-"),
+            "gpu_requested": QLabel("-"),
+            "gpu_actual": QLabel("-"),
+            "gpu_fallback": QLabel("-"),
+            "gpu_fallback_reason": QLabel("-"),
+            "vad_provider": QLabel("-"),
+            "embedding_device": QLabel("-"),
+            "local_llm_enabled": QLabel("-"),
             "llm_status": QLabel("WIRED BUT UNAVAILABLE"),
             "llm_endpoint": QLabel("-"),
             "extraction_mode": QLabel("HEURISTIC_FALLBACK"),
@@ -61,11 +78,27 @@ class DiagnosticsPage(QWidget):
             
         self.form.addRow("Backend URL", self.labels["backend_url"])
         self.form.addRow("ASR Provider", self.labels["asr_provider"])
+        self.form.addRow("ASR Backend Resolved", self.labels["asr_backend_resolved"])
+        self.form.addRow("ASR Model", self.labels["asr_model"])
+        self.form.addRow("ASR Device", self.labels["asr_device"])
+        self.form.addRow("ASR Compute Type", self.labels["asr_compute_type"])
+        self.form.addRow("ASR Language", self.labels["asr_language"])
+        self.form.addRow("Runtime Profile", self.labels["asr_runtime_profile"])
+        self.form.addRow("GPU Enabled", self.labels["gpu_enabled"])
+        self.form.addRow("GPU Required", self.labels["gpu_required"])
+        self.form.addRow("CUDA Available", self.labels["cuda_available"])
+        self.form.addRow("GPU Requested By ASR", self.labels["gpu_requested"])
+        self.form.addRow("GPU Actually Used By ASR", self.labels["gpu_actual"])
+        self.form.addRow("ASR Fallback", self.labels["gpu_fallback"])
+        self.form.addRow("Fallback Reason", self.labels["gpu_fallback_reason"])
+        self.form.addRow("VAD Provider", self.labels["vad_provider"])
+        self.form.addRow("Embedding Device", self.labels["embedding_device"])
         self.form.addRow("Security Mode", self.labels["offline_mode"])
         
         # Production Status rows
         self.labels["llm_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
         self.form.addRow("Local AI Layer (LLM)", self.labels["llm_status"])
+        self.form.addRow("Local LLM Enabled", self.labels["local_llm_enabled"])
         self.form.addRow("LLM Endpoint", self.labels["llm_endpoint"])
 
         self.labels["extraction_mode"].setStyleSheet("color: #ca8a04; font-weight: bold;")
@@ -132,6 +165,57 @@ class DiagnosticsPage(QWidget):
             self.labels["embedding_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
             self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
 
+    def set_backend_health(self, health: BackendHealthStatus | None) -> None:
+        if health is None:
+            self.labels["asr_provider"].setText("-")
+            self.labels["asr_backend_resolved"].setText("-")
+            self.labels["asr_model"].setText("-")
+            self.labels["asr_device"].setText("-")
+            self.labels["asr_compute_type"].setText("-")
+            self.labels["asr_language"].setText("-")
+            self.labels["asr_runtime_profile"].setText("-")
+            self.labels["gpu_enabled"].setText("-")
+            self.labels["gpu_required"].setText("-")
+            self.labels["cuda_available"].setText("-")
+            self.labels["gpu_requested"].setText("-")
+            self.labels["gpu_actual"].setText("-")
+            self.labels["gpu_fallback"].setText("-")
+            self.labels["gpu_fallback_reason"].setText("-")
+            self.labels["vad_provider"].setText("-")
+            self.labels["embedding_device"].setText("-")
+            self.labels["local_llm_enabled"].setText("-")
+            return
+
+        self.labels["asr_provider"].setText(health.asr_provider)
+        self.labels["asr_backend_resolved"].setText(health.asr_provider_resolved or "-")
+        self.labels["asr_model"].setText(health.asr_model_name or "-")
+        self.labels["asr_device"].setText(health.asr_device or "-")
+        self.labels["asr_compute_type"].setText(health.asr_compute_type or "-")
+        self.labels["asr_language"].setText(health.asr_language or "-")
+        self.labels["asr_runtime_profile"].setText(health.asr_runtime_profile or "-")
+        self.labels["gpu_enabled"].setText(_bool_text(health.gpu_enabled))
+        self.labels["gpu_required"].setText(_bool_text(health.gpu_required))
+        self.labels["cuda_available"].setText(_bool_text(health.cuda_available_through_torch))
+        self.labels["gpu_requested"].setText(_bool_text(health.gpu_requested))
+        self.labels["gpu_actual"].setText(_bool_text(health.gpu_actually_used_by_asr))
+        fallback_parts = []
+        if health.asr_fallback_provider:
+            fallback_parts.append(f"provider={health.asr_fallback_provider}")
+        if health.gpu_fallback_happened is not None:
+            fallback_parts.append(f"gpu={_bool_text(health.gpu_fallback_happened)}")
+        self.labels["gpu_fallback"].setText(", ".join(fallback_parts) or "none")
+        self.labels["gpu_fallback_reason"].setText(health.gpu_fallback_reason or "-")
+        self.labels["vad_provider"].setText(health.vad_provider)
+        self.labels["embedding_device"].setText(health.embedding_device or "-")
+        self.labels["local_llm_enabled"].setText(_bool_text(health.local_llm_enabled))
+
+        if health.gpu_actually_used_by_asr:
+            self.labels["gpu_actual"].setStyleSheet("color: #166534; font-weight: bold;")
+        elif health.gpu_requested:
+            self.labels["gpu_actual"].setStyleSheet("color: #9a3412; font-weight: bold;")
+        else:
+            self.labels["gpu_actual"].setStyleSheet("font-family: 'Consolas', monospace; color: #264a7f;")
+
     def set_detail(self, detail: SessionDetail | None) -> None:
         if not detail or not detail.transcripts:
             return
@@ -166,3 +250,11 @@ class DiagnosticsPage(QWidget):
         self.labels["raw_length"].setText(str(len(analysis.raw_text_output)))
         self.labels["clean_length"].setText(str(len(analysis.corrected_text_output)))
         self.labels["processing_time"].setText(f"{analysis.metadata.get('processing_time_seconds', '-')}s")
+
+
+def _bool_text(value: bool | None) -> str:
+    if value is True:
+        return "yes"
+    if value is False:
+        return "no"
+    return "unknown"

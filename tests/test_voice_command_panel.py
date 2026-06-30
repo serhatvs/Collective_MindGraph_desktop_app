@@ -371,6 +371,14 @@ def test_voice_command_panel_clears_retry_message_after_successful_health_retry(
             asr_provider="auto",
             asr_provider_resolved="faster_whisper",
             asr_fallback_provider="mock",
+            asr_model_name="large-v3",
+            asr_runtime_profile="gpu_asr",
+            asr_device="cuda",
+            asr_compute_type="float16",
+            cuda_available_through_torch=True,
+            gpu_requested=True,
+            gpu_actually_used_by_asr=True,
+            gpu_fallback_happened=False,
             diarizer_provider="pyannote",
             llm_provider="auto_local",
             llm_provider_resolved="lmstudio",
@@ -381,6 +389,8 @@ def test_voice_command_panel_clears_retry_message_after_successful_health_retry(
     assert "Starting local backend and retrying health check..." not in panel.provider_status_label.text()
     assert "Realtime Backend [ok]" in panel.provider_status_label.text()
     assert "STT: auto -> faster_whisper (fallback mock)" in panel.provider_status_label.text()
+    assert "model=large-v3, device=cuda, compute=float16" in panel.provider_status_label.text()
+    assert "cuda_available=yes, gpu_requested=yes, gpu_used=yes" in panel.provider_status_label.text()
     assert "LLM: auto_local -> lmstudio (fallback mock)" in panel.provider_status_label.text()
     assert "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback." in panel.provider_status_label.text()
     panel.close()

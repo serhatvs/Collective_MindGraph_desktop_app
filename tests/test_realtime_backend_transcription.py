@@ -134,6 +134,19 @@ def test_realtime_backend_transcription_service_fetches_health():
                 "asr_provider": "auto",
                 "asr_provider_resolved": "faster_whisper",
                 "asr_fallback_provider": "mock",
+                "asr_model_name": "large-v3",
+                "asr_device": "cuda",
+                "asr_compute_type": "float16",
+                "asr_language": "tr",
+                "asr_runtime_profile": "gpu_asr",
+                "gpu_enabled": True,
+                "gpu_required": True,
+                "cuda_available_through_torch": True,
+                "gpu_requested": True,
+                "gpu_actually_used_by_asr": True,
+                "gpu_fallback_happened": False,
+                "embedding_device": "cpu",
+                "local_llm_enabled": False,
                 "diarizer_provider": "pyannote",
                 "llm_provider": "auto_local",
                 "llm_provider_resolved": "lmstudio",
@@ -151,6 +164,13 @@ def test_realtime_backend_transcription_service_fetches_health():
     assert isinstance(result, BackendHealthStatus)
     assert result.status == "ok"
     assert result.asr_provider_resolved == "faster_whisper"
+    assert result.asr_model_name == "large-v3"
+    assert result.asr_device == "cuda"
+    assert result.asr_compute_type == "float16"
+    assert result.asr_runtime_profile == "gpu_asr"
+    assert result.cuda_available_through_torch is True
+    assert result.gpu_requested is True
+    assert result.gpu_actually_used_by_asr is True
     assert result.llm_provider_resolved == "lmstudio"
 
 

@@ -106,6 +106,48 @@ def test_build_asr_auto_falls_back_to_mock_when_local_unavailable(monkeypatch):
     assert provider.mock_fallback_used is True
 
 
+def test_build_asr_gpu_required_raises_when_cuda_unavailable(monkeypatch):
+    class BrokenLocalASR:
+        def __init__(self, settings):
+            raise RuntimeError("cuda runtime missing")
+
+    monkeypatch.setattr(asr_module, "FasterWhisperASR", BrokenLocalASR)
+
+    settings = Settings(asr_device="cuda", gpu_required=True)
+
+    try:
+        asr_module.build_asr(settings)
+    except RuntimeError as exc:
+        assert "CMG_REQUIRE_GPU=1" in str(exc)
+        assert "cuda runtime missing" in str(exc)
+    else:
+        raise AssertionError("Expected strict GPU ASR failure.")
+
+
+def test_build_asr_cuda_request_reports_cpu_fallback_when_gpu_not_required(monkeypatch):
+    class FallbackLocalASR:
+        provider_name = "faster_whisper"
+
+        def __init__(self, settings, *, requested_device=None, gpu_fallback_reason=None):
+            if settings.asr_device == "cuda":
+                raise RuntimeError("cuda runtime missing")
+            self.requested_device = requested_device or settings.asr_device
+            self.gpu_requested = self.requested_device == "cuda"
+            self.gpu_loaded = settings.asr_device == "cuda"
+            self.gpu_fallback_happened = bool(gpu_fallback_reason)
+            self.gpu_fallback_reason = gpu_fallback_reason
+
+    monkeypatch.setattr(asr_module, "FasterWhisperASR", FallbackLocalASR)
+
+    provider = asr_module.build_asr(Settings(asr_device="cuda", gpu_required=False))
+
+    assert isinstance(provider, FallbackLocalASR)
+    assert provider.gpu_requested is True
+    assert provider.gpu_loaded is False
+    assert provider.gpu_fallback_happened is True
+    assert "cuda runtime missing" in provider.gpu_fallback_reason
+
+
 def test_explicit_mock_asr_status_is_not_fallback():
     provider = asr_module.build_asr(Settings(asr_provider="mock"))
 

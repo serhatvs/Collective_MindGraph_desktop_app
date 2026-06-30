@@ -8,6 +8,7 @@ Collective MindGraph is stable in **fallback-first production memory mode**. Thi
 
 ### ✅ What works now (Stable/Offline)
 - **Knowledge Graph Persistence**: Full session and insight lifecycle (Sessions, Tasks, Decisions, Topics, Entities).
+- **GPU-routed Local ASR**: Validated through the real backend transcription pipeline with Faster-Whisper CUDA/float16 on a local Turkish WAV. This confirms GPU execution and routing only; it does not claim meeting-room robustness, diarization, Silero VAD validation, or measured WER/CER accuracy.
 - **Hybrid Memory Query**: Combined Keyword and Graph-based reasoning.
 - **Human-in-the-loop Review**: Complete UI for approving, editing, and merging extracted knowledge.
 - **Evidence-only Ask Memory**: Accurate, template-based answers derived directly from the Knowledge Graph.

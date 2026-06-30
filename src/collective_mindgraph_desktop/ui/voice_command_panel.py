@@ -81,6 +81,7 @@ class BackendHealthWorker(QObject):
 class VoiceCommandPanel(QWidget):
     activity_reported = Signal(str)
     transcript_captured = Signal(object)
+    backend_health_updated = Signal(object)
 
     def current_transcription_config(self) -> RealtimeBackendTranscriptionConfig:
         return self._transcription_config
@@ -432,6 +433,7 @@ class VoiceCommandPanel(QWidget):
     def _handle_backend_health_finished(self, status: BackendHealthStatus) -> None:
         self._backend_health = status
         self._backend_status_override = None
+        self.backend_health_updated.emit(status)
         self._apply_state(self._workflow.state)
 
     def _handle_backend_health_failed(self, message: str) -> None:
@@ -481,6 +483,15 @@ class VoiceCommandPanel(QWidget):
         llm_resolved = h.llm_provider_resolved or h.llm_provider
         asr_fallback = f" (fallback {h.asr_fallback_provider})" if h.asr_fallback_provider else ""
         llm_fallback = f" (fallback {h.llm_fallback_provider})" if h.llm_fallback_provider else ""
+        gpu_status = (
+            f"ASR runtime: profile={h.asr_runtime_profile or '-'}, "
+            f"model={h.asr_model_name or '-'}, device={h.asr_device or '-'}, "
+            f"compute={h.asr_compute_type or '-'}, cuda_available={_bool_text(h.cuda_available_through_torch)}, "
+            f"gpu_requested={_bool_text(h.gpu_requested)}, gpu_used={_bool_text(h.gpu_actually_used_by_asr)}, "
+            f"fallback={_bool_text(h.gpu_fallback_happened)}"
+        )
+        if h.gpu_fallback_reason:
+            gpu_status = f"{gpu_status}, reason={h.gpu_fallback_reason}"
         llm_reachability = (
             "LLM reachability: LM Studio is active; mock cleanup is ready as the last fallback."
             if llm_resolved == "lmstudio"
@@ -492,6 +503,7 @@ class VoiceCommandPanel(QWidget):
             f"{h.app_name} [{h.status}] | "
             f"STT: {h.asr_provider} -> {asr_resolved}{asr_fallback} | "
             f"LLM: {h.llm_provider} -> {llm_resolved}{llm_fallback} | "
+            f"{gpu_status} | "
             f"{llm_reachability}"
         )
 
@@ -525,3 +537,11 @@ class VoiceCommandPanel(QWidget):
 
     def _refresh_config_summary(self) -> None:
         pass
+
+
+def _bool_text(value: bool | None) -> str:
+    if value is True:
+        return "yes"
+    if value is False:
+        return "no"
+    return "unknown"

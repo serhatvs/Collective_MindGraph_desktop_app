@@ -19,6 +19,7 @@ from ..models import (
     TranscriptResponse
 )
 from ..pipeline.transcript_formatter import build_transcript_response
+from ..pipeline.asr_runtime_config import build_asr_diagnostics
 
 router = APIRouter()
 
@@ -32,6 +33,7 @@ async def health(request: Request) -> HealthResponse:
     settings = request.app.state.settings
     asr_provider = request.app.state.transcription_service._pipeline._asr
     llm_provider = request.app.state.transcription_service._pipeline._llm_postprocessor._provider
+    asr_diagnostics = build_asr_diagnostics(settings, asr_provider, llm_provider=llm_provider)
     return HealthResponse(
         status="ok",
         app_name=settings.app_name,
@@ -43,6 +45,20 @@ async def health(request: Request) -> HealthResponse:
         asr_mock_fallback_used=bool(getattr(asr_provider, "mock_fallback_used", False)),
         asr_model_name=getattr(settings, "asr_model_name", None),
         asr_quality_profile=getattr(settings, "transcription_quality_mode", None),
+        asr_runtime_profile=getattr(settings, "asr_runtime_profile", None),
+        asr_device=getattr(settings, "asr_device", None),
+        asr_compute_type=getattr(settings, "asr_compute_type", None),
+        asr_language=getattr(settings, "default_language", None),
+        gpu_enabled=getattr(settings, "gpu_enabled", None),
+        gpu_required=getattr(settings, "gpu_required", None),
+        cuda_available_through_torch=asr_diagnostics["CUDA available through torch"],
+        gpu_requested=bool(getattr(asr_provider, "gpu_requested", False)),
+        gpu_actually_used_by_asr=bool(getattr(asr_provider, "gpu_loaded", False)),
+        faster_whisper_cuda_load_status=getattr(asr_provider, "cuda_load_status", None),
+        gpu_fallback_happened=bool(getattr(asr_provider, "gpu_fallback_happened", False)),
+        gpu_fallback_reason=getattr(asr_provider, "gpu_fallback_reason", None),
+        embedding_device=getattr(settings, "embedding_device", "cpu"),
+        local_llm_enabled=bool(asr_diagnostics["Local LLM enabled"]),
         diarizer_provider=settings.diarizer_provider,
         llm_provider=settings.llm_provider,
         llm_provider_resolved=getattr(llm_provider, "provider_name", None),

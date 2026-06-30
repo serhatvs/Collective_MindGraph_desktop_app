@@ -131,6 +131,24 @@ class BackendHealthStatus:
     asr_provider: str
     asr_provider_resolved: str | None = None
     asr_fallback_provider: str | None = None
+    asr_status: str | None = None
+    asr_mock_fallback_used: bool = False
+    asr_model_name: str | None = None
+    asr_quality_profile: str | None = None
+    asr_runtime_profile: str | None = None
+    asr_device: str | None = None
+    asr_compute_type: str | None = None
+    asr_language: str | None = None
+    gpu_enabled: bool | None = None
+    gpu_required: bool | None = None
+    cuda_available_through_torch: bool | None = None
+    gpu_requested: bool | None = None
+    gpu_actually_used_by_asr: bool | None = None
+    faster_whisper_cuda_load_status: str | None = None
+    gpu_fallback_happened: bool | None = None
+    gpu_fallback_reason: str | None = None
+    embedding_device: str | None = None
+    local_llm_enabled: bool | None = None
     diarizer_provider: str = ""
     llm_provider: str = ""
     llm_provider_resolved: str | None = None
@@ -532,6 +550,24 @@ class RealtimeBackendTranscriptionService:
             asr_provider=self._extract_string(payload, "asr_provider") or "-",
             asr_provider_resolved=self._extract_string(payload, "asr_provider_resolved"),
             asr_fallback_provider=self._extract_string(payload, "asr_fallback_provider"),
+            asr_status=self._extract_string(payload, "asr_status"),
+            asr_mock_fallback_used=bool(payload.get("asr_mock_fallback_used") or False),
+            asr_model_name=self._extract_string(payload, "asr_model_name"),
+            asr_quality_profile=self._extract_string(payload, "asr_quality_profile"),
+            asr_runtime_profile=self._extract_string(payload, "asr_runtime_profile"),
+            asr_device=self._extract_string(payload, "asr_device"),
+            asr_compute_type=self._extract_string(payload, "asr_compute_type"),
+            asr_language=self._extract_string(payload, "asr_language"),
+            gpu_enabled=self._extract_bool(payload, "gpu_enabled"),
+            gpu_required=self._extract_bool(payload, "gpu_required"),
+            cuda_available_through_torch=self._extract_bool(payload, "cuda_available_through_torch"),
+            gpu_requested=self._extract_bool(payload, "gpu_requested"),
+            gpu_actually_used_by_asr=self._extract_bool(payload, "gpu_actually_used_by_asr"),
+            faster_whisper_cuda_load_status=self._extract_string(payload, "faster_whisper_cuda_load_status"),
+            gpu_fallback_happened=self._extract_bool(payload, "gpu_fallback_happened"),
+            gpu_fallback_reason=self._extract_string(payload, "gpu_fallback_reason"),
+            embedding_device=self._extract_string(payload, "embedding_device"),
+            local_llm_enabled=self._extract_bool(payload, "local_llm_enabled"),
             diarizer_provider=self._extract_string(payload, "diarizer_provider") or "-",
             llm_provider=self._extract_string(payload, "llm_provider") or "-",
             llm_provider_resolved=self._extract_string(payload, "llm_provider_resolved"),
@@ -704,6 +740,20 @@ class RealtimeBackendTranscriptionService:
         value = payload.get(key)
         if isinstance(value, str) and value.strip():
             return value.strip()
+        return None
+
+    @staticmethod
+    def _extract_bool(payload: dict[str, object], key: str) -> bool | None:
+        value = payload.get(key)
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return None
+        text = str(value).strip().lower()
+        if text in {"1", "true", "yes", "on"}:
+            return True
+        if text in {"0", "false", "no", "off"}:
+            return False
         return None
 
     @staticmethod

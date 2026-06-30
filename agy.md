@@ -103,15 +103,18 @@ scripts/run_project_turkish_transcription_benchmark.py
 
 ---
 
-## Current Runtime Blockers (as of 2026-06-22)
+## Current Runtime Status (as of 2026-06-30)
 
 | Blocker | Detail | Workaround |
 |---|---|---|
 | **Model cache missing** | RESOLVED: `large-v3` and `large-v3-turbo` successfully cached. Symlink creation issues on Windows were patched in `huggingface_hub`. | Models cached in local HF cache. |
 | **Offline mode enforced by runner** | RESOLVED: Download run once with offline=0, now runner uses offline cache fine. | N/A |
 | **ffmpeg not on PATH** | RESOLVED: Downloaded and verified via `winget` and environment variables. | `CMG_RT_FFMPEG_PATH` is successfully configured. |
-| **torch blocked by Windows Application Control** | `torch_python.dll` is blocked. `torch` imports fail. Silero VAD (which depends on torch) cannot load. | Use `EnergyVAD` as VAD provider (`CMG_RT_VAD_PROVIDER=energy`) to bypass the torch/Silero path entirely. EnergyVAD is implemented in `realtime_backend/app/pipeline/vad.py` and requires only `numpy`. |
-| **No valid ASR result yet** | RESOLVED: Valid ASR results obtained using EnergyVAD + CPU/int8. | Benchmark successfully ran and reported WER/CER. |
+| **CMG ASR GPU routing** | RESOLVED: `scripts/check_asr_gpu.py` loaded the real CMG `FasterWhisperASR` on CUDA with `small`; `nvidia-smi` observed a Python process. `scripts/full_scale_gpu_transcription_test.py` transcribed a real MediaSpeech TR WAV with `large-v3`, `cuda`, `float16`, `ASR_STATUS=OK`, and no mock fallback. | Report: `docs/dev/FULL_SCALE_GPU_ASR_TEST_REPORT.md`. |
+| **CMG_ASR env mismatch** | RESOLVED: Backend now reads `CMG_RUNTIME_PROFILE`, `CMG_GPU_ENABLED`, `CMG_REQUIRE_GPU`, `CMG_ASR_*`, and existing `CMG_RT_*` aliases through `realtime_backend/app/pipeline/asr_runtime_config.py`. | Use `CMG_REQUIRE_GPU=1` for GPU validation to prevent CPU fallback. |
+| **CUDA cuBLAS DLL missing** | RESOLVED locally: installed `.venv-win` packages `nvidia-cublas-cu12`, `nvidia-cuda-runtime-cu12`, and `nvidia-cuda-nvrtc-cu12`; `FasterWhisperASR` registers venv-local CUDA DLL directories before load. | Keep these packages in the Windows benchmark env. |
+| **Silero/PyTorch VAD** | NOT VALIDATED in the GPU ASR test. The test intentionally used `EnergyVAD` to keep diarization/VAD torch dependencies out of ASR routing validation. | Validate Silero separately if needed. |
+| **Silero VAD validation** | FIRST SEPARATE RUN: `scripts/validate_silero_vad_asr.py` requested Silero, but the backend fell back to EnergyVAD and ASR continued. This is not Silero validation. | Resolve Silero/torch import path before claiming Silero VAD works. |
 
 ---
 
@@ -242,6 +245,24 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
 - Report status: `BENCHMARK_RUN` (200 files)
 - Report path: `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`
 
+## GPU ASR Validation Status
+
+**Last attempt: 2026-06-30**
+
+- Real ASR path found: desktop file transcription posts to backend `/transcribe/file`; backend uses `TranscriptionService -> TranscriptionPipeline -> build_asr -> FasterWhisperASR -> faster_whisper.WhisperModel`.
+- Vosk is used for wake phrase detection only, not file transcription.
+- Previous issue: `CMG_ASR_DEVICE`, `CMG_ASR_MODEL`, `CMG_ASR_COMPUTE_TYPE`, and `CMG_RUNTIME_PROFILE` were not read by backend settings; only `CMG_RT_ASR_*` was read.
+- Fix: central resolver added at `realtime_backend/app/pipeline/asr_runtime_config.py`; backend startup and `/health` now expose GPU/ASR diagnostics.
+- Small smoke: `small` + `cuda` + `float16` loaded through CMG ASR builder; `nvidia-smi` observed Python.
+- Full pipeline: `large-v3` + `cuda` + `float16` transcribed `C:\Users\Serhat\Downloads\TR\TR\0044ad54-892f-4d23-a75b-0e22eb837914.wav` with `ASR_STATUS=OK`, no mock fallback, 4 segments, and GPU loaded.
+- Claim boundary: validates GPU ASR routing on clean Turkish media speech; does NOT prove meeting-room readiness.
+- Report path: `docs/dev/FULL_SCALE_GPU_ASR_TEST_REPORT.md`
+- Additional ASR diagnostics/benchmark reports:
+  - `docs/dev/CPU_VS_GPU_ASR_BENCHMARK_REPORT.md` (`small` CPU/GPU runtime comparison; no accuracy claim)
+  - `docs/dev/SILERO_VAD_ASR_VALIDATION_REPORT.md` (Silero requested but fell back to EnergyVAD; ASR continued)
+  - `docs/dev/ASR_ACCURACY_BENCHMARK_REPORT.md` (runtime-only; WER/CER not computed because no reference was supplied)
+  - `docs/dev/REAL_ROOM_AUDIO_VALIDATION_PLAN.md` (future plan only)
+
 ---
 
 ## Immediate Next Steps (Priority Order)
@@ -250,7 +271,7 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
 2. **DONE**: Cache `large-v3` and `large-v3-turbo` with online mode enabled.
 3. **DONE**: Run benchmark with EnergyVAD + CPU/int8 on a larger 50-file dataset.
 4. **DONE**: Update `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` with comprehensive 50-file benchmark analysis.
-5. **Architectural Decision (WDAC Blocker)**: `torch_python.dll` is strictly blocked by a Windows Defender Application Control (WDAC) Enterprise policy (`0283ac0f...`). AppLocker path bypasses failed. GPU acceleration for PyTorch is impossible in this environment. The required next step is to completely remove PyTorch from the application, replace `silero-vad` with an ONNX/webrtcvad alternative, and ensure Faster-Whisper connects to the GPU via CTranslate2/ONNX natively. All future fine-tuning must occur in a separate MLOps training environment before export to ONNX.
+5. **DONE**: Add CMG-path GPU ASR validation scripts and report. Use `CMG_REQUIRE_GPU=1` when validating GPU so CPU fallback cannot look like a pass.
 6. **Next Recommended Benchmark Step**: Source and annotate a real Turkish meeting-room audio fixture (overlapping speech, distant mic, noise) to evaluate true product readiness, as media-speech does not prove real-world accuracy.
 7. **Update `docs/dev/codex.md`** and this file (`agy.md`) continuously.
 
@@ -290,6 +311,25 @@ realtime_backend/app/api/routes.py
 | `CMG_RT_TRANSCRIPT_CLEANUP_MODE` | `conservative` | |
 | `CMG_RT_VAD_PROVIDER` | `silero` | Use `energy` when torch is blocked |
 | `CMG_RT_FFMPEG_PATH` / `CMG_FFMPEG_EXE` | (system PATH) | Set if ffmpeg not on PATH |
+
+### GPU ASR validation commands
+
+```powershell
+$env:CMG_RUNTIME_PROFILE = "gpu_asr"
+$env:CMG_GPU_ENABLED = "1"
+$env:CMG_REQUIRE_GPU = "1"
+$env:CMG_ASR_DEVICE = "cuda"
+$env:CMG_ASR_COMPUTE_TYPE = "float16"
+$env:CMG_ASR_MODEL = "small"
+$env:CMG_ASR_LANGUAGE = "tr"
+.\.venv-win\Scripts\python.exe scripts\check_asr_gpu.py --observation-seconds 30
+```
+
+```powershell
+.\.venv-win\Scripts\python.exe scripts\benchmark_cpu_vs_gpu_asr.py --audio "C:\path\to\audio.wav" --model small
+.\.venv-win\Scripts\python.exe scripts\validate_silero_vad_asr.py --audio "C:\path\to\audio.wav" --model small
+.\.venv-win\Scripts\python.exe scripts\benchmark_asr_accuracy.py --audio "C:\path\to\audio.wav" --reference "C:\path\to\reference.txt" --profile gpu_asr
+```
 
 ### VAD providers
 

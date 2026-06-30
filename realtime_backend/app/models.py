@@ -85,6 +85,8 @@ class TranscriptionDiagnostics(BaseModel):
     model: str
     asr_status: str | None = None
     mock_fallback_used: bool = False
+    runtime_profile: str | None = None
+    device: str | None = None
     language: str | None = None
     quality_mode: str | None = None
     quality_profile: str | None = None
@@ -105,6 +107,11 @@ class TranscriptionDiagnostics(BaseModel):
     vad_settings: dict[str, Any] = Field(default_factory=dict)
     chunk_count: int | None = None
     processing_time_seconds: float | None = None
+    gpu_requested: bool | None = None
+    gpu_loaded: bool | None = None
+    gpu_fallback_happened: bool | None = None
+    gpu_fallback_reason: str | None = None
+    faster_whisper_cuda_load_status: str | None = None
     raw_transcript_length: int | None = None
     cleaned_transcript_length: int | None = None
     warnings: list[str] = Field(default_factory=list)
@@ -221,6 +228,20 @@ class HealthResponse(BaseModel):
     asr_mock_fallback_used: bool = False
     asr_model_name: str | None = None
     asr_quality_profile: str | None = None
+    asr_runtime_profile: str | None = None
+    asr_device: str | None = None
+    asr_compute_type: str | None = None
+    asr_language: str | None = None
+    gpu_enabled: bool | None = None
+    gpu_required: bool | None = None
+    cuda_available_through_torch: bool | None = None
+    gpu_requested: bool | None = None
+    gpu_actually_used_by_asr: bool | None = None
+    faster_whisper_cuda_load_status: str | None = None
+    gpu_fallback_happened: bool | None = None
+    gpu_fallback_reason: str | None = None
+    embedding_device: str | None = None
+    local_llm_enabled: bool | None = None
     diarizer_provider: str
     llm_provider: str
     llm_provider_resolved: str | None = None

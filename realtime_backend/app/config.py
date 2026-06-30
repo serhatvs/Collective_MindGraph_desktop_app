@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
+from .pipeline.asr_runtime_config import resolve_asr_runtime_config
+
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover - optional at import time
@@ -87,6 +89,10 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _asr_runtime():
+    return resolve_asr_runtime_config()
+
+
 @dataclass(slots=True)
 class Settings:
     app_name: str = "Collective MindGraph Realtime Backend"
@@ -105,7 +111,7 @@ class Settings:
     channels: int = field(default_factory=lambda: _env_int("CMG_RT_CHANNELS", 1))
     sample_width_bytes: int = field(default_factory=lambda: _env_int("CMG_RT_SAMPLE_WIDTH_BYTES", 2))
     default_language: str | None = field(
-        default_factory=lambda: os.getenv("CMG_RT_LANGUAGE", "tr")
+        default_factory=lambda: _asr_runtime().asr_language
     )
 
     stream_partial_window_seconds: float = field(
@@ -144,13 +150,16 @@ class Settings:
         default_factory=lambda: _env_float("CMG_RT_VAD_ENERGY_THRESHOLD", 0.015)
     )
 
-    asr_provider: str = field(default_factory=lambda: _env("CMG_RT_ASR_PROVIDER", "auto"))
+    asr_runtime_profile: str = field(default_factory=lambda: _asr_runtime().runtime_profile)
+    gpu_enabled: bool = field(default_factory=lambda: _asr_runtime().gpu_enabled)
+    gpu_required: bool = field(default_factory=lambda: _asr_runtime().gpu_required)
+    asr_provider: str = field(default_factory=lambda: _asr_runtime().asr_backend)
     asr_model_name: str = field(
-        default_factory=lambda: _env("CMG_RT_ASR_MODEL", "large-v3")
+        default_factory=lambda: _asr_runtime().asr_model
     )
-    asr_device: str = field(default_factory=lambda: _env("CMG_RT_ASR_DEVICE", "cuda"))
+    asr_device: str = field(default_factory=lambda: _asr_runtime().asr_device)
     asr_compute_type: str = field(
-        default_factory=lambda: _env("CMG_RT_ASR_COMPUTE_TYPE", "float16")
+        default_factory=lambda: _asr_runtime().asr_compute_type
     )
     asr_beam_size: int = field(default_factory=lambda: _env_int("CMG_RT_ASR_BEAM_SIZE", 5))
     asr_max_quality_beam_size: int = field(
@@ -226,6 +235,7 @@ class Settings:
     embedding_dimension: int = field(
         default_factory=lambda: _env_int("CMG_EMBEDDING_DIMENSION", 384)
     )
+    embedding_device: str = field(default_factory=lambda: _asr_runtime().embedding_device)
 
     enable_summary: bool = field(
         default_factory=lambda: _env("CMG_RT_ENABLE_SUMMARY", "true").lower() == "true"

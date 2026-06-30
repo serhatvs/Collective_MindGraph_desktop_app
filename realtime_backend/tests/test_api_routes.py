@@ -412,11 +412,14 @@ def test_health_route_returns_provider_and_fallback_status():
         asr_provider=StubProviderInfo("faster_whisper", "mock", asr_status="ASR_STATUS=OK"),
         llm_provider=StubProviderInfo("lmstudio", "mock"),
     )
+    _transcription_service._pipeline._asr.gpu_requested = True
+    _transcription_service._pipeline._asr.gpu_loaded = True
 
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {
+    payload = response.json()
+    expected = {
         "status": "ok",
         "app_name": "Realtime Backend",
         "vad_provider": "silero",
@@ -427,11 +430,17 @@ def test_health_route_returns_provider_and_fallback_status():
         "asr_mock_fallback_used": False,
         "asr_model_name": "large-v3",
         "asr_quality_profile": "max_quality",
+        "gpu_requested": True,
+        "gpu_actually_used_by_asr": True,
         "diarizer_provider": "pyannote",
         "llm_provider": "auto_local",
         "llm_provider_resolved": "lmstudio",
         "llm_fallback_provider": "mock",
     }
+    assert {key: payload[key] for key in expected} == expected
+    assert "cuda_available_through_torch" in payload
+    assert "faster_whisper_cuda_load_status" in payload
+    assert "gpu_fallback_happened" in payload
 
 
 def test_health_route_allows_missing_resolved_provider_fields():
@@ -457,7 +466,8 @@ def test_health_route_allows_missing_resolved_provider_fields():
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {
+    payload = response.json()
+    expected = {
         "status": "ok",
         "app_name": "Collective MindGraph Realtime Backend",
         "vad_provider": "silero",
@@ -473,6 +483,12 @@ def test_health_route_allows_missing_resolved_provider_fields():
         "llm_provider_resolved": None,
         "llm_fallback_provider": None,
     }
+    assert {key: payload[key] for key in expected} == expected
+    assert "cuda_available_through_torch" in payload
+    assert payload["gpu_requested"] is False
+    assert payload["gpu_actually_used_by_asr"] is False
+    assert "faster_whisper_cuda_load_status" in payload
+    assert "gpu_fallback_happened" in payload
 
 
 def test_quality_route_returns_built_report():

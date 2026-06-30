@@ -175,6 +175,7 @@ class MainWindow(QMainWindow):
         self.session_list_panel.transcribe_file_requested.connect(self._handle_manual_file_ingest)
         
         self.voice_command_panel.transcript_captured.connect(self._ingest_transcript)
+        self.voice_command_panel.backend_health_updated.connect(self.diagnostics_page.set_backend_health)
         self.insights_page.knowledge_item_updated.connect(self._handle_knowledge_update)
         self.review_page.node_approved.connect(self._handle_node_approve)
         self.review_page.node_rejected.connect(self._handle_node_reject)

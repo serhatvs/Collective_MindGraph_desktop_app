@@ -110,17 +110,33 @@ class ReasoningResponse:
 
 
 @dataclass(frozen=True, slots=True)
+class SentenceValidation:
+    sentence: str
+    supported: bool
+    sources: list[str] = field(default_factory=list)
+    unsupported_terms: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
 class MemoryAskResponse:
     query: str
     mode: str
     answer_type: str
     short_answer: str
     confidence_level: str
+    mode_requested: str | None = None
+    mode_used: str | None = None
+    answer_validation_status: str = "accepted"
     evidence_chains: list[EvidenceChain] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    evidence_coverage_score: float = 0.0
     source_session_ids: list[str] = field(default_factory=list)
     source_segment_ids: list[str] = field(default_factory=list)
+    used_sources: list[str] = field(default_factory=list)
+    rejected_sources: list[str] = field(default_factory=list)
+    sentence_validations: list[SentenceValidation] = field(default_factory=list)
     missing_evidence_note: str | None = None
+    rejected_terms: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -516,15 +532,27 @@ class RealtimeBackendTranscriptionService:
         
         return MemoryAskResponse(
             query=query,
-            mode=mode,
+            mode=str(payload.get("mode") or mode),
             answer_type=str(payload.get("answer_type") or "evidence_only"),
-            short_answer=str(payload.get("short_answer") or ""),
+            short_answer=str(payload.get("short_answer") or payload.get("answer") or ""),
+            mode_requested=self._extract_string(payload, "mode_requested"),
+            mode_used=(
+                self._extract_string(payload, "mode_used")
+                or self._extract_string(payload, "answer_type")
+                or "evidence_only"
+            ),
+            answer_validation_status=str(payload.get("answer_validation_status") or "accepted"),
             evidence_chains=chains,
-            warnings=payload.get("warnings") or [],
-            confidence_level=str(payload.get("confidence_level") or "low"),
+            warnings=self._extract_string_list(payload, "warnings"),
+            confidence_level=str(payload.get("confidence_level") or payload.get("confidence") or "low"),
+            evidence_coverage_score=self._extract_float(payload, "evidence_coverage_score", 0.0),
             source_session_ids=self._extract_string_list(payload, "source_session_ids"),
             source_segment_ids=self._extract_string_list(payload, "source_segment_ids"),
-            missing_evidence_note=self._extract_string(payload, "missing_evidence_note")
+            used_sources=self._extract_string_list(payload, "used_sources"),
+            rejected_sources=self._extract_string_list(payload, "rejected_sources"),
+            sentence_validations=self._extract_sentence_validations(payload),
+            missing_evidence_note=self._extract_string(payload, "missing_evidence_note"),
+            rejected_terms=self._extract_string_list(payload, "rejected_terms"),
         )
 
     def fetch_health(self) -> BackendHealthStatus:
@@ -757,6 +785,16 @@ class RealtimeBackendTranscriptionService:
         return None
 
     @staticmethod
+    def _extract_float(payload: dict[str, object], key: str, default: float = 0.0) -> float:
+        value = payload.get(key)
+        if value is None:
+            return default
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
     def _extract_list(payload: dict[str, object], key: str) -> list[dict[str, object]]:
         value = payload.get(key)
         return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
@@ -765,6 +803,32 @@ class RealtimeBackendTranscriptionService:
     def _extract_string_list(payload: dict[str, object], key: str) -> list[str]:
         value = payload.get(key)
         return [str(item) for item in value] if isinstance(value, list) else []
+
+    @staticmethod
+    def _extract_sentence_validations(payload: dict[str, object]) -> list[SentenceValidation]:
+        value = payload.get("sentence_validations")
+        if not isinstance(value, list):
+            return []
+
+        validations: list[SentenceValidation] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+            sources = item.get("sources")
+            unsupported_terms = item.get("unsupported_terms")
+            validations.append(
+                SentenceValidation(
+                    sentence=str(item.get("sentence") or ""),
+                    supported=bool(item.get("supported") or False),
+                    sources=[str(source) for source in sources] if isinstance(sources, list) else [],
+                    unsupported_terms=(
+                        [str(term) for term in unsupported_terms]
+                        if isinstance(unsupported_terms, list)
+                        else []
+                    ),
+                )
+            )
+        return validations
 
 
 def _parse_bool(value: object, default: bool) -> bool:

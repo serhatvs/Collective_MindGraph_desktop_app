@@ -122,11 +122,22 @@ class QueryResultItem(BaseModel):
     text: str
     source_session_id: str
     source_segment_id: str | None = None
+    source_reference_id: str | None = None
     matched_field: str | None = None
     matched_terms: list[str] = Field(default_factory=list)
     score: float = 1.0
     preview: str | None = None
     timestamp: str | None = None
+    matched_by: str | None = None
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    edge_path: str | None = None
+    node_id: str | None = None
+    text_preview: str | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    graph_distance: int | None = None
+    related_node_id: str | None = None
+    edge_type: str | None = None
 
 
 class QueryResponse(BaseModel):

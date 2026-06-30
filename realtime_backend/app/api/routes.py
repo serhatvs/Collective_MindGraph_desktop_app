@@ -214,19 +214,29 @@ async def query_memory(request: Request, q: str, mode: str = "hybrid") -> QueryR
     
     results = []
     for node in hybrid_result.nodes:
+        source = node.source
+        source_preview = getattr(source, "text_preview", None) if source else None
+        node_text = node.properties.get("title") or node.properties.get("text") or ""
         # Map GraphNode to QueryResultItem
         results.append(
             QueryResultItem(
                 result_type=node.type.value.lower(),
-                text=node.properties.get("title") or node.properties.get("text") or "",
-                source_session_id=node.source.session_id if node.source else "unknown",
-                source_segment_id=node.source.segment_id if node.source else None,
+                text=node_text,
+                source_session_id=source.session_id if source else "unknown",
+                source_segment_id=source.segment_id if source else None,
+                source_reference_id=getattr(source, "id", None) if source else None,
                 matched_by=node.properties.get("matched_by"),
                 score=node.properties.get("score", 1.0),
                 score_breakdown=node.properties.get("score_breakdown", {}),
                 edge_path=node.properties.get("edge_path"),
                 node_id=node.id,
-                preview=node.properties.get("text")[:200] if node.properties.get("text") else None
+                preview=(source_preview or node.properties.get("text") or node_text or None),
+                text_preview=source_preview,
+                start_time=source.timestamp_start if source else None,
+                end_time=source.timestamp_end if source else None,
+                graph_distance=node.properties.get("graph_distance"),
+                related_node_id=node.properties.get("related_node_id"),
+                edge_type=node.properties.get("edge_type"),
             )
         )
 

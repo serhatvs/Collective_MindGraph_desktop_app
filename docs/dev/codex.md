@@ -34,7 +34,8 @@
 - **Memory Worktree**: `D:\Workspace\cmg-memory` is the confirmed worktree for `feature/transcript-to-memory-pipeline`; do not patch Memory Track work in the transcription-quality worktree.
 - **Ask Memory Desktop Fix**: Commit `b7aab23` (`fix: render desktop Ask Memory responses safely`) updates the desktop `/memory/ask` parser and panel rendering for evidence coverage, mode/status, used/rejected sources, rejected terms, and optional validation metadata.
 - **Source Trace Patch**: Commit `7ca95dc` (`fix: preserve explicit source trace metadata`) makes source references more explicit by preserving `source_session_id`, `source_segment_id`, `text_preview`, and timestamps through graph ingest/persistence and by changing Knowledge Graph source navigation to use explicit source metadata before any graph-node-id fallback.
-- **Ask Memory Source Mapping**: Current Memory Track work maps Ask Memory evidence steps to exact optional source metadata (`source_reference_id`, `source_session_id`, `source_segment_id`, preview text, timestamps, and edge path) so desktop evidence buttons can prefer per-evidence source links before falling back to response-level source lists.
+- **Ask Memory Source Mapping**: Commit `64ac070` (`fix: map Ask Memory evidence to exact sources`) maps Ask Memory evidence steps to exact optional source metadata (`source_reference_id`, `source_session_id`, `source_segment_id`, preview text, timestamps, and edge path) so desktop evidence buttons can prefer per-evidence source links before falling back to response-level source lists.
+- **Backend Hybrid Search Patch**: Current Memory Track work fixes the FastAPI runtime hybrid search path in `realtime_backend/app/services/hybrid_memory_query_service.py` so keyword/vector matches expand through graph neighbors while preserving source metadata and graph expansion reason fields in `/query`.
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.

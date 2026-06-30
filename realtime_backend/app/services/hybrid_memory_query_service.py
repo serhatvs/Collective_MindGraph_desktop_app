@@ -22,6 +22,9 @@ class EnhancedQueryResult:
     vector_score: float = 0.0
     graph_score: float = 0.0
     edge_path: List[str] = field(default_factory=list)
+    graph_distance: Optional[int] = None
+    related_node_id: Optional[str] = None
+    edge_type: Optional[str] = None
 
 class HybridMemoryQueryService(HybridQueryInterface):
     def __init__(
@@ -103,8 +106,13 @@ class HybridMemoryQueryService(HybridQueryInterface):
         # 1.3 Graph Traversal (Expansion)
         if use_graph and enhanced_results:
             try:
-                # Simple 1-hop expansion for now
-                pass
+                initial_ids = list(enhanced_results.keys())
+                for node_id in initial_ids:
+                    source_res = enhanced_results[node_id]
+                    for edge, neighbor in self.graph_repo.get_neighbors(node_id, direction="both"):
+                        if self._is_excluded(neighbor.properties):
+                            continue
+                        self._add_graph_hit(enhanced_results, neighbor, source_res, edge)
             except Exception as e:
                 logger.error(f"Graph expansion failed: {e}")
 
@@ -112,7 +120,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
         final_nodes = []
         for res in enhanced_results.values():
             # Update node properties with ranking info for the UI
-            res.node.properties["matched_by"] = list(res.matched_by)
+            res.node.properties["matched_by"] = ", ".join(sorted(res.matched_by))
             res.node.properties["score"] = res.score
             res.node.properties["score_breakdown"] = {
                 "keyword": res.keyword_score,
@@ -121,6 +129,12 @@ class HybridMemoryQueryService(HybridQueryInterface):
             }
             if res.edge_path:
                 res.node.properties["edge_path"] = " -> ".join(res.edge_path)
+            if res.graph_distance is not None:
+                res.node.properties["graph_distance"] = res.graph_distance
+            if res.related_node_id:
+                res.node.properties["related_node_id"] = res.related_node_id
+            if res.edge_type:
+                res.node.properties["edge_type"] = res.edge_type
             
             final_nodes.append(res.node)
 
@@ -131,3 +145,27 @@ class HybridMemoryQueryService(HybridQueryInterface):
             nodes=final_nodes,
             confidence=max([n.properties.get("score", 0.0) for n in final_nodes]) if final_nodes else 0.0
         )
+
+    def _add_graph_hit(
+        self,
+        results: Dict[str, EnhancedQueryResult],
+        neighbor: GraphNode,
+        source_res: EnhancedQueryResult,
+        edge: GraphEdge,
+    ) -> None:
+        if neighbor.id not in results:
+            results[neighbor.id] = EnhancedQueryResult(node=neighbor)
+
+        res = results[neighbor.id]
+        res.matched_by.add("graph")
+        res.graph_score = max(res.graph_score, source_res.score * 0.8)
+        res.score = max(res.score, res.graph_score)
+        res.graph_distance = min(res.graph_distance or 1, 1)
+        res.related_node_id = res.related_node_id or source_res.node.id
+        res.edge_type = res.edge_type or edge.type.value
+        if not res.edge_path:
+            res.edge_path = [f"{source_res.node.type.value} --({edge.type.value})--> {neighbor.type.value}"]
+
+    @staticmethod
+    def _is_excluded(properties: Dict[str, Any]) -> bool:
+        return bool(properties.get("disabled") or properties.get("review_status") == "rejected")

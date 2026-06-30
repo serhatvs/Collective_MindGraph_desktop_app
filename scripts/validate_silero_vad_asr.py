@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/dev/SILERO_VAD_ASR_VALIDATION_REPORT.md"),
+        default=Path("docs/reports/2026-06-30/gpu-asr/SILERO_VAD_ASR_VALIDATION_REPORT.md"),
     )
     return parser.parse_args()
 

@@ -1,4 +1,4 @@
-# Project Turkish Transcription Benchmark
+﻿# Project Turkish Transcription Benchmark
 
 Date: 2026-06-22
 
@@ -33,7 +33,7 @@ This recommendation is provisional until measured against a real Turkish meeting
 
 Requested report file:
 
-- `docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md`: created by this pass.
+- `docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md`: created by this pass.
 
 Requested scripts:
 
@@ -87,7 +87,7 @@ python scripts/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --reference realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
   --audio-kind real_meeting_room `
-  --output docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
+  --output docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
 ```
 
 Without a reference transcript:
@@ -96,7 +96,7 @@ Without a reference transcript:
 python scripts/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --audio-kind real_meeting_room `
-  --output docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
+  --output docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
 ```
 
 The no-reference run is useful for inspecting raw/cleaned transcripts and metadata, but it cannot support accuracy claims.
@@ -146,7 +146,7 @@ When run, the report includes:
 - cleaned transcript
 - WER and CER if a reference exists
 - notable substitutions/deletions/insertions if a reference exists
-- Turkish character preservation check for `ç`, `ğ`, `ı`, `İ`, `ö`, `ş`, `ü`
+- Turkish character preservation check for `Ã§`, `ÄŸ`, `Ä±`, `Ä°`, `Ã¶`, `ÅŸ`, `Ã¼`
 - technical term preservation check for `Collective MindGraph`, `FastAPI`, `SQLite`, `PySide6`, `VAD`, `transcript`, `aksiyon`, `karar`
 - heuristic VAD clipping notes
 - final recommended default configuration
@@ -181,13 +181,13 @@ Required check when audio is available:
 
 | Character | Raw Present | Cleaned Present |
 |---|---|---|
-| ç | Not run | Not run |
-| ğ | Not run | Not run |
-| ı | Not run | Not run |
-| İ | Not run | Not run |
-| ö | Not run | Not run |
-| ş | Not run | Not run |
-| ü | Not run | Not run |
+| Ã§ | Not run | Not run |
+| ÄŸ | Not run | Not run |
+| Ä± | Not run | Not run |
+| Ä° | Not run | Not run |
+| Ã¶ | Not run | Not run |
+| ÅŸ | Not run | Not run |
+| Ã¼ | Not run | Not run |
 
 ## Technical Term Preservation
 

@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/dev/CPU_VS_GPU_ASR_BENCHMARK_REPORT.md"),
+        default=Path("docs/reports/2026-06-30/gpu-asr/CPU_VS_GPU_ASR_BENCHMARK_REPORT.md"),
     )
     return parser.parse_args()
 

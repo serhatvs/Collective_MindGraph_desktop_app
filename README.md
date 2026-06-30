@@ -62,4 +62,5 @@ PYTHONPATH=src:. python3 -m pytest
 - **[Demo Guide](docs/demo/DEMO_FLOW.md)**: Instructions for running the technical demonstration loop.
 - **[Developer Setup](docs/dev/SETUP.md)**: Configuration for local models and environment.
 - **[Architecture](docs/dev/ARCHITECTURE.md)**: Technical overview of the system design.
+- **[Reports Archive](docs/reports/README.md)**: Dated benchmark, validation, and simulation report archive.
 - **[Patent-Safe Claims](docs/patent/PATENT_SAFE_CLAIMS.md)**: Formal terminology for IP filings.

@@ -157,5 +157,5 @@ python scripts/run_project_turkish_transcription_benchmark.py `
   --models large-v3 large-v3-turbo `
   --profiles max_quality `
   --audio-kind test_speech `
-  --output docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md
+  --output docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md
 ```

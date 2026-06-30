@@ -148,7 +148,7 @@ python scripts/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --reference realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
   --audio-kind real_meeting_room `
-  --output docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
+  --output docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
 ```
 
 The benchmark compares:

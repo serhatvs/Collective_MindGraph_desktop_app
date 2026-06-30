@@ -75,9 +75,9 @@ scripts/run_project_turkish_transcription_benchmark.py
 | Purpose | Path |
 |---|---|
 | Dataset manifest | `docs/dev/MEDIASPEECH_TR_LOCAL_MANIFEST.md` |
-| Benchmark report (MediaSpeech TR) | `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` |
+| Benchmark report (MediaSpeech TR) | `docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` |
 | Audio fixture guide | `docs/dev/PROJECT_TURKISH_AUDIO_FIXTURE_GUIDE.md` |
-| Project benchmark report (meeting-room placeholder) | `docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md` |
+| Project benchmark report (meeting-room placeholder) | `docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md` |
 | Transcription system analysis | `docs/dev/TRANSCRIPTION_SYSTEM_ANALYSIS.md` |
 | Quality hardening checkpoint | `docs/dev/TRANSCRIPTION_QUALITY_CHECKPOINT.md` |
 
@@ -110,7 +110,7 @@ scripts/run_project_turkish_transcription_benchmark.py
 | **Model cache missing** | RESOLVED: `large-v3` and `large-v3-turbo` successfully cached. Symlink creation issues on Windows were patched in `huggingface_hub`. | Models cached in local HF cache. |
 | **Offline mode enforced by runner** | RESOLVED: Download run once with offline=0, now runner uses offline cache fine. | N/A |
 | **ffmpeg not on PATH** | RESOLVED: Downloaded and verified via `winget` and environment variables. | `CMG_RT_FFMPEG_PATH` is successfully configured. |
-| **CMG ASR GPU routing** | RESOLVED: `scripts/check_asr_gpu.py` loaded the real CMG `FasterWhisperASR` on CUDA with `small`; `nvidia-smi` observed a Python process. `scripts/full_scale_gpu_transcription_test.py` transcribed a real MediaSpeech TR WAV with `large-v3`, `cuda`, `float16`, `ASR_STATUS=OK`, and no mock fallback. | Report: `docs/dev/FULL_SCALE_GPU_ASR_TEST_REPORT.md`. |
+| **CMG ASR GPU routing** | RESOLVED: `scripts/check_asr_gpu.py` loaded the real CMG `FasterWhisperASR` on CUDA with `small`; `nvidia-smi` observed a Python process. `scripts/full_scale_gpu_transcription_test.py` transcribed a real MediaSpeech TR WAV with `large-v3`, `cuda`, `float16`, `ASR_STATUS=OK`, and no mock fallback. | Report: `docs/reports/2026-06-30/gpu-asr/FULL_SCALE_GPU_ASR_TEST_REPORT.md`. |
 | **CMG_ASR env mismatch** | RESOLVED: Backend now reads `CMG_RUNTIME_PROFILE`, `CMG_GPU_ENABLED`, `CMG_REQUIRE_GPU`, `CMG_ASR_*`, and existing `CMG_RT_*` aliases through `realtime_backend/app/pipeline/asr_runtime_config.py`. | Use `CMG_REQUIRE_GPU=1` for GPU validation to prevent CPU fallback. |
 | **CUDA cuBLAS DLL missing** | RESOLVED locally: installed `.venv-win` packages `nvidia-cublas-cu12`, `nvidia-cuda-runtime-cu12`, and `nvidia-cuda-nvrtc-cu12`; `FasterWhisperASR` registers venv-local CUDA DLL directories before load. | Keep these packages in the Windows benchmark env. |
 | **Silero/PyTorch VAD** | NOT VALIDATED in the GPU ASR test. The test intentionally used `EnergyVAD` to keep diarization/VAD torch dependencies out of ASR routing validation. | Validate Silero separately if needed. |
@@ -194,7 +194,7 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
   --vad-provider energy `
   --device cpu `
   --compute-type int8 `
-  --output docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md
+  --output docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md
 ```
 
 > **Note:** The runner calls `_force_local_only_environment()` at startup, which will re-set `HF_HUB_OFFLINE=1`. This is fine **after** the model is already cached, because Faster-Whisper will find it in the local cache. The one-time download in step 4 must happen before this.
@@ -243,7 +243,7 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
   - Project-wide default remains provisional until real meeting-room audio is tested.
 - Reason: Successfully used `EnergyVAD` and fully cached models.
 - Report status: `BENCHMARK_RUN` (200 files)
-- Report path: `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`
+- Report path: `docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`
 
 ## GPU ASR Validation Status
 
@@ -256,12 +256,12 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
 - Small smoke: `small` + `cuda` + `float16` loaded through CMG ASR builder; `nvidia-smi` observed Python.
 - Full pipeline: `large-v3` + `cuda` + `float16` transcribed `C:\Users\Serhat\Downloads\TR\TR\0044ad54-892f-4d23-a75b-0e22eb837914.wav` with `ASR_STATUS=OK`, no mock fallback, 4 segments, and GPU loaded.
 - Claim boundary: validates GPU ASR routing on clean Turkish media speech; does NOT prove meeting-room readiness.
-- Report path: `docs/dev/FULL_SCALE_GPU_ASR_TEST_REPORT.md`
+- Report path: `docs/reports/2026-06-30/gpu-asr/FULL_SCALE_GPU_ASR_TEST_REPORT.md`
 - Additional ASR diagnostics/benchmark reports:
-  - `docs/dev/CPU_VS_GPU_ASR_BENCHMARK_REPORT.md` (`small` CPU/GPU runtime comparison; no accuracy claim)
-  - `docs/dev/SILERO_VAD_ASR_VALIDATION_REPORT.md` (Silero requested but fell back to EnergyVAD; ASR continued)
-  - `docs/dev/ASR_ACCURACY_BENCHMARK_REPORT.md` (runtime-only; WER/CER not computed because no reference was supplied)
-  - `docs/dev/REAL_ROOM_AUDIO_VALIDATION_PLAN.md` (future plan only)
+  - `docs/reports/2026-06-30/gpu-asr/CPU_VS_GPU_ASR_BENCHMARK_REPORT.md` (`small` CPU/GPU runtime comparison; no accuracy claim)
+  - `docs/reports/2026-06-30/gpu-asr/SILERO_VAD_ASR_VALIDATION_REPORT.md` (Silero requested but fell back to EnergyVAD; ASR continued)
+  - `docs/reports/2026-06-30/gpu-asr/ASR_ACCURACY_BENCHMARK_REPORT.md` (runtime-only; WER/CER not computed because no reference was supplied)
+  - `docs/reports/2026-06-30/gpu-asr/REAL_ROOM_AUDIO_VALIDATION_PLAN.md` (future plan only)
 
 ---
 
@@ -270,7 +270,7 @@ $env:CMG_RT_ASR_COMPUTE_TYPE            = "int8"
 1. **DONE**: Install / locate ffmpeg and verify `ffmpeg -version` works (or set `CMG_RT_FFMPEG_PATH`).
 2. **DONE**: Cache `large-v3` and `large-v3-turbo` with online mode enabled.
 3. **DONE**: Run benchmark with EnergyVAD + CPU/int8 on a larger 50-file dataset.
-4. **DONE**: Update `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` with comprehensive 50-file benchmark analysis.
+4. **DONE**: Update `docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md` with comprehensive 50-file benchmark analysis.
 5. **DONE**: Add CMG-path GPU ASR validation scripts and report. Use `CMG_REQUIRE_GPU=1` when validating GPU so CPU fallback cannot look like a pass.
 6. **Next Recommended Benchmark Step**: Source and annotate a real Turkish meeting-room audio fixture (overlapping speech, distant mic, noise) to evaluate true product readiness, as media-speech does not prove real-world accuracy.
 7. **Update `docs/dev/codex.md`** and this file (`agy.md`) continuously.
@@ -346,7 +346,7 @@ If `CMG_RT_ASR_PROVIDER=auto` and FasterWhisperASR fails to load → `MockASR` w
 
 - `docs/dev/codex.md`
 - `scripts/run_project_turkish_transcription_benchmark.py`
-- `docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`
+- `docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md`
 - `docs/dev/MEDIASPEECH_TR_LOCAL_MANIFEST.md`
 - `docs/dev/TRANSCRIPTION_SYSTEM_ANALYSIS.md`
 - `docs/dev/TRANSCRIPTION_QUALITY_CHECKPOINT.md`

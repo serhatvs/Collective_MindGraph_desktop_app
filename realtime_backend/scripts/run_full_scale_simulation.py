@@ -246,7 +246,7 @@ Serhat: Tamam, toplantıyı bitirelim.
         search_results[q] = res
         
     print("Exporting Session...")
-    export_path = Path("realtime_backend_temp/export_simulation.json")
+    export_path = Path("docs/reports/2026-06-30/simulation/export_simulation.json")
     export_path.parent.mkdir(parents=True, exist_ok=True)
     desktop_service.export_session(session.id, export_path)
 
@@ -309,7 +309,7 @@ The simulated meeting was a Turkish technical product planning session discussin
 - **Native Schema Expansion**: FIXED. ENTITY, RISK, OPEN_QUESTION, and FOLLOW_UP nodes are now natively supported with corresponding edges.
 """
 
-    with open("FULL_SCALE_SIMULATION_REPORT.md", "w", encoding="utf-8") as f:
+    with open("docs/reports/2026-06-30/simulation/FULL_SCALE_SIMULATION_REPORT.md", "w", encoding="utf-8") as f:
         f.write(report_md)
         
     history_md = f"""# FULL SCALE SIMULATION HISTORY
@@ -333,12 +333,12 @@ The simulated meeting was a Turkish technical product planning session discussin
 10. **Final Findings**: All systems stable. Some edge schema mapping improvements identified.
 """
 
-    with open("FULL_SCALE_SIMULATION_HISTORY.md", "w", encoding="utf-8") as f:
+    with open("docs/reports/2026-06-30/simulation/FULL_SCALE_SIMULATION_HISTORY.md", "w", encoding="utf-8") as f:
         f.write(history_md)
         
     print("\nSimulation Complete. Files generated:")
-    print("- FULL_SCALE_SIMULATION_REPORT.md")
-    print("- FULL_SCALE_SIMULATION_HISTORY.md")
+    print("- docs/reports/2026-06-30/simulation/FULL_SCALE_SIMULATION_REPORT.md")
+    print("- docs/reports/2026-06-30/simulation/FULL_SCALE_SIMULATION_HISTORY.md")
     print(f"- {export_path.resolve()}")
 
 if __name__ == "__main__":

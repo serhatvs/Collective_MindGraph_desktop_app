@@ -37,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/dev/FULL_SCALE_GPU_ASR_TEST_REPORT.md"),
+        default=Path("docs/reports/2026-06-30/gpu-asr/FULL_SCALE_GPU_ASR_TEST_REPORT.md"),
         help="Markdown report path.",
     )
     parser.add_argument(

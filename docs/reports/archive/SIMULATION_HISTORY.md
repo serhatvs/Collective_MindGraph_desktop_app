@@ -1,4 +1,4 @@
-# FULL SCALE SIMULATION HISTORY
+﻿# FULL SCALE SIMULATION HISTORY
 
 ## Chronological Audit Log
 1. **Simulated Transcript Created**: Generated 10+ minute equivalent Turkish technical meeting.
@@ -15,5 +15,5 @@
 6. **Reasoning Queries Run**: 5 intent-based graph traversals tested.
 7. **Ask Memory Tested**: 5 complex multi-hop questions run through both `evidence_only` and `llm_assisted` pipelines. Hallucination guard behaved as expected.
 8. **Search Tested**: Hybrid query executed for 7 keywords involving Vector and Text matches.
-9. **Export Generated**: JSON payload dumped to `/data/Workspace/Collective-MindGraph-2/realtime_backend_temp/export_simulation.json`.
+9. **Export Generated**: JSON payload dumped to `/data/Workspace/Collective-MindGraph-2/docs/reports/2026-06-30/simulation/export_simulation.json`.
 10. **Final Findings**: All systems stable. Some edge schema mapping improvements identified.

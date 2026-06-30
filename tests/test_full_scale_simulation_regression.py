@@ -7,8 +7,8 @@ from realtime_backend.scripts.run_full_scale_simulation import run_simulation
 @pytest.mark.asyncio
 async def test_full_scale_simulation_regression():
     # This will run the simulation and we can assert on the output report
-    # The simulation exports to realtime_backend_temp/export_simulation.json
-    export_path = Path("realtime_backend_temp/export_simulation.json")
+    # The simulation exports into the dated report archive.
+    export_path = Path("docs/reports/2026-06-30/simulation/export_simulation.json")
     if export_path.exists():
         export_path.unlink()
         

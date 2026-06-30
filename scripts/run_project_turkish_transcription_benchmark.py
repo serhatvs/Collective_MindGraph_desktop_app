@@ -124,7 +124,7 @@ async def main() -> int:
         samples = all_samples[: max(args.max_files, 0)]
         if not samples:
             raise SystemExit(f"No supported audio files found under dataset root: {dataset_root}")
-        default_output = Path("docs/dev/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md")
+        default_output = Path("docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md")
         default_audio_kind = args.audio_kind if args.audio_kind != "unknown" else "test_speech"
     else:
         audio_path = args.audio.resolve()
@@ -142,7 +142,7 @@ async def main() -> int:
                 reference_text=reference_text,
             )
         ]
-        default_output = Path("docs/dev/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md")
+        default_output = Path("docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md")
         default_audio_kind = args.audio_kind
 
     output_arg = args.output or default_output

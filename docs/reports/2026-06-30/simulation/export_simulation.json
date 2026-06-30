@@ -1,0 +1,851 @@
+{
+  "session": {
+    "id": 5,
+    "title": "Full Scale Simulated Technical Meeting — Collective MindGraph",
+    "device_id": "SIM-MIC",
+    "status": "active",
+    "created_at": "2026-06-30T01:57:29.068913+00:00",
+    "updated_at": "2026-06-30 04:57:31"
+  },
+  "transcripts": [
+    {
+      "id": 5,
+      "session_id": 5,
+      "text": "Serhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.",
+      "confidence": 1.0,
+      "created_at": "2026-06-30 04:57:31"
+    }
+  ],
+  "graph_nodes": [
+    {
+      "id": 13,
+      "session_id": 5,
+      "transcript_id": 5,
+      "parent_node_id": null,
+      "branch_type": "root",
+      "branch_slot": null,
+      "node_text": "Serhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet...",
+      "override_reason": null,
+      "created_at": "2026-06-30 04:57:31"
+    },
+    {
+      "id": 14,
+      "session_id": 5,
+      "transcript_id": null,
+      "parent_node_id": 13,
+      "branch_type": "side",
+      "branch_slot": 1,
+      "node_text": "Summary: Heuristic technical meeting summary. | Topics: General Discussion, Ask Memory, Hybrid Memory Query, Diarization",
+      "override_reason": "Derived from backend conversation analysis.",
+      "created_at": "2026-06-30 04:57:31"
+    },
+    {
+      "id": 15,
+      "session_id": 5,
+      "transcript_id": null,
+      "parent_node_id": 13,
+      "branch_type": "side",
+      "branch_slot": 2,
+      "node_text": "Decision: VAD padding degeri 120ms olacak. | Decision: Hallucination guard kurallari esnetilmeyecek. | Decision: Heuristic fallback silin...",
+      "override_reason": "Derived from backend decisions and action items.",
+      "created_at": "2026-06-30 04:57:31"
+    }
+  ],
+  "snapshots": [
+    {
+      "id": 5,
+      "session_id": 5,
+      "node_count": 3,
+      "hash_sha256": "1d0f08b4aa06a0e3f6299ec150f557fbb16e3e76e50b2b8d5bc07d54451583bd",
+      "created_at": "2026-06-30 04:57:31"
+    }
+  ],
+  "transcript_analyses": [
+    {
+      "transcript_id": 5,
+      "source_provider": "simulated",
+      "backend_conversation_id": "5",
+      "raw_text_output": "Serhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.",
+      "corrected_text_output": "\nSerhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.\n",
+      "summary": "Heuristic technical meeting summary.",
+      "topics": [
+        {
+          "label": "General Discussion",
+          "start": 0.0,
+          "end": 60.0
+        },
+        {
+          "label": "Ask Memory",
+          "start": 0.0,
+          "end": 60.0
+        },
+        {
+          "label": "Hybrid Memory Query",
+          "start": 0.0,
+          "end": 60.0
+        },
+        {
+          "label": "Diarization",
+          "start": 0.0,
+          "end": 60.0
+        },
+        {
+          "label": "Export JSON",
+          "start": 0.0,
+          "end": 60.0
+        }
+      ],
+      "action_items": [
+        {
+          "title": "Ask Memory coverage UI eklenecek.",
+          "responsible_person": "Mehmet",
+          "due_date_reference": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        },
+        {
+          "title": "Export JSON formatina review metadata eklenecek.",
+          "responsible_person": "Ayşe",
+          "due_date_reference": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        },
+        {
+          "title": "Heuristic fallback testleri yazilacak.",
+          "responsible_person": "Zeynep",
+          "due_date_reference": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        },
+        {
+          "title": "Hybrid Query search performansi olculecek.",
+          "responsible_person": null,
+          "due_date_reference": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        }
+      ],
+      "decisions": [
+        {
+          "decision": "VAD padding degeri 120ms olacak.",
+          "reason_context": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        },
+        {
+          "decision": "Hallucination guard kurallari esnetilmeyecek.",
+          "reason_context": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        },
+        {
+          "decision": "Heuristic fallback silinmeyecek.",
+          "reason_context": null,
+          "source_segment_id": "s_5_1",
+          "confidence_note": null
+        }
+      ],
+      "people": [],
+      "speaker_stats": [],
+      "segments": [
+        {
+          "segment_id": "s_5_1",
+          "start": 0.0,
+          "end": 60.0,
+          "speaker": "Unknown",
+          "raw_text": "\nSerhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.\n",
+          "corrected_text": "\nSerhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.\n",
+          "confidence": null,
+          "speaker_confidence": null,
+          "overlap": false,
+          "notes": []
+        }
+      ],
+      "quality_report": null,
+      "created_at": "2026-06-30 04:57:31",
+      "updated_at": "2026-06-30 04:57:31",
+      "metadata": {}
+    }
+  ],
+  "v2_production_graph": {
+    "nodes": [
+      {
+        "id": "session_5",
+        "type": "SESSION",
+        "title": "Full Scale Simulated Technical Meeting — Collective MindGraph",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Full Scale Simulated Technical Meeting \\u2014 Collective MindGraph\"}",
+        "source_reference_id": "571cec6d-cdd4-44f7-ab55-868737874a5c",
+        "created_at": "2026-06-30T01:57:31.155090+00:00",
+        "updated_at": "2026-06-30T01:57:31.155095+00:00"
+      },
+      {
+        "id": "seg_5_s_5_1",
+        "type": "SEGMENT",
+        "title": null,
+        "text_content": "\nSerhat: Merhaba arkadaşlar. Collective MindGraph projesi için durum değerlendirme toplantısına hoş geldiniz.\nAyşe: Merhaba Serhat.\nMehmet: Merhaba.\nZeynep: Merhabalar.\nSerhat: Öncelikle Global Search tarafında source trace çalışıyor ama Ask Memory sonuçlarında evidence coverage görünürlüğünü artırmamız lazım. Bu çok önemli bir eksik.\nMehmet: Haklısın. Bunu ben alayım. Ask Memory için coverage UI eklemesi yapacağım.\nZeynep: VAD ayarlarında silero VAD ile Faster-Whisper entegrasyonu iyi ama padding değerleri bazen kelime kesiyor. \nSerhat: Karar verelim: VAD padding değerini 100ms yerine 120ms olarak değiştireceğiz.\nAyşe: Diarization konusunda ne durumdayız?\nSerhat: Diarization şu an üretimde aktif değil, roadmap üzerinde. Local-first bir model kullanmamız şart. Bunu not edelim.\nMehmet: Export JSON içinde review_status alanı eksik kalırsa import sonrası güven kaybı olur. Export formatını güncellememiz lazım.\nAyşe: O zaman ben Export JSON formatına review_status, disabled, ve original_text alanlarını ekleyeyim. Bu riskli bir açık.\nZeynep: Semantic search şu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamadım.\nSerhat: Evet, aktif. Modeli CPU üzerinde çalıştırıyoruz ki LLM ile GPU belleğinde çakışmasın.\nMehmet: Bu arada Local LLM extraction için Llama 3.1 8B kullanıyoruz ve oldukça başarılı. Ama hallucination guard'ın çok katı olması bazen doğru cevapları reddediyor.\nAyşe: Risk olarak not alalım: Hallucination guard bazen false positive verebilir.\nSerhat: Tamam, guard kurallarını esnetelim.\nAyşe: Bence esnetmeyelim, güvenilirlik daha önemli.\nSerhat: Haklısın, kararı değiştiriyorum: Hallucination guard kuralları esnetilmeyecek, şimdilik bu şekilde kalacak.\nMehmet: Local LLM fallback için heuristic scriptlerini sileyim mi?\nZeynep: Hayır, heuristic fallback kesinlikle silinmemeli. Zero-failure için gerekli.\nSerhat: Tamam, task olarak yazıyorum: Zeynep heuristic fallback testlerini yazacak.\nAyşe: Açık soru: Pyannote diarization'ı tamamen offline çalıştırabilecek miyiz?\nSerhat: Buna araştırma yapmamız lazım. Açık soru olarak kalacak.\nMehmet: Bir task daha: Hybrid Query search performansını ölçmemiz lazım.\nAyşe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\nSerhat: Başka eklenecek bir şey var mı?\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kullandığımızı da not düşelim.\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplantı yapacağız.\nSerhat: Tamam, toplantıyı bitirelim.\n",
+        "metadata_json": "{\"text\": \"\\nSerhat: Merhaba arkada\\u015flar. Collective MindGraph projesi i\\u00e7in durum de\\u011ferlendirme toplant\\u0131s\\u0131na ho\\u015f geldiniz.\\nAy\\u015fe: Merhaba Serhat.\\nMehmet: Merhaba.\\nZeynep: Merhabalar.\\nSerhat: \\u00d6ncelikle Global Search taraf\\u0131nda source trace \\u00e7al\\u0131\\u015f\\u0131yor ama Ask Memory sonu\\u00e7lar\\u0131nda evidence coverage g\\u00f6r\\u00fcn\\u00fcrl\\u00fc\\u011f\\u00fcn\\u00fc art\\u0131rmam\\u0131z laz\\u0131m. Bu \\u00e7ok \\u00f6nemli bir eksik.\\nMehmet: Hakl\\u0131s\\u0131n. Bunu ben alay\\u0131m. Ask Memory i\\u00e7in coverage UI eklemesi yapaca\\u011f\\u0131m.\\nZeynep: VAD ayarlar\\u0131nda silero VAD ile Faster-Whisper entegrasyonu iyi ama padding de\\u011ferleri bazen kelime kesiyor. \\nSerhat: Karar verelim: VAD padding de\\u011ferini 100ms yerine 120ms olarak de\\u011fi\\u015ftirece\\u011fiz.\\nAy\\u015fe: Diarization konusunda ne durumday\\u0131z?\\nSerhat: Diarization \\u015fu an \\u00fcretimde aktif de\\u011fil, roadmap \\u00fczerinde. Local-first bir model kullanmam\\u0131z \\u015fart. Bunu not edelim.\\nMehmet: Export JSON i\\u00e7inde review_status alan\\u0131 eksik kal\\u0131rsa import sonras\\u0131 g\\u00fcven kayb\\u0131 olur. Export format\\u0131n\\u0131 g\\u00fcncellememiz laz\\u0131m.\\nAy\\u015fe: O zaman ben Export JSON format\\u0131na review_status, disabled, ve original_text alanlar\\u0131n\\u0131 ekleyeyim. Bu riskli bir a\\u00e7\\u0131k.\\nZeynep: Semantic search \\u015fu anda production'da aktif mi? SentenceTransformers entegre ettik ama emin olamad\\u0131m.\\nSerhat: Evet, aktif. Modeli CPU \\u00fczerinde \\u00e7al\\u0131\\u015ft\\u0131r\\u0131yoruz ki LLM ile GPU belle\\u011finde \\u00e7ak\\u0131\\u015fmas\\u0131n.\\nMehmet: Bu arada Local LLM extraction i\\u00e7in Llama 3.1 8B kullan\\u0131yoruz ve olduk\\u00e7a ba\\u015far\\u0131l\\u0131. Ama hallucination guard'\\u0131n \\u00e7ok kat\\u0131 olmas\\u0131 bazen do\\u011fru cevaplar\\u0131 reddediyor.\\nAy\\u015fe: Risk olarak not alal\\u0131m: Hallucination guard bazen false positive verebilir.\\nSerhat: Tamam, guard kurallar\\u0131n\\u0131 esnetelim.\\nAy\\u015fe: Bence esnetmeyelim, g\\u00fcvenilirlik daha \\u00f6nemli.\\nSerhat: Hakl\\u0131s\\u0131n, karar\\u0131 de\\u011fi\\u015ftiriyorum: Hallucination guard kurallar\\u0131 esnetilmeyecek, \\u015fimdilik bu \\u015fekilde kalacak.\\nMehmet: Local LLM fallback i\\u00e7in heuristic scriptlerini sileyim mi?\\nZeynep: Hay\\u0131r, heuristic fallback kesinlikle silinmemeli. Zero-failure i\\u00e7in gerekli.\\nSerhat: Tamam, task olarak yaz\\u0131yorum: Zeynep heuristic fallback testlerini yazacak.\\nAy\\u015fe: A\\u00e7\\u0131k soru: Pyannote diarization'\\u0131 tamamen offline \\u00e7al\\u0131\\u015ft\\u0131rabilecek miyiz?\\nSerhat: Buna ara\\u015ft\\u0131rma yapmam\\u0131z laz\\u0131m. A\\u00e7\\u0131k soru olarak kalacak.\\nMehmet: Bir task daha: Hybrid Query search performans\\u0131n\\u0131 \\u00f6l\\u00e7memiz laz\\u0131m.\\nAy\\u015fe: Topic olarak 'Hybrid Memory Query' diyebiliriz.\\nSerhat: Ba\\u015fka eklenecek bir \\u015fey var m\\u0131?\\nMehmet: Evet, Entity olarak 'PostgreSQL' yerine 'SQLite' kulland\\u0131\\u011f\\u0131m\\u0131z\\u0131 da not d\\u00fc\\u015felim.\\nZeynep: Follow-up maddesi olarak, haftaya DevOps ekibiyle toplant\\u0131 yapaca\\u011f\\u0131z.\\nSerhat: Tamam, toplant\\u0131y\\u0131 bitirelim.\\n\", \"speaker\": \"Unknown\"}",
+        "source_reference_id": "c3f105a2-4ca1-4571-9526-8a6aadb64c40",
+        "created_at": "2026-06-30T01:57:31.162890+00:00",
+        "updated_at": "2026-06-30T01:57:31.162898+00:00"
+      },
+      {
+        "id": "task_5_0",
+        "type": "TASK",
+        "title": "Ask Memory coverage UI eklenecek.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Ask Memory coverage UI eklenecek.\", \"assignee\": \"Mehmet\", \"review_status\": \"approved\", \"original_text\": \"Ask Memory coverage UI eklenecek.\"}",
+        "source_reference_id": "c0343609-0412-49b3-9ea1-af975ca21549",
+        "created_at": "2026-06-30T01:57:31.175857+00:00",
+        "updated_at": "2026-06-30T01:57:31.420487+00:00"
+      },
+      {
+        "id": "task_5_1",
+        "type": "TASK",
+        "title": "Export JSON formatina review metadata eklenecek.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Export JSON formatina review metadata eklenecek.\", \"assignee\": \"Ay\\u015fe\", \"review_status\": \"approved\", \"original_text\": \"Export JSON formatina review metadata eklenecek.\"}",
+        "source_reference_id": "9d04d0b9-4b66-44ed-8046-13df5a217112",
+        "created_at": "2026-06-30T01:57:31.186667+00:00",
+        "updated_at": "2026-06-30T01:57:31.425412+00:00"
+      },
+      {
+        "id": "task_5_2",
+        "type": "TASK",
+        "title": "Heuristic fallback testleri yazilacak.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Heuristic fallback testleri yazilacak.\", \"assignee\": \"Zeynep\", \"review_status\": \"approved\", \"original_text\": \"Heuristic fallback testleri yazilacak.\"}",
+        "source_reference_id": "56ad4b1b-45d4-4d1b-abb6-3108861a46ad",
+        "created_at": "2026-06-30T01:57:31.197949+00:00",
+        "updated_at": "2026-06-30T01:57:31.428213+00:00"
+      },
+      {
+        "id": "task_5_3",
+        "type": "TASK",
+        "title": "Hybrid Query search performansi olculecek.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Hybrid Query search performansi olculecek.\", \"assignee\": null, \"review_status\": \"approved\", \"original_text\": \"Hybrid Query search performansi olculecek.\"}",
+        "source_reference_id": "c3ea0fcc-b1d0-4982-b8d4-82952cbd146e",
+        "created_at": "2026-06-30T01:57:31.209132+00:00",
+        "updated_at": "2026-06-30T01:57:31.431086+00:00"
+      },
+      {
+        "id": "dec_5_0",
+        "type": "DECISION",
+        "title": "VAD padding degeri 120ms olacak.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"VAD padding degeri 120ms olacak.\", \"review_status\": \"approved\", \"original_text\": \"VAD padding degeri 120ms olacak.\"}",
+        "source_reference_id": "d8a2fdd2-5baa-4954-843e-c85141f299e8",
+        "created_at": "2026-06-30T01:57:31.221261+00:00",
+        "updated_at": "2026-06-30T01:57:31.435647+00:00"
+      },
+      {
+        "id": "dec_5_1",
+        "type": "DECISION",
+        "title": "Hallucination guard kurallari esnetilmeyecek.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Hallucination guard kurallari esnetilmeyecek.\", \"review_status\": \"approved\", \"original_text\": \"Hallucination guard kurallari esnetilmeyecek.\"}",
+        "source_reference_id": "8c496f50-ff64-4d9b-90fd-0b9fb40e46a9",
+        "created_at": "2026-06-30T01:57:31.231558+00:00",
+        "updated_at": "2026-06-30T01:57:31.438517+00:00"
+      },
+      {
+        "id": "dec_5_2",
+        "type": "DECISION",
+        "title": "Heuristic fallback silinmeyecek.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Heuristic fallback silinmeyecek.\", \"review_status\": \"approved\", \"original_text\": \"Heuristic fallback silinmeyecek.\"}",
+        "source_reference_id": "6adc728f-b113-4e1e-b62a-83b9339b3fb1",
+        "created_at": "2026-06-30T01:57:31.243982+00:00",
+        "updated_at": "2026-06-30T01:57:31.441403+00:00"
+      },
+      {
+        "id": "topic_5_0",
+        "type": "TOPIC",
+        "title": "General Discussion",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"General Discussion\", \"review_status\": \"approved\", \"original_text\": \"General Discussion\"}",
+        "source_reference_id": "eb67800f-5d24-43e7-a947-85e3e62e9ac5",
+        "created_at": "2026-06-30T01:57:31.255017+00:00",
+        "updated_at": "2026-06-30T01:57:31.446013+00:00"
+      },
+      {
+        "id": "topic_5_1",
+        "type": "TOPIC",
+        "title": "Ask Memory",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Ask Memory\", \"review_status\": \"approved\", \"original_text\": \"Ask Memory\"}",
+        "source_reference_id": "2e507e94-dd34-4181-be49-589aa7003fed",
+        "created_at": "2026-06-30T01:57:31.269861+00:00",
+        "updated_at": "2026-06-30T01:57:31.448933+00:00"
+      },
+      {
+        "id": "topic_5_2",
+        "type": "TOPIC",
+        "title": "Hybrid Memory Query",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Hybrid Memory Query\", \"review_status\": \"approved\", \"original_text\": \"Hybrid Memory Query\"}",
+        "source_reference_id": "e5d212d1-f1fb-4313-aca2-39a36a17ee62",
+        "created_at": "2026-06-30T01:57:31.280600+00:00",
+        "updated_at": "2026-06-30T01:57:31.451613+00:00"
+      },
+      {
+        "id": "topic_5_3",
+        "type": "TOPIC",
+        "title": "Diarization",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Diarization\", \"review_status\": \"approved\", \"original_text\": \"Diarization\"}",
+        "source_reference_id": "d7790c7f-ded0-4ac5-a75e-98204c0f29b9",
+        "created_at": "2026-06-30T01:57:31.293918+00:00",
+        "updated_at": "2026-06-30T01:57:31.456150+00:00"
+      },
+      {
+        "id": "topic_5_4",
+        "type": "TOPIC",
+        "title": "Export JSON",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Export JSON\", \"review_status\": \"rejected\", \"original_text\": \"Export JSON\", \"disabled\": true, \"merged_into_node_id\": \"topic_5_0\"}",
+        "source_reference_id": "8faf1421-fbf3-4d6f-9781-2fc19ca8bc4a",
+        "created_at": "2026-06-30T01:57:31.305329+00:00",
+        "updated_at": "2026-06-30T01:57:31.459000+00:00"
+      },
+      {
+        "id": "entity_5_0",
+        "type": "ENTITY",
+        "title": "SQLite",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"SQLite\", \"review_status\": \"pending\", \"original_text\": \"SQLite\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "8aa6ef9c-41ea-4b64-854f-122b0e8ae305",
+        "created_at": "2026-06-30T01:57:31.316810+00:00",
+        "updated_at": "2026-06-30T01:57:31.316817+00:00"
+      },
+      {
+        "id": "entity_5_1",
+        "type": "ENTITY",
+        "title": "Faster-Whisper",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Faster-Whisper\", \"review_status\": \"pending\", \"original_text\": \"Faster-Whisper\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "0cddbfc7-f458-48e5-9be4-c78df44ce7b0",
+        "created_at": "2026-06-30T01:57:31.328283+00:00",
+        "updated_at": "2026-06-30T01:57:31.328288+00:00"
+      },
+      {
+        "id": "entity_5_2",
+        "type": "ENTITY",
+        "title": "Silero VAD",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Silero VAD\", \"review_status\": \"pending\", \"original_text\": \"Silero VAD\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "e3642fd5-ca45-426c-826c-e1a52d1d54f2",
+        "created_at": "2026-06-30T01:57:31.340930+00:00",
+        "updated_at": "2026-06-30T01:57:31.340939+00:00"
+      },
+      {
+        "id": "entity_5_3",
+        "type": "ENTITY",
+        "title": "SentenceTransformers",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"SentenceTransformers\", \"review_status\": \"pending\", \"original_text\": \"SentenceTransformers\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "6fea67c0-24db-4258-9d3b-00f017e7dbe6",
+        "created_at": "2026-06-30T01:57:31.352198+00:00",
+        "updated_at": "2026-06-30T01:57:31.352203+00:00"
+      },
+      {
+        "id": "entity_5_4",
+        "type": "ENTITY",
+        "title": "Llama 3.1 8B",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Llama 3.1 8B\", \"review_status\": \"pending\", \"original_text\": \"Llama 3.1 8B\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "ed550428-4b08-4fe6-9710-78ce33eccf77",
+        "created_at": "2026-06-30T01:57:31.364758+00:00",
+        "updated_at": "2026-06-30T01:57:31.364764+00:00"
+      },
+      {
+        "id": "risk_5_0",
+        "type": "RISK",
+        "title": "Hallucination guard false positive verebilir.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Hallucination guard false positive verebilir.\", \"review_status\": \"pending\", \"original_text\": \"Hallucination guard false positive verebilir.\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "7c71e1cb-4143-4239-ab99-382dcaf37954",
+        "created_at": "2026-06-30T01:57:31.375396+00:00",
+        "updated_at": "2026-06-30T01:57:31.375408+00:00"
+      },
+      {
+        "id": "openq_5_0",
+        "type": "OPEN_QUESTION",
+        "title": "Pyannote diarization tamamen offline calisabilecek mi?",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"Pyannote diarization tamamen offline calisabilecek mi?\", \"review_status\": \"pending\", \"original_text\": \"Pyannote diarization tamamen offline calisabilecek mi?\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "a16219ec-893b-49cf-9b6e-9585a0f94778",
+        "created_at": "2026-06-30T01:57:31.388023+00:00",
+        "updated_at": "2026-06-30T01:57:31.388030+00:00"
+      },
+      {
+        "id": "followup_5_0",
+        "type": "FOLLOW_UP",
+        "title": "DevOps ekibiyle takip toplantisi yapilacak.",
+        "text_content": null,
+        "metadata_json": "{\"title\": \"DevOps ekibiyle takip toplantisi yapilacak.\", \"review_status\": \"pending\", \"original_text\": \"DevOps ekibiyle takip toplantisi yapilacak.\", \"extraction_mode\": \"heuristic_fallback\"}",
+        "source_reference_id": "c88f70c2-d1de-42a2-b2c5-a2af61424bed",
+        "created_at": "2026-06-30T01:57:31.401791+00:00",
+        "updated_at": "2026-06-30T01:57:31.401799+00:00"
+      }
+    ],
+    "edges": [
+      {
+        "id": "858dd28a-baab-45bb-ad6f-f27112664f38",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "task_5_0",
+        "edge_type": "SEGMENT_CREATES_TASK",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.179132+00:00"
+      },
+      {
+        "id": "d89e10e4-0545-49d2-820e-1e6578a2af5d",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "task_5_1",
+        "edge_type": "SEGMENT_CREATES_TASK",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.189887+00:00"
+      },
+      {
+        "id": "288b8a22-71e4-4781-98e0-7695e24df17a",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "task_5_2",
+        "edge_type": "SEGMENT_CREATES_TASK",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.202684+00:00"
+      },
+      {
+        "id": "72daae30-2599-4129-b113-c2cd97d2410b",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "task_5_3",
+        "edge_type": "SEGMENT_CREATES_TASK",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.213932+00:00"
+      },
+      {
+        "id": "34b1ef4c-a413-4bfe-8f35-4c8622adaed9",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "dec_5_0",
+        "edge_type": "SEGMENT_SUPPORTS_DECISION",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.224141+00:00"
+      },
+      {
+        "id": "a3bf5b0a-3d55-47d4-a9b5-f3ede9b317e1",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "dec_5_1",
+        "edge_type": "SEGMENT_SUPPORTS_DECISION",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.236141+00:00"
+      },
+      {
+        "id": "64ae4a8c-a943-468f-906b-594afdfa062c",
+        "source_node_id": "seg_5_s_5_1",
+        "target_node_id": "dec_5_2",
+        "edge_type": "SEGMENT_SUPPORTS_DECISION",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.247221+00:00"
+      },
+      {
+        "id": "fc2563ef-e9df-49ee-8e9f-62b2b6e58c83",
+        "source_node_id": "session_5",
+        "target_node_id": "seg_5_s_5_1",
+        "edge_type": "SESSION_HAS_SEGMENT",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.167775+00:00"
+      },
+      {
+        "id": "c6518709-885b-4d99-bd13-180aabebb20f",
+        "source_node_id": "session_5",
+        "target_node_id": "topic_5_0",
+        "edge_type": "SEGMENT_MENTIONS_TOPIC",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.258328+00:00"
+      },
+      {
+        "id": "15aabb4e-ec1d-45e5-a109-4619712bd367",
+        "source_node_id": "session_5",
+        "target_node_id": "topic_5_1",
+        "edge_type": "SEGMENT_MENTIONS_TOPIC",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.273315+00:00"
+      },
+      {
+        "id": "1ab9dd66-f5f0-47fb-9118-451f14544623",
+        "source_node_id": "session_5",
+        "target_node_id": "topic_5_2",
+        "edge_type": "SEGMENT_MENTIONS_TOPIC",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.285830+00:00"
+      },
+      {
+        "id": "a30d84e3-27b9-4cde-8f78-0972669abd8c",
+        "source_node_id": "session_5",
+        "target_node_id": "topic_5_3",
+        "edge_type": "SEGMENT_MENTIONS_TOPIC",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.297196+00:00"
+      },
+      {
+        "id": "1956449e-3281-40a6-af49-277ff57a9961",
+        "source_node_id": "session_5",
+        "target_node_id": "topic_5_4",
+        "edge_type": "SEGMENT_MENTIONS_TOPIC",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.310451+00:00"
+      },
+      {
+        "id": "84280757-d8b4-43de-8270-2804f84c2fe3",
+        "source_node_id": "session_5",
+        "target_node_id": "entity_5_0",
+        "edge_type": "SEGMENT_MENTIONS_ENTITY",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.321605+00:00"
+      },
+      {
+        "id": "3664b431-6936-46d7-841b-56708f038ec2",
+        "source_node_id": "session_5",
+        "target_node_id": "entity_5_1",
+        "edge_type": "SEGMENT_MENTIONS_ENTITY",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.332901+00:00"
+      },
+      {
+        "id": "e45816b8-1c90-47fe-8efe-abad27eebf9d",
+        "source_node_id": "session_5",
+        "target_node_id": "entity_5_2",
+        "edge_type": "SEGMENT_MENTIONS_ENTITY",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.344292+00:00"
+      },
+      {
+        "id": "4f4eec15-2d09-4666-a943-ab2e3af671d8",
+        "source_node_id": "session_5",
+        "target_node_id": "entity_5_3",
+        "edge_type": "SEGMENT_MENTIONS_ENTITY",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.356816+00:00"
+      },
+      {
+        "id": "6e8dac19-5b3a-4096-bd06-9f22833eb6d6",
+        "source_node_id": "session_5",
+        "target_node_id": "entity_5_4",
+        "edge_type": "SEGMENT_MENTIONS_ENTITY",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.367781+00:00"
+      },
+      {
+        "id": "80992b75-e213-43ee-9460-6e263e660901",
+        "source_node_id": "session_5",
+        "target_node_id": "risk_5_0",
+        "edge_type": "SEGMENT_RAISES_RISK",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.380235+00:00"
+      },
+      {
+        "id": "6ed5f395-08be-49e5-8a27-93eadea4dae5",
+        "source_node_id": "session_5",
+        "target_node_id": "openq_5_0",
+        "edge_type": "SEGMENT_RAISES_OPEN_QUESTION",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.391093+00:00"
+      },
+      {
+        "id": "c5059fef-dcf4-4600-9567-3c5be418f862",
+        "source_node_id": "session_5",
+        "target_node_id": "followup_5_0",
+        "edge_type": "SEGMENT_CREATES_FOLLOW_UP",
+        "metadata_json": "{}",
+        "confidence": 1.0,
+        "source_reference_id": null,
+        "created_at": "2026-06-30T01:57:31.405374+00:00"
+      }
+    ],
+    "source_references": [
+      {
+        "id": "571cec6d-cdd4-44f7-ab55-868737874a5c",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.152421+00:00"
+      },
+      {
+        "id": "c3f105a2-4ca1-4571-9526-8a6aadb64c40",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.159911+00:00"
+      },
+      {
+        "id": "c0343609-0412-49b3-9ea1-af975ca21549",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.171064+00:00"
+      },
+      {
+        "id": "9d04d0b9-4b66-44ed-8046-13df5a217112",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.182112+00:00"
+      },
+      {
+        "id": "56ad4b1b-45d4-4d1b-abb6-3108861a46ad",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.194704+00:00"
+      },
+      {
+        "id": "c3ea0fcc-b1d0-4982-b8d4-82952cbd146e",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.205864+00:00"
+      },
+      {
+        "id": "d8a2fdd2-5baa-4954-843e-c85141f299e8",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.216817+00:00"
+      },
+      {
+        "id": "8c496f50-ff64-4d9b-90fd-0b9fb40e46a9",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.228808+00:00"
+      },
+      {
+        "id": "6adc728f-b113-4e1e-b62a-83b9339b3fb1",
+        "session_id": "5",
+        "segment_id": "s_5_1",
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.239081+00:00"
+      },
+      {
+        "id": "eb67800f-5d24-43e7-a947-85e3e62e9ac5",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.252020+00:00"
+      },
+      {
+        "id": "2e507e94-dd34-4181-be49-589aa7003fed",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.265838+00:00"
+      },
+      {
+        "id": "e5d212d1-f1fb-4313-aca2-39a36a17ee62",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.277913+00:00"
+      },
+      {
+        "id": "d7790c7f-ded0-4ac5-a75e-98204c0f29b9",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.289325+00:00"
+      },
+      {
+        "id": "8faf1421-fbf3-4d6f-9781-2fc19ca8bc4a",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.300399+00:00"
+      },
+      {
+        "id": "8aa6ef9c-41ea-4b64-854f-122b0e8ae305",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.313839+00:00"
+      },
+      {
+        "id": "0cddbfc7-f458-48e5-9be4-c78df44ce7b0",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.325176+00:00"
+      },
+      {
+        "id": "e3642fd5-ca45-426c-826c-e1a52d1d54f2",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.337620+00:00"
+      },
+      {
+        "id": "6fea67c0-24db-4258-9d3b-00f017e7dbe6",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.348990+00:00"
+      },
+      {
+        "id": "ed550428-4b08-4fe6-9710-78ce33eccf77",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.359935+00:00"
+      },
+      {
+        "id": "7c71e1cb-4143-4239-ab99-382dcaf37954",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.370645+00:00"
+      },
+      {
+        "id": "a16219ec-893b-49cf-9b6e-9585a0f94778",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.383534+00:00"
+      },
+      {
+        "id": "c88f70c2-d1de-42a2-b2c5-a2af61424bed",
+        "session_id": "5",
+        "segment_id": null,
+        "document_id": null,
+        "chunk_id": null,
+        "timestamp_start": null,
+        "timestamp_end": null,
+        "text_preview": null,
+        "created_at": "2026-06-30T01:57:31.394446+00:00"
+      }
+    ]
+  },
+  "exported_at": "2026-06-30T01:57:37.629358+00:00"
+}

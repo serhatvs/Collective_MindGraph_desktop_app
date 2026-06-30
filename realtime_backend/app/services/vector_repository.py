@@ -3,7 +3,7 @@
 import json
 import sqlite3
 import uuid
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from collective_mindgraph.core.source_reference import SourceReference
 
 class VectorRepository:

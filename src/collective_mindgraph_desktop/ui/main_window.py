@@ -198,11 +198,10 @@ class MainWindow(QMainWindow):
         self._service.update_node(node_id, props)
         self._refresh_current_session_graph()
 
-    def _handle_graph_trace(self, node_id: str, source_ref_id: str) -> None:
-        if node_id.startswith("seg_"):
-            seg_id = node_id[4:]
-            if self._selected_session_id:
-                self._navigate_to_source(str(self._selected_session_id), seg_id)
+    def _handle_graph_trace(self, session_id: str, segment_id: str) -> None:
+        resolved_session_id = session_id or (str(self._selected_session_id) if self._selected_session_id else "")
+        if resolved_session_id:
+            self._navigate_to_source(resolved_session_id, segment_id)
 
     def _handle_reasoning_trace(self, response: ReasoningResponse) -> None:
         # Convert dataclass chains to dict for page

@@ -289,8 +289,19 @@ class CollectiveMindGraphService:
         
         with self._database.connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?)",
-                (session_id_str,)
+                """
+                SELECT
+                    n.*,
+                    r.session_id AS source_session_id,
+                    r.segment_id AS source_segment_id,
+                    r.timestamp_start AS source_timestamp_start,
+                    r.timestamp_end AS source_timestamp_end,
+                    r.text_preview AS source_text_preview
+                FROM v2_graph_nodes n
+                LEFT JOIN v2_source_references r ON n.source_reference_id = r.id
+                WHERE r.session_id = ?
+                """,
+                (session_id_str,),
             ).fetchall()
             v2_nodes = [dict(r) for r in rows]
             
@@ -480,12 +491,20 @@ class CollectiveMindGraphService:
         # V2 Production Graph Ingest (with Review Lifecycle)
         # ---------------------------------------------------------
         session_id_str = str(session.id)
+        segment_lookup = {
+            str(seg.get("segment_id")): seg
+            for seg in result.segments
+            if seg.get("segment_id")
+        }
         # Create Session Node
         session_node = GraphNode(
             id=f"session_{session.id}",
             type=NodeType.SESSION,
-            properties={"title": session.title},
-            source=SourceReference(session_id=session_id_str)
+            properties={
+                "title": session.title,
+                "source_session_id": session_id_str,
+            },
+            source=SourceReference(session_id=session_id_str, text_preview=session.title)
         )
         if self.production_graph.get_node(session_node.id) is None:
             self.production_graph.create_node(session_node)
@@ -496,11 +515,21 @@ class CollectiveMindGraphService:
             if not seg_id:
                 continue
             graph_segment_id = f"seg_{transcript.id}_{seg_id}"
+            segment_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=seg_id,
+                segment_lookup=segment_lookup,
+                fallback_text=str(seg.get("corrected_text") or seg.get("raw_text") or ""),
+            )
             seg_node = GraphNode(
                 id=graph_segment_id,
                 type=NodeType.SEGMENT,
-                properties={"text": seg.get("corrected_text", ""), "speaker": seg.get("speaker", "")},
-                source=SourceReference(session_id=session_id_str, segment_id=seg_id)
+                properties={
+                    "text": seg.get("corrected_text", ""),
+                    "speaker": seg.get("speaker", ""),
+                    **self._source_metadata(segment_source),
+                },
+                source=segment_source,
             )
             self.production_graph.create_node(seg_node)
             self.production_graph.create_edge(GraphEdge(
@@ -509,6 +538,12 @@ class CollectiveMindGraphService:
 
         # Create Task Nodes and Edges (Pending Review)
         for idx, task in enumerate(action_items):
+            task_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=task.source_segment_id,
+                segment_lookup=segment_lookup,
+                fallback_text=task.title,
+            )
             task_node = GraphNode(
                 id=f"task_{transcript.id}_{idx}",
                 type=NodeType.TASK,
@@ -516,9 +551,10 @@ class CollectiveMindGraphService:
                     "title": task.title, 
                     "assignee": task.responsible_person,
                     "review_status": "pending",
-                    "original_text": task.title
+                    "original_text": task.title,
+                    **self._source_metadata(task_source),
                 },
-                source=SourceReference(session_id=session_id_str, segment_id=task.source_segment_id)
+                source=task_source,
             )
             self.production_graph.create_node(task_node)
             if task.source_segment_id:
@@ -528,15 +564,22 @@ class CollectiveMindGraphService:
 
         # Create Decision Nodes and Edges (Pending Review)
         for idx, dec in enumerate(decisions):
+            decision_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=dec.source_segment_id,
+                segment_lookup=segment_lookup,
+                fallback_text=dec.decision,
+            )
             dec_node = GraphNode(
                 id=f"dec_{transcript.id}_{idx}",
                 type=NodeType.DECISION,
                 properties={
                     "title": dec.decision,
                     "review_status": "pending",
-                    "original_text": dec.decision
+                    "original_text": dec.decision,
+                    **self._source_metadata(decision_source),
                 },
-                source=SourceReference(session_id=session_id_str, segment_id=dec.source_segment_id)
+                source=decision_source,
             )
             self.production_graph.create_node(dec_node)
             if dec.source_segment_id:
@@ -546,15 +589,22 @@ class CollectiveMindGraphService:
 
         # Create Topic Nodes and Edges (Pending Review)
         for idx, topic in enumerate(topics):
+            topic_source = SourceReference(
+                session_id=session_id_str,
+                timestamp_start=topic.start,
+                timestamp_end=topic.end,
+                text_preview=topic.label,
+            )
             topic_node = GraphNode(
                 id=f"topic_{transcript.id}_{idx}",
                 type=NodeType.TOPIC,
                 properties={
                     "title": topic.label,
                     "review_status": "pending",
-                    "original_text": topic.label
+                    "original_text": topic.label,
+                    **self._source_metadata(topic_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=topic_source,
             )
             self.production_graph.create_node(topic_node)
             self.production_graph.create_edge(GraphEdge(
@@ -565,6 +615,7 @@ class CollectiveMindGraphService:
         metadata = getattr(result, "metadata", {})
         
         for idx, entity in enumerate(metadata.get("entities", [])):
+            entity_source = SourceReference(session_id=session_id_str, text_preview=str(entity))
             entity_node = GraphNode(
                 id=f"entity_{transcript.id}_{idx}",
                 type=NodeType.ENTITY,
@@ -572,9 +623,10 @@ class CollectiveMindGraphService:
                     "title": str(entity),
                     "review_status": "pending",
                     "original_text": str(entity),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
+                    **self._source_metadata(entity_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=entity_source,
             )
             self.production_graph.create_node(entity_node)
             self.production_graph.create_edge(GraphEdge(
@@ -582,6 +634,7 @@ class CollectiveMindGraphService:
             ))
             
         for idx, risk in enumerate(metadata.get("risks", [])):
+            risk_source = SourceReference(session_id=session_id_str, text_preview=str(risk))
             risk_node = GraphNode(
                 id=f"risk_{transcript.id}_{idx}",
                 type=NodeType.RISK,
@@ -589,9 +642,10 @@ class CollectiveMindGraphService:
                     "title": str(risk),
                     "review_status": "pending",
                     "original_text": str(risk),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
+                    **self._source_metadata(risk_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=risk_source,
             )
             self.production_graph.create_node(risk_node)
             self.production_graph.create_edge(GraphEdge(
@@ -599,6 +653,7 @@ class CollectiveMindGraphService:
             ))
             
         for idx, q in enumerate(metadata.get("open_questions", [])):
+            question_source = SourceReference(session_id=session_id_str, text_preview=str(q))
             q_node = GraphNode(
                 id=f"openq_{transcript.id}_{idx}",
                 type=NodeType.OPEN_QUESTION,
@@ -606,9 +661,10 @@ class CollectiveMindGraphService:
                     "title": str(q),
                     "review_status": "pending",
                     "original_text": str(q),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
+                    **self._source_metadata(question_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=question_source,
             )
             self.production_graph.create_node(q_node)
             self.production_graph.create_edge(GraphEdge(
@@ -616,6 +672,7 @@ class CollectiveMindGraphService:
             ))
             
         for idx, f in enumerate(metadata.get("follow_ups", [])):
+            followup_source = SourceReference(session_id=session_id_str, text_preview=str(f))
             f_node = GraphNode(
                 id=f"followup_{transcript.id}_{idx}",
                 type=NodeType.FOLLOW_UP,
@@ -623,9 +680,10 @@ class CollectiveMindGraphService:
                     "title": str(f),
                     "review_status": "pending",
                     "original_text": str(f),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
+                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
+                    **self._source_metadata(followup_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=followup_source,
             )
             self.production_graph.create_node(f_node)
             self.production_graph.create_edge(GraphEdge(
@@ -803,6 +861,56 @@ class CollectiveMindGraphService:
                 if transcript.id == transcript_id:
                     return transcript
         return None
+
+    @classmethod
+    def _source_reference_for_segment(
+        cls,
+        session_id: str,
+        segment_id: str | None,
+        segment_lookup: dict[str, dict[str, object]],
+        fallback_text: str | None = None,
+    ) -> SourceReference:
+        clean_segment_id = str(segment_id).strip() if segment_id else None
+        segment = segment_lookup.get(clean_segment_id) if clean_segment_id else None
+        return SourceReference(
+            session_id=session_id,
+            segment_id=clean_segment_id,
+            timestamp_start=cls._optional_float(segment.get("start")) if segment else None,
+            timestamp_end=cls._optional_float(segment.get("end")) if segment else None,
+            text_preview=cls._segment_preview(segment, fallback_text),
+        )
+
+    @staticmethod
+    def _segment_preview(segment: dict[str, object] | None, fallback_text: str | None = None) -> str | None:
+        if segment:
+            for key in ("corrected_text", "raw_text", "text"):
+                value = str(segment.get(key) or "").strip()
+                if value:
+                    return value
+        fallback = str(fallback_text or "").strip()
+        return fallback or None
+
+    @staticmethod
+    def _source_metadata(source: SourceReference) -> dict[str, object]:
+        metadata: dict[str, object] = {"source_session_id": source.session_id}
+        if source.segment_id:
+            metadata["source_segment_id"] = source.segment_id
+        if source.timestamp_start is not None:
+            metadata["source_timestamp_start"] = source.timestamp_start
+        if source.timestamp_end is not None:
+            metadata["source_timestamp_end"] = source.timestamp_end
+        if source.text_preview:
+            metadata["source_preview"] = source.text_preview
+        return metadata
+
+    @staticmethod
+    def _optional_float(value: object) -> float | None:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     def _build_analysis_side_nodes(
         self,

@@ -31,6 +31,9 @@
 - **Report Archive**: Generated benchmark, validation, and simulation outputs now live under `docs/reports/` with date-based folders. The latest checkpoint is `docs/reports/2026-06-30/`; `docs/dev/` should stay focused on active developer guides and technical documentation.
 - **Agent Handoff**: `agy.md` (repo root) was created on 2026-06-22 by Antigravity as a durable working memory file for all future agent sessions. It captures dataset, blocker, environment, and exact next-step commands. Read it at the start of every benchmark-focused session.
 - **Two-Track Setup**: A documentation-only split plan now separates `feature/transcription-quality-pipeline` for transcription maintenance/validation/bugfixes from planned `feature/transcript-to-memory-pipeline` work for transcript-to-structured-memory product development. Branch/worktree creation must wait for a clean working tree.
+- **Memory Worktree**: `D:\Workspace\cmg-memory` is the confirmed worktree for `feature/transcript-to-memory-pipeline`; do not patch Memory Track work in the transcription-quality worktree.
+- **Ask Memory Desktop Fix**: Commit `b7aab23` (`fix: render desktop Ask Memory responses safely`) updates the desktop `/memory/ask` parser and panel rendering for evidence coverage, mode/status, used/rejected sources, rejected terms, and optional validation metadata.
+- **Source Trace Patch**: Current uncommitted Memory Track work makes source references more explicit by preserving `source_session_id`, `source_segment_id`, `text_preview`, and timestamps through graph ingest/persistence and by changing Knowledge Graph source navigation to use explicit source metadata before any graph-node-id fallback.
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.

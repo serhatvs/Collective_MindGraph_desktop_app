@@ -140,6 +140,13 @@ class EvidenceStep(BaseModel):
     text: str
     edge_type: str | None = None
     direction: str = "out"
+    source_reference_id: str | None = None
+    source_session_id: str | None = None
+    source_segment_id: str | None = None
+    text_preview: str | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    edge_path: list[str] = Field(default_factory=list)
 
 class EvidenceChain(BaseModel):
     steps: list[EvidenceStep] = Field(default_factory=list)

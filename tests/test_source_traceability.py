@@ -56,6 +56,7 @@ def test_extracted_task_retains_explicit_segment_preview_and_timestamps(tmp_path
     mapped = service.production_graph.get_node(task_node["id"])
     assert mapped is not None
     assert mapped.source is not None
+    assert mapped.source.id == task_node["source_reference_id"]
     assert mapped.source.segment_id == "s1"
     assert mapped.source.text_preview == "Clean segment text"
 

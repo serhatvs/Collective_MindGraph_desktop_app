@@ -15,3 +15,4 @@ class SourceReference:
     text_preview: Optional[str] = None
     confidence: float = 1.0
     extractor_model: str = "heuristic"
+    id: Optional[str] = None

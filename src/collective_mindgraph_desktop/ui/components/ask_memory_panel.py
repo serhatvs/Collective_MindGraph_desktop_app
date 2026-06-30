@@ -212,15 +212,60 @@ class AskMemoryPanel(QWidget):
             lbl = QLabel(chain_text)
             lbl.setWordWrap(True)
             flayout.addWidget(lbl)
-            
-            # Simple link to first session/segment found in response for this evidence
-            # (In a real implementation we'd map each chain to its specific source)
-            if source_session_ids:
+
+            source = self._source_for_chain(chain)
+            preview = source.get("text_preview")
+            time_range = self._format_time_range(source.get("start_time"), source.get("end_time"))
+
+            if preview:
+                preview_lbl = QLabel(f"Preview: {preview}")
+                preview_lbl.setWordWrap(True)
+                flayout.addWidget(preview_lbl)
+
+            if time_range:
+                flayout.addWidget(QLabel(f"Time: {time_range}"))
+
+            session_id = source.get("source_session_id") or (source_session_ids[0] if source_session_ids else "")
+            segment_id = source.get("source_segment_id") or (source_segment_ids[0] if source_segment_ids else "")
+
+            if session_id:
                 btn = QPushButton("Open Source")
                 btn.setFixedWidth(100)
-                session_id = source_session_ids[0]
-                segment_id = source_segment_ids[0] if source_segment_ids else ""
-                btn.clicked.connect(lambda s=session_id, seg=segment_id: self.source_navigation_requested.emit(s, seg))
+                btn.clicked.connect(lambda _checked=False, s=session_id, seg=segment_id: self.source_navigation_requested.emit(s, seg))
                 flayout.addWidget(btn)
                 
             self.evidence_layout.insertWidget(self.evidence_layout.count() - 1, frame)
+
+    @staticmethod
+    def _source_for_chain(chain) -> dict[str, object]:
+        for step in list(getattr(chain, "steps", []) or []):
+            session_id = getattr(step, "source_session_id", None)
+            segment_id = getattr(step, "source_segment_id", None)
+            preview = getattr(step, "text_preview", None)
+            start_time = getattr(step, "start_time", None)
+            end_time = getattr(step, "end_time", None)
+            source_ref_id = getattr(step, "source_reference_id", None)
+            if session_id or segment_id or preview or start_time is not None or end_time is not None or source_ref_id:
+                return {
+                    "source_reference_id": source_ref_id,
+                    "source_session_id": session_id,
+                    "source_segment_id": segment_id,
+                    "text_preview": preview,
+                    "start_time": start_time,
+                    "end_time": end_time,
+                    "node_id": getattr(step, "node_id", None),
+                    "node_type": getattr(step, "node_type", None),
+                    "edge_path": list(getattr(step, "edge_path", []) or []),
+                }
+        return {}
+
+    @staticmethod
+    def _format_time_range(start_time, end_time) -> str:
+        if start_time is None and end_time is None:
+            return ""
+        try:
+            start = f"{float(start_time):.2f}s" if start_time is not None else "?"
+            end = f"{float(end_time):.2f}s" if end_time is not None else "?"
+        except (TypeError, ValueError):
+            return ""
+        return f"{start} - {end}"

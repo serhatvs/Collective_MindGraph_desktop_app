@@ -59,6 +59,14 @@ class LLMAssistedAskService:
             for i in range(len(evidence_response.evidence_chains)):
                 valid_source_ids.add(str(i+1))
                 valid_source_ids.add(f"Evidence {i+1}")
+                for step in evidence_response.evidence_chains[i].steps:
+                    for source_id in (
+                        step.source_reference_id,
+                        step.source_session_id,
+                        step.source_segment_id,
+                    ):
+                        if source_id:
+                            valid_source_ids.add(source_id)
             
             used_sources = []
             rejected_sources = []
@@ -168,15 +176,17 @@ class LLMAssistedAskService:
         lines = []
         for i, chain in enumerate(response.evidence_chains):
             chain_text = " -> ".join([f"[{step.node_type}] {step.text}" for step in chain.steps])
-            source_info = ""
-            # Simple heuristic: find segment ID in steps or use response global
-            seg_ids = []
+            source_ids = []
             for step in chain.steps:
-                # We don't have node_source in api models easily, 
-                # but we have node_id which we could look up if needed.
-                # For now use the response global source IDs.
-                pass
-            lines.append(f"Evidence {i+1}: {chain_text}")
+                for source_id in (
+                    step.source_reference_id,
+                    step.source_session_id,
+                    step.source_segment_id,
+                ):
+                    if source_id and source_id not in source_ids:
+                        source_ids.append(source_id)
+            source_info = f" Sources: {', '.join(source_ids)}" if source_ids else ""
+            lines.append(f"Evidence {i+1}: {chain_text}{source_info}")
         
         return "\n".join(lines)
 

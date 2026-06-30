@@ -94,6 +94,13 @@ class EvidenceStep:
     text: str
     edge_type: str | None = None
     direction: str = "out"
+    source_reference_id: str | None = None
+    source_session_id: str | None = None
+    source_segment_id: str | None = None
+    text_preview: str | None = None
+    start_time: float | None = None
+    end_time: float | None = None
+    edge_path: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -430,6 +437,13 @@ class RealtimeBackendTranscriptionService:
                         text=str(s.get("text") or ""),
                         edge_type=self._extract_string(s, "edge_type"),
                         direction=str(s.get("direction") or "out"),
+                        source_reference_id=self._extract_string(s, "source_reference_id"),
+                        source_session_id=self._extract_string(s, "source_session_id"),
+                        source_segment_id=self._extract_string(s, "source_segment_id"),
+                        text_preview=self._extract_string(s, "text_preview"),
+                        start_time=self._extract_float_or_none(s, "start_time"),
+                        end_time=self._extract_float_or_none(s, "end_time"),
+                        edge_path=self._extract_string_list(s, "edge_path"),
                     )
                     for s in (c.get("steps") or [])
                 ],
@@ -521,6 +535,13 @@ class RealtimeBackendTranscriptionService:
                         text=str(s.get("text") or ""),
                         edge_type=self._extract_string(s, "edge_type"),
                         direction=str(s.get("direction") or "out"),
+                        source_reference_id=self._extract_string(s, "source_reference_id"),
+                        source_session_id=self._extract_string(s, "source_session_id"),
+                        source_segment_id=self._extract_string(s, "source_segment_id"),
+                        text_preview=self._extract_string(s, "text_preview"),
+                        start_time=self._extract_float_or_none(s, "start_time"),
+                        end_time=self._extract_float_or_none(s, "end_time"),
+                        edge_path=self._extract_string_list(s, "edge_path"),
                     )
                     for s in (c.get("steps") or [])
                 ],
@@ -793,6 +814,16 @@ class RealtimeBackendTranscriptionService:
             return float(value)
         except (TypeError, ValueError):
             return default
+
+    @staticmethod
+    def _extract_float_or_none(payload: dict[str, object], key: str) -> float | None:
+        value = payload.get(key)
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _extract_list(payload: dict[str, object], key: str) -> list[dict[str, object]]:

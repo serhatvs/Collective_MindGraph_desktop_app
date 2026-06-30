@@ -6,6 +6,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication
 
 from collective_mindgraph_desktop.transcription import (
+    EvidenceChain,
+    EvidenceStep,
     MemoryAskResponse,
     RealtimeBackendTranscriptionConfig,
     RealtimeBackendTranscriptionService,
@@ -79,6 +81,13 @@ def test_desktop_ask_memory_parses_full_backend_payload():
                             "text": "FastAPI endpointini test et",
                             "edge_type": "SEGMENT_CREATES_TASK",
                             "direction": "out",
+                            "source_reference_id": "source_ref_1",
+                            "source_session_id": "s1",
+                            "source_segment_id": "seg1",
+                            "text_preview": "Clean segment preview",
+                            "start_time": 3.5,
+                            "end_time": 8.25,
+                            "edge_path": ["SEGMENT_CREATES_TASK"],
                         }
                     ],
                     "explanation": "Task from segment.",
@@ -99,7 +108,15 @@ def test_desktop_ask_memory_parses_full_backend_payload():
     assert response.rejected_sources == ["unknown"]
     assert response.rejected_terms == ["Pytest"]
     assert response.sentence_validations[1].unsupported_terms == ["Pytest"]
-    assert response.evidence_chains[0].steps[0].node_id == "task_1"
+    step = response.evidence_chains[0].steps[0]
+    assert step.node_id == "task_1"
+    assert step.source_reference_id == "source_ref_1"
+    assert step.source_session_id == "s1"
+    assert step.source_segment_id == "seg1"
+    assert step.text_preview == "Clean segment preview"
+    assert step.start_time == 3.5
+    assert step.end_time == 8.25
+    assert step.edge_path == ["SEGMENT_CREATES_TASK"]
 
 
 def test_desktop_ask_memory_parses_minimal_payload_with_safe_defaults():
@@ -154,6 +171,88 @@ def test_ask_memory_panel_renders_full_and_minimal_responses_without_qtbot():
 
     panel._handle_finished(minimal_response)
     assert "No evidence." in panel.answer_box.toPlainText()
+
+    panel.deleteLater()
+    app.processEvents()
+
+
+def test_ask_memory_panel_source_button_prefers_per_evidence_metadata():
+    app = QApplication.instance() or QApplication([])
+    panel = AskMemoryPanel()
+    captured: list[tuple[str, str]] = []
+    panel.source_navigation_requested.connect(lambda session_id, segment_id: captured.append((session_id, segment_id)))
+
+    response = MemoryAskResponse(
+        query="FastAPI?",
+        mode="evidence_only",
+        answer_type="evidence_only",
+        short_answer="FastAPI test et.",
+        confidence_level="high",
+        source_session_ids=["fallback_session"],
+        source_segment_ids=["fallback_segment"],
+        evidence_chains=[
+            EvidenceChain(
+                steps=[
+                    EvidenceStep(
+                        node_id="task_1",
+                        node_type="TASK",
+                        text="FastAPI endpointini test et",
+                        source_session_id="exact_session",
+                        source_segment_id="exact_segment",
+                        text_preview="Exact preview text",
+                        start_time=1.0,
+                        end_time=2.5,
+                    )
+                ]
+            )
+        ],
+    )
+
+    panel._handle_finished(response)
+    open_buttons = [button for button in panel.findChildren(type(panel.ask_button)) if button.text() == "Open Source"]
+    assert open_buttons
+    open_buttons[0].click()
+
+    assert captured == [("exact_session", "exact_segment")]
+    assert "Exact preview text" in " ".join(label.text() for label in panel.findChildren(type(panel.evidence_label)))
+
+    panel.deleteLater()
+    app.processEvents()
+
+
+def test_ask_memory_panel_source_button_falls_back_to_response_sources():
+    app = QApplication.instance() or QApplication([])
+    panel = AskMemoryPanel()
+    captured: list[tuple[str, str]] = []
+    panel.source_navigation_requested.connect(lambda session_id, segment_id: captured.append((session_id, segment_id)))
+
+    response = MemoryAskResponse(
+        query="FastAPI?",
+        mode="evidence_only",
+        answer_type="evidence_only",
+        short_answer="FastAPI test et.",
+        confidence_level="high",
+        source_session_ids=["fallback_session"],
+        source_segment_ids=["fallback_segment"],
+        evidence_chains=[
+            EvidenceChain(
+                steps=[
+                    EvidenceStep(
+                        node_id="task_1",
+                        node_type="TASK",
+                        text="FastAPI endpointini test et",
+                    )
+                ]
+            )
+        ],
+    )
+
+    panel._handle_finished(response)
+    open_buttons = [button for button in panel.findChildren(type(panel.ask_button)) if button.text() == "Open Source"]
+    assert open_buttons
+    open_buttons[0].click()
+
+    assert captured == [("fallback_session", "fallback_segment")]
 
     panel.deleteLater()
     app.processEvents()

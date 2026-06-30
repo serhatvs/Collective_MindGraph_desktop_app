@@ -150,7 +150,18 @@ async def reason_memory(request: Request, q: str, max_depth: int = 3) -> Reasoni
                     node_type=step.node.type.value,
                     text=step.node.properties.get("title") or step.node.properties.get("text") or "",
                     edge_type=step.edge.type.value if step.edge else None,
-                    direction=step.direction
+                    direction=step.direction,
+                    source_reference_id=getattr(step.node.source, "id", None) if step.node.source else None,
+                    source_session_id=step.node.source.session_id if step.node.source else None,
+                    source_segment_id=step.node.source.segment_id if step.node.source else None,
+                    text_preview=getattr(step.node.source, "text_preview", None) if step.node.source else None,
+                    start_time=step.node.source.timestamp_start if step.node.source else None,
+                    end_time=step.node.source.timestamp_end if step.node.source else None,
+                    edge_path=[
+                        item.edge.type.value
+                        for item in chain.steps
+                        if item.edge
+                    ],
                 )
             )
         chains.append(EvidenceChain(steps=steps, explanation=chain.explanation))

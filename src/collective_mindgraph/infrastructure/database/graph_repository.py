@@ -136,6 +136,7 @@ class ProductionGraphRepository:
             timestamp_start=row["timestamp_start"],
             timestamp_end=row["timestamp_end"],
             text_preview=row["text_preview"],
+            id=ref_id,
         )
 
     def _map_node(self, row: sqlite3.Row) -> GraphNode:

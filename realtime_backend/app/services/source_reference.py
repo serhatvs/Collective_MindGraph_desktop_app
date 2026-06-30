@@ -12,5 +12,7 @@ class SourceReference:
     segment_id: Optional[str] = None
     timestamp_start: Optional[float] = None
     timestamp_end: Optional[float] = None
+    text_preview: Optional[str] = None
     confidence: float = 1.0
     extractor_model: str = "heuristic"
+    id: Optional[str] = None

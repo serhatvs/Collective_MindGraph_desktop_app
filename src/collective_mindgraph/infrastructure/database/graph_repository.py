@@ -3,7 +3,7 @@
 import json
 import sqlite3
 import uuid
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from datetime import datetime, timezone
 
 from collective_mindgraph.core.memory_graph import GraphNode, GraphEdge, NodeType, EdgeType

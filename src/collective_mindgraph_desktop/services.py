@@ -614,81 +614,13 @@ class CollectiveMindGraphService:
         # Create Extended Node Types from Metadata
         metadata = getattr(result, "metadata", {})
         
-        for idx, entity in enumerate(metadata.get("entities", [])):
-            entity_source = SourceReference(session_id=session_id_str, text_preview=str(entity))
-            entity_node = GraphNode(
-                id=f"entity_{transcript.id}_{idx}",
-                type=NodeType.ENTITY,
-                properties={
-                    "title": str(entity),
-                    "review_status": "pending",
-                    "original_text": str(entity),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
-                    **self._source_metadata(entity_source),
-                },
-                source=entity_source,
-            )
-            self.production_graph.create_node(entity_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=entity_node.id, type=EdgeType.SEGMENT_MENTIONS_ENTITY
-            ))
-            
-        for idx, risk in enumerate(metadata.get("risks", [])):
-            risk_source = SourceReference(session_id=session_id_str, text_preview=str(risk))
-            risk_node = GraphNode(
-                id=f"risk_{transcript.id}_{idx}",
-                type=NodeType.RISK,
-                properties={
-                    "title": str(risk),
-                    "review_status": "pending",
-                    "original_text": str(risk),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
-                    **self._source_metadata(risk_source),
-                },
-                source=risk_source,
-            )
-            self.production_graph.create_node(risk_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=risk_node.id, type=EdgeType.SEGMENT_RAISES_RISK
-            ))
-            
-        for idx, q in enumerate(metadata.get("open_questions", [])):
-            question_source = SourceReference(session_id=session_id_str, text_preview=str(q))
-            q_node = GraphNode(
-                id=f"openq_{transcript.id}_{idx}",
-                type=NodeType.OPEN_QUESTION,
-                properties={
-                    "title": str(q),
-                    "review_status": "pending",
-                    "original_text": str(q),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
-                    **self._source_metadata(question_source),
-                },
-                source=question_source,
-            )
-            self.production_graph.create_node(q_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=q_node.id, type=EdgeType.SEGMENT_RAISES_OPEN_QUESTION
-            ))
-            
-        for idx, f in enumerate(metadata.get("follow_ups", [])):
-            followup_source = SourceReference(session_id=session_id_str, text_preview=str(f))
-            f_node = GraphNode(
-                id=f"followup_{transcript.id}_{idx}",
-                type=NodeType.FOLLOW_UP,
-                properties={
-                    "title": str(f),
-                    "review_status": "pending",
-                    "original_text": str(f),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown"),
-                    **self._source_metadata(followup_source),
-                },
-                source=followup_source,
-            )
-            self.production_graph.create_node(f_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=f_node.id, type=EdgeType.SEGMENT_CREATES_FOLLOW_UP
-            ))
+        self._create_extended_extraction_nodes(
+            transcript_id=transcript.id,
+            session_node_id=session_node.id,
+            session_id=session_id_str,
+            metadata=metadata,
+            segment_lookup=segment_lookup,
+        )
             
         # ---------------------------------------------------------
 
@@ -862,6 +794,147 @@ class CollectiveMindGraphService:
                     return transcript
         return None
 
+    def _create_extended_extraction_nodes(
+        self,
+        *,
+        transcript_id: int,
+        session_node_id: str,
+        session_id: str,
+        metadata: dict[str, object],
+        segment_lookup: dict[str, dict[str, object]],
+    ) -> None:
+        specs = [
+            ("entities", "entity", NodeType.ENTITY, EdgeType.SEGMENT_MENTIONS_ENTITY),
+            ("risks", "risk", NodeType.RISK, EdgeType.SEGMENT_RAISES_RISK),
+            ("open_questions", "openq", NodeType.OPEN_QUESTION, EdgeType.SEGMENT_RAISES_OPEN_QUESTION),
+            ("follow_ups", "followup", NodeType.FOLLOW_UP, EdgeType.SEGMENT_CREATES_FOLLOW_UP),
+        ]
+        extraction_mode = str(metadata.get("extraction_mode") or "unknown")
+
+        for metadata_key, node_prefix, node_type, edge_type in specs:
+            items = self._normalized_extended_items(metadata.get(metadata_key))
+            for idx, item in enumerate(items):
+                source = self._source_reference_for_extracted_item(
+                    session_id=session_id,
+                    item=item,
+                    segment_lookup=segment_lookup,
+                )
+                node_id = f"{node_prefix}_{transcript_id}_{idx}"
+                node = GraphNode(
+                    id=node_id,
+                    type=node_type,
+                    properties={
+                        "title": item["title"],
+                        "review_status": "pending",
+                        "original_text": item["title"],
+                        "extraction_mode": extraction_mode,
+                        **self._source_metadata(source),
+                    },
+                    source=source,
+                )
+                self.production_graph.create_node(node)
+
+                source_node_id = session_node_id
+                if source.segment_id:
+                    candidate = f"seg_{transcript_id}_{source.segment_id}"
+                    if self.production_graph.get_node(candidate) is not None:
+                        source_node_id = candidate
+                self.production_graph.create_edge(GraphEdge(
+                    id="",
+                    source_node_id=source_node_id,
+                    target_node_id=node_id,
+                    type=edge_type,
+                ))
+
+    @staticmethod
+    def _normalized_extended_items(value: object) -> list[dict[str, object]]:
+        if not isinstance(value, list):
+            return []
+
+        items: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for raw in value:
+            item: dict[str, object]
+            if isinstance(raw, dict):
+                title = CollectiveMindGraphService._extended_item_title(raw)
+                if not title:
+                    continue
+                item = dict(raw)
+                item["title"] = title
+            else:
+                title = str(raw).strip()
+                if not title:
+                    continue
+                item = {"title": title}
+
+            key = str(item["title"]).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            items.append(item)
+        return items
+
+    @staticmethod
+    def _extended_item_title(item: dict[str, object]) -> str:
+        for key in (
+            "title",
+            "text",
+            "name",
+            "value",
+            "label",
+            "entity",
+            "risk",
+            "question",
+            "open_question",
+            "follow_up",
+        ):
+            value = str(item.get(key) or "").strip()
+            if value:
+                return value
+        return ""
+
+    @classmethod
+    def _source_reference_for_extracted_item(
+        cls,
+        *,
+        session_id: str,
+        item: dict[str, object],
+        segment_lookup: dict[str, dict[str, object]],
+    ) -> SourceReference:
+        segment_id = cls._item_source_segment_id(item)
+        source = cls._source_reference_for_segment(
+            session_id=session_id,
+            segment_id=segment_id,
+            segment_lookup=segment_lookup,
+            fallback_text=str(item.get("text_preview") or item.get("title") or ""),
+        )
+        if segment_id and segment_id in segment_lookup:
+            return source
+
+        return SourceReference(
+            session_id=session_id,
+            segment_id=source.segment_id,
+            timestamp_start=source.timestamp_start if source.timestamp_start is not None else cls._first_optional_float(item, ("start_time", "start")),
+            timestamp_end=source.timestamp_end if source.timestamp_end is not None else cls._first_optional_float(item, ("end_time", "end")),
+            text_preview=source.text_preview or str(item.get("text_preview") or item.get("title") or "").strip() or None,
+        )
+
+    @staticmethod
+    def _item_source_segment_id(item: dict[str, object]) -> str | None:
+        for key in ("source_segment_id", "segment_id"):
+            value = str(item.get(key) or "").strip()
+            if value:
+                return value
+        return None
+
+    @classmethod
+    def _first_optional_float(cls, item: dict[str, object], keys: tuple[str, ...]) -> float | None:
+        for key in keys:
+            value = cls._optional_float(item.get(key))
+            if value is not None:
+                return value
+        return None
+
     @classmethod
     def _source_reference_for_segment(
         cls,
@@ -897,10 +970,13 @@ class CollectiveMindGraphService:
             metadata["source_segment_id"] = source.segment_id
         if source.timestamp_start is not None:
             metadata["source_timestamp_start"] = source.timestamp_start
+            metadata["start_time"] = source.timestamp_start
         if source.timestamp_end is not None:
             metadata["source_timestamp_end"] = source.timestamp_end
+            metadata["end_time"] = source.timestamp_end
         if source.text_preview:
             metadata["source_preview"] = source.text_preview
+            metadata["text_preview"] = source.text_preview
         return metadata
 
     @staticmethod

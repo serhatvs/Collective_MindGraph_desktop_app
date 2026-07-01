@@ -45,7 +45,19 @@ class KnowledgeGraphPage(QWidget):
         self.search_filter.textChanged.connect(self._apply_filters)
         
         self.type_filter = QComboBox()
-        self.type_filter.addItems(["All Types", "SESSION", "SEGMENT", "TASK", "DECISION", "TOPIC", "ENTITY", "PERSON"])
+        self.type_filter.addItems([
+            "All Types",
+            "SESSION",
+            "SEGMENT",
+            "TASK",
+            "DECISION",
+            "TOPIC",
+            "ENTITY",
+            "RISK",
+            "OPEN_QUESTION",
+            "FOLLOW_UP",
+            "PERSON",
+        ])
         self.type_filter.currentIndexChanged.connect(self._apply_filters)
         
         toolbar.addWidget(QLabel("Filter:"))

@@ -129,3 +129,27 @@ def test_graph_traversal_preserves_source_after_edit(service):
     assert node.properties["title"] == "New"
     assert node.source.session_id == "s1"
     assert node.source.segment_id == "seg1"
+
+def test_extended_node_review_lifecycle_updates_status_and_disable_flags(service):
+    repo = service.production_graph
+    repo.create_node(GraphNode(
+        id="risk1",
+        type=NodeType.RISK,
+        properties={"title": "Deployment risk", "review_status": "pending"},
+        source=SourceReference(session_id="s1", segment_id="seg1"),
+    ))
+
+    assert service.update_node("risk1", {"review_status": "approved"})
+    node = repo.get_node("risk1")
+    assert node.properties["review_status"] == "approved"
+
+    assert service.update_node("risk1", {"title": "Updated deployment risk", "review_status": "edited"})
+    node = repo.get_node("risk1")
+    assert node.properties["title"] == "Updated deployment risk"
+    assert node.properties["review_status"] == "edited"
+
+    assert service.update_node("risk1", {"review_status": "rejected", "disabled": True, "disabled_reason": "duplicate"})
+    node = repo.get_node("risk1")
+    assert node.properties["review_status"] == "rejected"
+    assert node.properties["disabled"] is True
+    assert node.properties["disabled_reason"] == "duplicate"

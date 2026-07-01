@@ -57,7 +57,7 @@ class EvidenceAnswerService:
                     is_valid = False
                     break
                 status = props.get("review_status", "pending")
-                if status == "rejected":
+                if status in {"rejected", "merged"}:
                     is_valid = False
                     break
                 if status == "pending":

@@ -180,6 +180,7 @@ class MainWindow(QMainWindow):
         self.review_page.node_approved.connect(self._handle_node_approve)
         self.review_page.node_rejected.connect(self._handle_node_reject)
         self.graph_page.node_updated.connect(self._handle_node_update)
+        self.graph_page.node_merge_requested.connect(self._handle_node_merge)
         self.graph_page.source_trace_requested.connect(self._handle_graph_trace)
         self.memory_search_page.source_navigation_requested.connect(self._navigate_to_source)
         self.memory_search_page.reasoning_trace_available.connect(self._handle_reasoning_trace)
@@ -197,6 +198,13 @@ class MainWindow(QMainWindow):
     def _handle_node_update(self, node_id: str, props: dict) -> None:
         self._service.update_node(node_id, props)
         self._refresh_current_session_graph()
+
+    def _handle_node_merge(self, source_node_id: str, target_node_id: str) -> None:
+        if self._service.merge_nodes(source_node_id, target_node_id):
+            self.statusBar().showMessage(f"Node Merged: {source_node_id} -> {target_node_id}")
+            self._refresh_current_session_graph()
+        else:
+            QMessageBox.warning(self, "Merge Failed", "Could not merge the selected nodes.")
 
     def _handle_graph_trace(self, session_id: str, segment_id: str) -> None:
         resolved_session_id = session_id or (str(self._selected_session_id) if self._selected_session_id else "")

@@ -92,9 +92,13 @@ class GraphReasoningService:
         
         matched_nodes = []
         for t in topics:
+            if self._is_hidden_from_normal_results(t):
+                continue
             if topic_text.lower() in (t.properties.get("title") or "").lower():
                 matched_nodes.append(t)
         for e in entities:
+            if self._is_hidden_from_normal_results(e):
+                continue
             if topic_text.lower() in (e.properties.get("title") or "").lower():
                 matched_nodes.append(e)
                 
@@ -106,7 +110,7 @@ class GraphReasoningService:
             all_items = self.repo.find_nodes_by_type(item_type)
             for item_node in all_items:
                 status = item_node.properties.get("review_status", "pending")
-                if item_node.properties.get("disabled") or status == "rejected":
+                if item_node.properties.get("disabled") or status in {"rejected", "merged"}:
                     continue
                 chain = EvidenceChain(steps=[EvidenceStep(node=item_node)])
                 result.chains.append(chain)
@@ -118,7 +122,7 @@ class GraphReasoningService:
             for item_node in all_items:
                 if topic_text.lower() in (item_node.properties.get("title") or "").lower():
                     status = item_node.properties.get("review_status", "pending")
-                    if item_node.properties.get("disabled") or status == "rejected":
+                    if item_node.properties.get("disabled") or status in {"rejected", "merged"}:
                         continue
                     chain = EvidenceChain(steps=[EvidenceStep(node=item_node)])
                     result.chains.append(chain)
@@ -140,7 +144,7 @@ class GraphReasoningService:
                         if item_node.type == item_type:
                             # Verify review status
                             status = item_node.properties.get("review_status", "pending")
-                            if item_node.properties.get("disabled") or status == "rejected":
+                            if item_node.properties.get("disabled") or status in {"rejected", "merged"}:
                                 continue
                             
                             chain = EvidenceChain(steps=[
@@ -154,6 +158,11 @@ class GraphReasoningService:
                             result.chains.append(chain)
         
         return result
+
+    @staticmethod
+    def _is_hidden_from_normal_results(node: GraphNode) -> bool:
+        status = node.properties.get("review_status")
+        return bool(node.properties.get("disabled") or status in {"rejected", "merged"})
 
     def get_intent_based_reasoning(self, query: str) -> ReasoningResult:
         """Parses simple intents and routes to specific graph methods."""

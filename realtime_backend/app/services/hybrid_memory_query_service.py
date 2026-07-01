@@ -61,7 +61,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
                         if node:
                             # Filter by review status and disabled flag
                             meta = node.properties
-                            if meta.get("disabled") or meta.get("review_status") == "rejected":
+                            if self._is_excluded(meta):
                                 continue
                             enhanced_results[node_id] = EnhancedQueryResult(node=node)
                     
@@ -87,7 +87,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
                     node_id = row["id"]
                     meta = json.loads(row["metadata_json"]) if isinstance(row["metadata_json"], str) else row["metadata_json"]
                     # Filter by review status and disabled flag
-                    if meta.get("disabled") or meta.get("review_status") == "rejected":
+                    if self._is_excluded(meta):
                         continue
                         
                     if node_id not in enhanced_results:
@@ -168,4 +168,4 @@ class HybridMemoryQueryService(HybridQueryInterface):
 
     @staticmethod
     def _is_excluded(properties: Dict[str, Any]) -> bool:
-        return bool(properties.get("disabled") or properties.get("review_status") == "rejected")
+        return bool(properties.get("disabled") or properties.get("review_status") in {"rejected", "merged"})

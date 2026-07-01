@@ -30,6 +30,7 @@ from ..widgets import CardWidget
 class KnowledgeGraphPage(QWidget):
     source_trace_requested = Signal(str, str) # session_id, segment_id
     node_updated = Signal(str, dict) # node_id, properties
+    node_merge_requested = Signal(str, str) # source_node_id, target_node_id
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -123,10 +124,15 @@ class KnowledgeGraphPage(QWidget):
         self.disable_button = QPushButton("Disable Node")
         self.disable_button.setEnabled(False)
         self.disable_button.clicked.connect(self._handle_disable_click)
+
+        self.merge_button = QPushButton("Merge Into...")
+        self.merge_button.setEnabled(False)
+        self.merge_button.clicked.connect(self._handle_merge_click)
         
         actions_row.addWidget(self.trace_button)
         actions_row.addWidget(self.edit_button)
         actions_row.addWidget(self.disable_button)
+        actions_row.addWidget(self.merge_button)
         prop_layout.addLayout(actions_row)
         self.detail_panel.body_layout.addLayout(prop_layout)
         
@@ -199,6 +205,7 @@ class KnowledgeGraphPage(QWidget):
             self.trace_button.setEnabled(False)
             self.edit_button.setEnabled(False)
             self.disable_button.setEnabled(False)
+            self.merge_button.setEnabled(False)
             return
             
         row = selected_items[0].row()
@@ -225,6 +232,7 @@ class KnowledgeGraphPage(QWidget):
         self.trace_button.setEnabled(True)
         self.edit_button.setEnabled(True)
         self.disable_button.setEnabled(True)
+        self.merge_button.setEnabled(True)
         self.disable_button.setText("Enable Node" if meta.get("disabled") else "Disable Node")
         
         # Update Neighbors
@@ -288,6 +296,15 @@ class KnowledgeGraphPage(QWidget):
         
         msg = "Node disabled. It will no longer appear in search results." if new_state else "Node enabled."
         QMessageBox.information(self, "Status Updated", msg)
+
+    def _handle_merge_click(self) -> None:
+        if not self._selected_node:
+            return
+        source_id = str(self._selected_node.get("id") or "")
+        target_id, ok = QInputDialog.getText(self, "Merge Node", "Target node ID:")
+        target_id = target_id.strip()
+        if ok and target_id and target_id != source_id:
+            self.node_merge_requested.emit(source_id, target_id)
 
     @staticmethod
     def _node_metadata(node: dict) -> dict:

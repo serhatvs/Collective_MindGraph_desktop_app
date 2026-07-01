@@ -282,6 +282,48 @@ class CollectiveMindGraphService:
     def update_node(self, node_id: str, properties: dict[str, Any]) -> bool:
         return self.production_graph.update_node(node_id, properties)
 
+    def merge_nodes(self, source_node_id: str, target_node_id: str) -> bool:
+        source_id = str(source_node_id or "").strip()
+        target_id = str(target_node_id or "").strip()
+        if not source_id or not target_id or source_id == target_id:
+            return False
+
+        source = self.production_graph.get_node(source_id)
+        target = self.production_graph.get_node(target_id)
+        if source is None or target is None:
+            return False
+        if source.type != target.type:
+            return False
+
+        merged_at = datetime.now(tz=UTC).isoformat()
+        target_merged_ids = list(target.properties.get("merged_source_node_ids") or [])
+        if source_id not in target_merged_ids:
+            target_merged_ids.append(source_id)
+
+        source_props = {
+            "review_status": "merged",
+            "merged_into_node_id": target_id,
+            "merged_at": merged_at,
+        }
+        target_props = {
+            "merged_source_node_ids": target_merged_ids,
+            "last_merged_at": merged_at,
+        }
+
+        source_updated = self.production_graph.update_node(source_id, source_props)
+        target_updated = self.production_graph.update_node(target_id, target_props)
+        if not (source_updated and target_updated):
+            return False
+
+        self.production_graph.create_edge(GraphEdge(
+            id="",
+            source_node_id=source_id,
+            target_node_id=target_id,
+            type=EdgeType.NODE_MERGED_INTO,
+            properties={"merged_at": merged_at},
+        ))
+        return True
+
     def get_session_graph_data(self, session_id: int) -> dict[str, Any]:
         session_id_str = str(session_id)
         v2_nodes = []

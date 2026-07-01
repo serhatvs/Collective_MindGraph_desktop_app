@@ -153,3 +153,71 @@ def test_extended_node_review_lifecycle_updates_status_and_disable_flags(service
     assert node.properties["review_status"] == "rejected"
     assert node.properties["disabled"] is True
     assert node.properties["disabled_reason"] == "duplicate"
+
+def test_merge_nodes_marks_source_and_records_target_metadata(service):
+    repo = service.production_graph
+    source_ref = SourceReference(session_id="s1", segment_id="seg1")
+    target_ref = SourceReference(session_id="s1", segment_id="seg2")
+    repo.create_node(GraphNode(
+        id="risk_source",
+        type=NodeType.RISK,
+        properties={"title": "Deployment may fail", "review_status": "pending"},
+        source=source_ref,
+    ))
+    repo.create_node(GraphNode(
+        id="risk_target",
+        type=NodeType.RISK,
+        properties={"title": "Deployment risk", "review_status": "approved"},
+        source=target_ref,
+    ))
+
+    assert service.merge_nodes("risk_source", "risk_target")
+
+    source = repo.get_node("risk_source")
+    target = repo.get_node("risk_target")
+    assert source.properties["review_status"] == "merged"
+    assert source.properties["merged_into_node_id"] == "risk_target"
+    assert source.source.session_id == "s1"
+    assert source.source.segment_id == "seg1"
+    assert target.properties["review_status"] == "approved"
+    assert target.properties["merged_source_node_ids"] == ["risk_source"]
+    assert target.source.segment_id == "seg2"
+
+    merge_edges = [
+        edge for edge in repo.get_edges_by_node("risk_source", as_source=True)
+        if edge.type == EdgeType.NODE_MERGED_INTO
+    ]
+    assert len(merge_edges) == 1
+    assert merge_edges[0].target_node_id == "risk_target"
+
+def test_merge_nodes_fails_safely_for_missing_or_incompatible_nodes(service):
+    repo = service.production_graph
+    repo.create_node(GraphNode(id="task1", type=NodeType.TASK, properties={"title": "Task"}))
+    repo.create_node(GraphNode(id="risk1", type=NodeType.RISK, properties={"title": "Risk"}))
+
+    assert service.merge_nodes("missing", "task1") is False
+    assert service.merge_nodes("task1", "missing") is False
+    assert service.merge_nodes("task1", "task1") is False
+    assert service.merge_nodes("task1", "risk1") is False
+
+def test_merged_source_hidden_from_backend_hybrid_query():
+    from realtime_backend.app.services.hybrid_memory_query_service import HybridMemoryQueryService
+    from unittest.mock import MagicMock
+    from realtime_backend.app.services.memory_graph import GraphNode as BackendGraphNode, NodeType as BackendNodeType
+
+    mock_repo = MagicMock()
+    mock_conn = MagicMock()
+    mock_conn.__enter__.return_value = mock_conn
+    mock_repo.database.connect.return_value = mock_conn
+    mock_repo.get_node.return_value = BackendGraphNode(
+        id="merged1",
+        type=BackendNodeType.TASK,
+        properties={"title": "Merged task", "review_status": "merged"},
+    )
+    mock_conn.execute.return_value.fetchall.return_value = [
+        {"id": "merged1", "type": "TASK", "title": "Merged task", "text_content": "Merged task", "metadata_json": '{"review_status": "merged"}'}
+    ]
+
+    result = HybridMemoryQueryService(mock_repo).execute_query("Merged", use_keyword=True, use_vector=False, use_graph=False)
+
+    assert result.nodes == []

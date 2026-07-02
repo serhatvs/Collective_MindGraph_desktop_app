@@ -80,6 +80,6 @@ The **native PySide6 desktop app** is the only user-facing frontend. If the wind
 5.  **Virtual Environment**:
     The desktop app requires PySide6. The `dev_desktop.sh` script handles this if `realtime_backend/.venv` exists.
 
-*Note: The backend API at `127.0.0.1:8081` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.*
+*Note: The backend API at `127.0.0.1:8080` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.*
 
 *Note: This flow demonstrates architectural integration and Turkish heuristic accuracy. Actual meeting-room audio performance is pending manual fixture validation.*

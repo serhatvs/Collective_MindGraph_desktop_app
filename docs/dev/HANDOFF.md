@@ -26,8 +26,8 @@ Follow the steps in [DEMO_FLOW.md](../demo/DEMO_FLOW.md) for a guided walkthroug
 ## Interface Definitions
 - **User-facing Frontend**: Rebuilt Native PySide6 Desktop Application in `src/collective_mindgraph_desktop/`.
   - **Structure**: Uses a modular `ui/pages/` and `ui/components/` architecture.
-- **Backend API**: Local FastAPI service at `http://127.0.0.1:8081`.
-- **Optional Developer Docs**: API documentation at `http://127.0.0.1:8081/docs` (Use for debugging only).
+- **Backend API**: Local FastAPI service at `http://127.0.0.1:8080`.
+- **Optional Developer Docs**: API documentation at `http://127.0.0.1:8080/docs` (Use for debugging only).
 
 ## Architecture
 - **Desktop UI**: PySide6 application. Features a 3-area layout (Sidebar, Tabbed Content, Header Controls).

@@ -228,6 +228,8 @@ Do not present diagnostics as proof of production packaging or production meetin
 
 ## Packaging State
 
+Related checklist: [Packaging Smoke Checklist](PACKAGING_SMOKE_CHECKLIST.md).
+
 Verified packaging scaffold:
 
 - `CollectiveMindGraph.spec`

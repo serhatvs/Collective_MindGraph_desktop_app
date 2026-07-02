@@ -1,5 +1,36 @@
 # Collective MindGraph
 
+> [!IMPORTANT]
+> You are viewing the **Transcription Track** branch:
+>
+> `feature/transcription-quality-pipeline`
+>
+> This branch is only for Turkish transcription quality work:
+>
+> - ASR / STT pipeline
+> - Faster-Whisper settings
+> - Turkish language defaults
+> - raw vs cleaned transcript handling
+> - transcript cleanup
+> - audio preprocessing only when needed for transcription bugs
+> - transcription benchmarks and validation reports
+>
+> Do **not** use this branch for Memory Track work.
+>
+> Memory Track work belongs on:
+>
+> `feature/transcript-to-memory-pipeline`
+>
+> Memory Track includes graph memory, Ask Memory, source traceability, review lifecycle, hybrid search, export/import, and transcript-to-memory features.
+
+## Branch Scope
+
+This branch is the **Transcription Track** branch.
+
+Its purpose is to keep the Turkish transcription pipeline stable, benchmarked, and safely maintainable.
+
+It should not include Memory Track implementation work such as graph persistence, Ask Memory, review lifecycle, source tracing, hybrid memory search, merge workflow, or export/import graph hardening.
+
 Collective MindGraph is a local-first, privacy-focused organizational memory system for technical teams. It captures, transcribes, and extracts structured knowledge from technical conversations—entirely on local hardware.
 
 ## Current Status: Stable Fallback-First

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, Optional
 
 from .database import Database
 from .models import (
@@ -69,6 +71,36 @@ class SnapshotHasher:
         ]
         payload = json.dumps(canonical_nodes, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _json_text(value: object, default: object) -> str:
+    payload = value if value is not None else default
+    if isinstance(payload, str):
+        return payload
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _json_object(value: object, default: dict[str, object] | None = None) -> dict[str, object]:
+    fallback = dict(default or {})
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            loaded = json.loads(value)
+        except json.JSONDecodeError:
+            return fallback
+        if isinstance(loaded, dict):
+            return loaded
+    return fallback
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class CollectiveMindGraphService:
@@ -409,49 +441,237 @@ class CollectiveMindGraphService:
             
         data = json.loads(path.read_text(encoding="utf-8"))
         
-        # 1. Create/Restore Session
         session_data = data["session"]
-        title = f"[Imported] {session_data['title']}"
-        session = self.create_session(title, session_data["device_id"], session_data["status"])
+        title = f"[Imported] {session_data.get('title') or 'Imported Session'}"
+        session = self.create_session(
+            title,
+            str(session_data.get("device_id") or "IMPORTED"),
+            str(session_data.get("status") or "active"),
+        )
         
-        # 2. Restore V2 Production Graph
         v2_graph = data.get("v2_production_graph", {})
         nodes = v2_graph.get("nodes", [])
         edges = v2_graph.get("edges", [])
         refs = v2_graph.get("source_references", [])
+        now = current_timestamp()
+        transcript_id_map: dict[object, int] = {}
+        mvp_node_id_map: dict[object, int] = {}
+        ref_id_map: dict[str, str] = {}
         
         with self._database.connect() as conn:
-            # Source References first
+            for transcript in data.get("transcripts", []):
+                old_id = transcript.get("id")
+                cursor = conn.execute(
+                    """
+                    INSERT INTO transcripts (session_id, text, confidence, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        str(transcript.get("text") or ""),
+                        _optional_float(transcript.get("confidence")) or 1.0,
+                        transcript.get("created_at") or now,
+                    ),
+                )
+                new_id = int(cursor.lastrowid)
+                if old_id is not None:
+                    transcript_id_map[old_id] = new_id
+                    transcript_id_map[str(old_id)] = new_id
+
+            for node in data.get("graph_nodes", []):
+                old_id = node.get("id")
+                old_transcript_id = node.get("transcript_id")
+                old_parent_id = node.get("parent_node_id")
+                parent_node_id = mvp_node_id_map.get(old_parent_id) or mvp_node_id_map.get(str(old_parent_id))
+                branch_type = str(node.get("branch_type") or "root")
+                if parent_node_id is None:
+                    branch_type = "root"
+                    branch_slot = None
+                else:
+                    branch_type = branch_type if branch_type in {"main", "side"} else "main"
+                    branch_slot = node.get("branch_slot") if branch_type == "side" else None
+                cursor = conn.execute(
+                    """
+                    INSERT INTO graph_nodes (
+                        session_id,
+                        transcript_id,
+                        parent_node_id,
+                        branch_type,
+                        branch_slot,
+                        node_text,
+                        override_reason,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        transcript_id_map.get(old_transcript_id) or transcript_id_map.get(str(old_transcript_id)),
+                        parent_node_id,
+                        branch_type,
+                        branch_slot,
+                        str(node.get("node_text") or ""),
+                        node.get("override_reason"),
+                        node.get("created_at") or now,
+                    ),
+                )
+                new_node_id = int(cursor.lastrowid)
+                if old_id is not None:
+                    mvp_node_id_map[old_id] = new_node_id
+                    mvp_node_id_map[str(old_id)] = new_node_id
+
+            for snapshot in data.get("snapshots", []):
+                conn.execute(
+                    """
+                    INSERT INTO snapshots (session_id, node_count, hash_sha256, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        int(snapshot.get("node_count") or 0),
+                        str(snapshot.get("hash_sha256") or ""),
+                        snapshot.get("created_at") or now,
+                    ),
+                )
+
+            for analysis in data.get("transcript_analyses", []):
+                old_transcript_id = analysis.get("transcript_id")
+                transcript_id = transcript_id_map.get(old_transcript_id) or transcript_id_map.get(str(old_transcript_id))
+                if transcript_id is None:
+                    continue
+                transcript_row = conn.execute(
+                    "SELECT text FROM transcripts WHERE id = ?",
+                    (transcript_id,),
+                ).fetchone()
+                transcript_text = transcript_row["text"] if transcript_row else ""
+                conn.execute(
+                    """
+                    INSERT INTO transcript_analyses (
+                        transcript_id,
+                        source_provider,
+                        backend_conversation_id,
+                        raw_text_output,
+                        corrected_text_output,
+                        summary,
+                        topics_json,
+                        action_items_json,
+                        decisions_json,
+                        people_json,
+                        metadata_json,
+                        speaker_stats_json,
+                        segments_json,
+                        quality_report_json,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(transcript_id) DO UPDATE SET
+                        source_provider = excluded.source_provider,
+                        backend_conversation_id = excluded.backend_conversation_id,
+                        raw_text_output = excluded.raw_text_output,
+                        corrected_text_output = excluded.corrected_text_output,
+                        summary = excluded.summary,
+                        topics_json = excluded.topics_json,
+                        action_items_json = excluded.action_items_json,
+                        decisions_json = excluded.decisions_json,
+                        people_json = excluded.people_json,
+                        metadata_json = excluded.metadata_json,
+                        speaker_stats_json = excluded.speaker_stats_json,
+                        segments_json = excluded.segments_json,
+                        quality_report_json = excluded.quality_report_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        transcript_id,
+                        str(analysis.get("source_provider") or "imported"),
+                        analysis.get("backend_conversation_id"),
+                        str(analysis.get("raw_text_output") or transcript_text),
+                        str(analysis.get("corrected_text_output") or transcript_text),
+                        analysis.get("summary"),
+                        _json_text(analysis.get("topics"), []),
+                        _json_text(analysis.get("action_items"), []),
+                        _json_text(analysis.get("decisions"), []),
+                        _json_text(analysis.get("people"), []),
+                        _json_text(analysis.get("metadata"), {}),
+                        _json_text(analysis.get("speaker_stats"), []),
+                        _json_text(analysis.get("segments"), []),
+                        (
+                            _json_text(analysis.get("quality_report"), {})
+                            if analysis.get("quality_report") is not None
+                            else None
+                        ),
+                        analysis.get("created_at") or now,
+                        analysis.get("updated_at") or analysis.get("created_at") or now,
+                    ),
+                )
+
             for r in refs:
-                # Update session_id to new session
-                r["session_id"] = str(session.id)
+                original_ref_id = str(r.get("id") or "")
+                ref_id = original_ref_id or str(uuid.uuid4())
+                ref_id_map[original_ref_id] = ref_id
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_source_references 
                     (id, session_id, segment_id, document_id, chunk_id, timestamp_start, timestamp_end, text_preview, created_at) 
                     VALUES (?,?,?,?,?,?,?,?,?)
                     """,
-                    (r["id"], r["session_id"], r["segment_id"], r.get("document_id"), r.get("chunk_id"), r["timestamp_start"], r["timestamp_end"], r["text_preview"], r["created_at"])
+                    (
+                        ref_id,
+                        str(session.id),
+                        r.get("segment_id") or r.get("source_segment_id"),
+                        r.get("document_id"),
+                        r.get("chunk_id"),
+                        _optional_float(r.get("timestamp_start") if r.get("timestamp_start") is not None else r.get("start_time")),
+                        _optional_float(r.get("timestamp_end") if r.get("timestamp_end") is not None else r.get("end_time")),
+                        r.get("text_preview") or r.get("source_text_preview"),
+                        r.get("created_at") or now,
+                    )
                 )
-            # Nodes
             for n in nodes:
+                metadata = _json_object(n.get("metadata_json"), {})
+                if "source_session_id" in metadata:
+                    metadata["source_session_id"] = str(session.id)
+                node_source_ref = n.get("source_reference_id")
+                if node_source_ref:
+                    node_source_ref = ref_id_map.get(str(node_source_ref), str(node_source_ref))
+                    metadata["source_reference_id"] = node_source_ref
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_graph_nodes 
                     (id, type, title, text_content, metadata_json, source_reference_id, created_at, updated_at) 
                     VALUES (?,?,?,?,?,?,?,?)
                     """,
-                    (n["id"], n["type"], n["title"], n["text_content"], n["metadata_json"], n["source_reference_id"], n["created_at"], n["updated_at"])
+                    (
+                        str(n.get("id") or uuid.uuid4()),
+                        str(n.get("type") or "TASK"),
+                        n.get("title") or metadata.get("title"),
+                        n.get("text_content") or metadata.get("text_content") or metadata.get("text"),
+                        json.dumps(metadata, ensure_ascii=False),
+                        node_source_ref,
+                        n.get("created_at") or now,
+                        n.get("updated_at") or n.get("created_at") or now,
+                    )
                 )
-            # Edges
             for e in edges:
+                edge_source_ref = e.get("source_reference_id")
+                if edge_source_ref:
+                    edge_source_ref = ref_id_map.get(str(edge_source_ref), str(edge_source_ref))
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_graph_edges 
                     (id, source_node_id, target_node_id, edge_type, metadata_json, confidence, source_reference_id, created_at) 
                     VALUES (?,?,?,?,?,?,?,?)
                     """,
-                    (e["id"], e["source_node_id"], e["target_node_id"], e["edge_type"], e["metadata_json"], e["confidence"], e["source_reference_id"], e["created_at"])
+                    (
+                        str(e.get("id") or uuid.uuid4()),
+                        str(e.get("source_node_id") or ""),
+                        str(e.get("target_node_id") or ""),
+                        str(e.get("edge_type") or "RELATED_TO"),
+                        _json_text(e.get("metadata_json"), {}),
+                        _optional_float(e.get("confidence")) or 1.0,
+                        edge_source_ref,
+                        e.get("created_at") or now,
+                    )
                 )
                 
         return session

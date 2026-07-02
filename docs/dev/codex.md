@@ -31,6 +31,7 @@
 - **Report Archive**: Generated benchmark, validation, and simulation outputs now live under `docs/reports/` with date-based folders. The latest checkpoint is `docs/reports/2026-06-30/`; `docs/dev/` should stay focused on active developer guides and technical documentation.
 - **Agent Handoff**: `agy.md` (repo root) was created on 2026-06-22 by Antigravity as a durable working memory file for all future agent sessions. It captures dataset, blocker, environment, and exact next-step commands. Read it at the start of every benchmark-focused session.
 - **Two-Track Setup**: A documentation-only split plan now separates `feature/transcription-quality-pipeline` for transcription maintenance/validation/bugfixes from planned `feature/transcript-to-memory-pipeline` work for transcript-to-structured-memory product development. Branch/worktree creation must wait for a clean working tree.
+- **Meeting-Room Validation Fixture Path**: The requested real Turkish meeting-room validation fixture path is now prepared at `tests/fixtures/transcription/`. Required files are `tr_meeting_room_sample.wav` and `tr_meeting_room_reference.txt`. `docs/reports/2026-06-30/TR_MEETING_ROOM_TRANSCRIPTION_VALIDATION.md` currently records `BLOCKED_NO_FIXTURE`; no meeting-room benchmark has been run and no WER/CER exists for this fixture yet.
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.
@@ -51,6 +52,7 @@
 - [ ] Validate Silero VAD itself in the current Windows environment; the first separate validation showed Silero did not load and ASR continued with EnergyVAD fallback.
 - [ ] Run `scripts/benchmark_asr_accuracy.py` with a real reference transcript to compute WER/CER.
 - [ ] Execute `docs/reports/2026-06-30/gpu-asr/REAL_ROOM_AUDIO_VALIDATION_PLAN.md` with real meeting-room Turkish audio fixtures and human references.
+- [ ] Add cleared `tests/fixtures/transcription/tr_meeting_room_sample.wav` plus human-written `tr_meeting_room_reference.txt`, then run `scripts/benchmark_asr_accuracy.py` with `balanced` and optionally `max_quality`, writing `docs/reports/2026-06-30/TR_MEETING_ROOM_TRANSCRIPTION_VALIDATION.md`.
 - [ ] Start `Transcript -> Structured Memory Pipeline`: extraction from transcripts, task/decision/topic/risk/open-question detection, source references, human review, memory graph persistence, and evidence-only Ask Memory.
 - [ ] Create `feature/transcript-to-memory-pipeline` and the recommended `../cmg-memory` worktree once the current dirty working tree is resolved.
 - [ ] Create or verify `../cmg-transcription` only after deciding whether the current repo should remain on `feature/transcription-quality-pipeline` or move elsewhere, because that branch is currently checked out in the original repo.

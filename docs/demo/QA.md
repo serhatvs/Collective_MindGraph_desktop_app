@@ -16,7 +16,7 @@ No. All cloud AI logic (Amazon Bedrock, Deepgram) has been **completely removed*
 It means all audio normalization, VAD, ASR, and extraction happen on the user's machine. The system includes **offline safety guards** that prevent it from making unintentional network calls to public APIs. The **frontend** is a native desktop application that communicates with this local service.
 
 ## 6. Where is the user interface?
-The user interface is a **native PySide6 desktop application**. The FastAPI backend at `127.0.0.1:8081` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.
+The user interface is a **native PySide6 desktop application**. The FastAPI backend at `127.0.0.1:8080` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.
 
 ## 7. What is the difference between raw_transcript and cleaned_transcript?
 - **Raw Transcript**: The exact, unfiltered output from the ASR model, preserved for auditability and debugging.

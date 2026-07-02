@@ -30,6 +30,7 @@ from ..widgets import CardWidget
 class KnowledgeGraphPage(QWidget):
     source_trace_requested = Signal(str, str) # session_id, segment_id
     node_updated = Signal(str, dict) # node_id, properties
+    node_merge_requested = Signal(str, str) # source_node_id, target_node_id
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -45,7 +46,19 @@ class KnowledgeGraphPage(QWidget):
         self.search_filter.textChanged.connect(self._apply_filters)
         
         self.type_filter = QComboBox()
-        self.type_filter.addItems(["All Types", "SESSION", "SEGMENT", "TASK", "DECISION", "TOPIC", "ENTITY", "PERSON"])
+        self.type_filter.addItems([
+            "All Types",
+            "SESSION",
+            "SEGMENT",
+            "TASK",
+            "DECISION",
+            "TOPIC",
+            "ENTITY",
+            "RISK",
+            "OPEN_QUESTION",
+            "FOLLOW_UP",
+            "PERSON",
+        ])
         self.type_filter.currentIndexChanged.connect(self._apply_filters)
         
         toolbar.addWidget(QLabel("Filter:"))
@@ -111,10 +124,15 @@ class KnowledgeGraphPage(QWidget):
         self.disable_button = QPushButton("Disable Node")
         self.disable_button.setEnabled(False)
         self.disable_button.clicked.connect(self._handle_disable_click)
+
+        self.merge_button = QPushButton("Merge Into...")
+        self.merge_button.setEnabled(False)
+        self.merge_button.clicked.connect(self._handle_merge_click)
         
         actions_row.addWidget(self.trace_button)
         actions_row.addWidget(self.edit_button)
         actions_row.addWidget(self.disable_button)
+        actions_row.addWidget(self.merge_button)
         prop_layout.addLayout(actions_row)
         self.detail_panel.body_layout.addLayout(prop_layout)
         
@@ -155,8 +173,7 @@ class KnowledgeGraphPage(QWidget):
             n_type = str(node.get("type"))
             title = node.get("title") or node.get("text_content") or ""
             
-            meta_str = node.get("metadata_json") or "{}"
-            meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+            meta = self._node_metadata(node)
             status = "DISABLED" if meta.get("disabled") else "ACTIVE"
             
             if selected_type != "All Types" and n_type != selected_type:
@@ -188,6 +205,7 @@ class KnowledgeGraphPage(QWidget):
             self.trace_button.setEnabled(False)
             self.edit_button.setEnabled(False)
             self.disable_button.setEnabled(False)
+            self.merge_button.setEnabled(False)
             return
             
         row = selected_items[0].row()
@@ -196,8 +214,7 @@ class KnowledgeGraphPage(QWidget):
         
         if not node: return
         
-        meta_str = node.get("metadata_json") or "{}"
-        meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+        meta = self._node_metadata(node)
         
         info = [
             f"Node ID: {node.get('id')}",
@@ -215,6 +232,7 @@ class KnowledgeGraphPage(QWidget):
         self.trace_button.setEnabled(True)
         self.edit_button.setEnabled(True)
         self.disable_button.setEnabled(True)
+        self.merge_button.setEnabled(True)
         self.disable_button.setText("Enable Node" if meta.get("disabled") else "Disable Node")
         
         # Update Neighbors
@@ -247,17 +265,15 @@ class KnowledgeGraphPage(QWidget):
 
     def _handle_trace_click(self) -> None:
         if not self._selected_node: return
-        # Attempt to extract session/segment from node source reference or ID
-        # For our graph, segments have ID like 'seg_s1'
-        node_id = self._selected_node.get("id", "")
-        
-        # Get source ref if exists
-        source_ref_id = self._selected_node.get("source_reference_id")
-        
-        # Emit signal to MainWindow to navigate
-        # (This logic will be handled by MainWindow based on session context)
-        # For now we use a heuristic or pass the node
-        self.source_trace_requested.emit(node_id, str(source_ref_id or ""))
+        meta = self._node_metadata(self._selected_node)
+        session_id = self._selected_node.get("source_session_id") or meta.get("source_session_id")
+        segment_id = self._selected_node.get("source_segment_id") or meta.get("source_segment_id")
+
+        if not segment_id and self._selected_node.get("type") == "SEGMENT":
+            segment_id = self._fallback_segment_id_from_node_id(str(self._selected_node.get("id") or ""))
+
+        if session_id or segment_id:
+            self.source_trace_requested.emit(str(session_id or ""), str(segment_id or ""))
 
     def _handle_edit_click(self) -> None:
         if not self._selected_node: return
@@ -270,8 +286,7 @@ class KnowledgeGraphPage(QWidget):
 
     def _handle_disable_click(self) -> None:
         if not self._selected_node: return
-        meta_str = self._selected_node.get("metadata_json") or "{}"
-        meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+        meta = self._node_metadata(self._selected_node)
         
         is_disabled = meta.get("disabled", False)
         new_state = not is_disabled
@@ -281,3 +296,32 @@ class KnowledgeGraphPage(QWidget):
         
         msg = "Node disabled. It will no longer appear in search results." if new_state else "Node enabled."
         QMessageBox.information(self, "Status Updated", msg)
+
+    def _handle_merge_click(self) -> None:
+        if not self._selected_node:
+            return
+        source_id = str(self._selected_node.get("id") or "")
+        target_id, ok = QInputDialog.getText(self, "Merge Node", "Target node ID:")
+        target_id = target_id.strip()
+        if ok and target_id and target_id != source_id:
+            self.node_merge_requested.emit(source_id, target_id)
+
+    @staticmethod
+    def _node_metadata(node: dict) -> dict:
+        meta_str = node.get("metadata_json") or "{}"
+        if isinstance(meta_str, dict):
+            return meta_str
+        try:
+            parsed = json.loads(meta_str)
+        except (TypeError, json.JSONDecodeError):
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+
+    @staticmethod
+    def _fallback_segment_id_from_node_id(node_id: str) -> str | None:
+        if not node_id.startswith("seg_"):
+            return None
+        parts = node_id.split("_", 2)
+        if len(parts) == 3 and parts[2]:
+            return parts[2]
+        return None

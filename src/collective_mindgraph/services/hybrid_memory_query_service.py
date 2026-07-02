@@ -53,9 +53,9 @@ class HybridMemoryQueryService(HybridQueryInterface):
                 for hit in vec_hits:
                     node_id = hit["node_id"]
                     if node_id not in enhanced_results:
-                        node = self.graph_repo.get_node(node_id)
-                        if node:
-                            enhanced_results[node_id] = EnhancedQueryResult(node=node)
+                    node = self.graph_repo.get_node(node_id)
+                    if node and not self._is_excluded(node.properties):
+                        enhanced_results[node_id] = EnhancedQueryResult(node=node)
                     
                     if node_id in enhanced_results:
                         res = enhanced_results[node_id]
@@ -76,7 +76,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
                     node_id = row["id"]
                     if node_id not in enhanced_results:
                         node = self.graph_repo.get_node(node_id)
-                        if node:
+                        if node and not self._is_excluded(node.properties):
                             enhanced_results[node_id] = EnhancedQueryResult(node=node)
                     
                     if node_id in enhanced_results:
@@ -130,7 +130,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
     def _add_graph_hit(self, results: Dict[str, EnhancedQueryResult], target_id: str, source_res: EnhancedQueryResult, edge_type: str):
         if target_id not in results:
             node = self.graph_repo.get_node(target_id)
-            if node:
+            if node and not self._is_excluded(node.properties):
                 results[target_id] = EnhancedQueryResult(node=node)
         
         if target_id in results:
@@ -142,3 +142,7 @@ class HybridMemoryQueryService(HybridQueryInterface):
             res.score = max(res.score, res.graph_score)
             if not res.edge_path:
                 res.edge_path = [f"{source_res.node.type.value} --({edge_type})--> {res.node.type.value}"]
+
+    @staticmethod
+    def _is_excluded(properties: Dict[str, Any]) -> bool:
+        return bool(properties.get("disabled") or properties.get("review_status") in {"rejected", "merged"})

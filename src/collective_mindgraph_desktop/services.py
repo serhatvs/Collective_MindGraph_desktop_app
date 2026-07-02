@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any, Optional
 
 from .database import Database
 from .models import (
@@ -69,6 +71,36 @@ class SnapshotHasher:
         ]
         payload = json.dumps(canonical_nodes, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _json_text(value: object, default: object) -> str:
+    payload = value if value is not None else default
+    if isinstance(payload, str):
+        return payload
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def _json_object(value: object, default: dict[str, object] | None = None) -> dict[str, object]:
+    fallback = dict(default or {})
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str) and value.strip():
+        try:
+            loaded = json.loads(value)
+        except json.JSONDecodeError:
+            return fallback
+        if isinstance(loaded, dict):
+            return loaded
+    return fallback
+
+
+def _optional_float(value: object) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 class CollectiveMindGraphService:
@@ -282,6 +314,48 @@ class CollectiveMindGraphService:
     def update_node(self, node_id: str, properties: dict[str, Any]) -> bool:
         return self.production_graph.update_node(node_id, properties)
 
+    def merge_nodes(self, source_node_id: str, target_node_id: str) -> bool:
+        source_id = str(source_node_id or "").strip()
+        target_id = str(target_node_id or "").strip()
+        if not source_id or not target_id or source_id == target_id:
+            return False
+
+        source = self.production_graph.get_node(source_id)
+        target = self.production_graph.get_node(target_id)
+        if source is None or target is None:
+            return False
+        if source.type != target.type:
+            return False
+
+        merged_at = datetime.now(tz=UTC).isoformat()
+        target_merged_ids = list(target.properties.get("merged_source_node_ids") or [])
+        if source_id not in target_merged_ids:
+            target_merged_ids.append(source_id)
+
+        source_props = {
+            "review_status": "merged",
+            "merged_into_node_id": target_id,
+            "merged_at": merged_at,
+        }
+        target_props = {
+            "merged_source_node_ids": target_merged_ids,
+            "last_merged_at": merged_at,
+        }
+
+        source_updated = self.production_graph.update_node(source_id, source_props)
+        target_updated = self.production_graph.update_node(target_id, target_props)
+        if not (source_updated and target_updated):
+            return False
+
+        self.production_graph.create_edge(GraphEdge(
+            id="",
+            source_node_id=source_id,
+            target_node_id=target_id,
+            type=EdgeType.NODE_MERGED_INTO,
+            properties={"merged_at": merged_at},
+        ))
+        return True
+
     def get_session_graph_data(self, session_id: int) -> dict[str, Any]:
         session_id_str = str(session_id)
         v2_nodes = []
@@ -289,8 +363,19 @@ class CollectiveMindGraphService:
         
         with self._database.connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM v2_graph_nodes WHERE source_reference_id IN (SELECT id FROM v2_source_references WHERE session_id = ?)",
-                (session_id_str,)
+                """
+                SELECT
+                    n.*,
+                    r.session_id AS source_session_id,
+                    r.segment_id AS source_segment_id,
+                    r.timestamp_start AS source_timestamp_start,
+                    r.timestamp_end AS source_timestamp_end,
+                    r.text_preview AS source_text_preview
+                FROM v2_graph_nodes n
+                LEFT JOIN v2_source_references r ON n.source_reference_id = r.id
+                WHERE r.session_id = ?
+                """,
+                (session_id_str,),
             ).fetchall()
             v2_nodes = [dict(r) for r in rows]
             
@@ -356,49 +441,237 @@ class CollectiveMindGraphService:
             
         data = json.loads(path.read_text(encoding="utf-8"))
         
-        # 1. Create/Restore Session
         session_data = data["session"]
-        title = f"[Imported] {session_data['title']}"
-        session = self.create_session(title, session_data["device_id"], session_data["status"])
+        title = f"[Imported] {session_data.get('title') or 'Imported Session'}"
+        session = self.create_session(
+            title,
+            str(session_data.get("device_id") or "IMPORTED"),
+            str(session_data.get("status") or "active"),
+        )
         
-        # 2. Restore V2 Production Graph
         v2_graph = data.get("v2_production_graph", {})
         nodes = v2_graph.get("nodes", [])
         edges = v2_graph.get("edges", [])
         refs = v2_graph.get("source_references", [])
+        now = current_timestamp()
+        transcript_id_map: dict[object, int] = {}
+        mvp_node_id_map: dict[object, int] = {}
+        ref_id_map: dict[str, str] = {}
         
         with self._database.connect() as conn:
-            # Source References first
+            for transcript in data.get("transcripts", []):
+                old_id = transcript.get("id")
+                cursor = conn.execute(
+                    """
+                    INSERT INTO transcripts (session_id, text, confidence, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        str(transcript.get("text") or ""),
+                        _optional_float(transcript.get("confidence")) or 1.0,
+                        transcript.get("created_at") or now,
+                    ),
+                )
+                new_id = int(cursor.lastrowid)
+                if old_id is not None:
+                    transcript_id_map[old_id] = new_id
+                    transcript_id_map[str(old_id)] = new_id
+
+            for node in data.get("graph_nodes", []):
+                old_id = node.get("id")
+                old_transcript_id = node.get("transcript_id")
+                old_parent_id = node.get("parent_node_id")
+                parent_node_id = mvp_node_id_map.get(old_parent_id) or mvp_node_id_map.get(str(old_parent_id))
+                branch_type = str(node.get("branch_type") or "root")
+                if parent_node_id is None:
+                    branch_type = "root"
+                    branch_slot = None
+                else:
+                    branch_type = branch_type if branch_type in {"main", "side"} else "main"
+                    branch_slot = node.get("branch_slot") if branch_type == "side" else None
+                cursor = conn.execute(
+                    """
+                    INSERT INTO graph_nodes (
+                        session_id,
+                        transcript_id,
+                        parent_node_id,
+                        branch_type,
+                        branch_slot,
+                        node_text,
+                        override_reason,
+                        created_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        transcript_id_map.get(old_transcript_id) or transcript_id_map.get(str(old_transcript_id)),
+                        parent_node_id,
+                        branch_type,
+                        branch_slot,
+                        str(node.get("node_text") or ""),
+                        node.get("override_reason"),
+                        node.get("created_at") or now,
+                    ),
+                )
+                new_node_id = int(cursor.lastrowid)
+                if old_id is not None:
+                    mvp_node_id_map[old_id] = new_node_id
+                    mvp_node_id_map[str(old_id)] = new_node_id
+
+            for snapshot in data.get("snapshots", []):
+                conn.execute(
+                    """
+                    INSERT INTO snapshots (session_id, node_count, hash_sha256, created_at)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        session.id,
+                        int(snapshot.get("node_count") or 0),
+                        str(snapshot.get("hash_sha256") or ""),
+                        snapshot.get("created_at") or now,
+                    ),
+                )
+
+            for analysis in data.get("transcript_analyses", []):
+                old_transcript_id = analysis.get("transcript_id")
+                transcript_id = transcript_id_map.get(old_transcript_id) or transcript_id_map.get(str(old_transcript_id))
+                if transcript_id is None:
+                    continue
+                transcript_row = conn.execute(
+                    "SELECT text FROM transcripts WHERE id = ?",
+                    (transcript_id,),
+                ).fetchone()
+                transcript_text = transcript_row["text"] if transcript_row else ""
+                conn.execute(
+                    """
+                    INSERT INTO transcript_analyses (
+                        transcript_id,
+                        source_provider,
+                        backend_conversation_id,
+                        raw_text_output,
+                        corrected_text_output,
+                        summary,
+                        topics_json,
+                        action_items_json,
+                        decisions_json,
+                        people_json,
+                        metadata_json,
+                        speaker_stats_json,
+                        segments_json,
+                        quality_report_json,
+                        created_at,
+                        updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(transcript_id) DO UPDATE SET
+                        source_provider = excluded.source_provider,
+                        backend_conversation_id = excluded.backend_conversation_id,
+                        raw_text_output = excluded.raw_text_output,
+                        corrected_text_output = excluded.corrected_text_output,
+                        summary = excluded.summary,
+                        topics_json = excluded.topics_json,
+                        action_items_json = excluded.action_items_json,
+                        decisions_json = excluded.decisions_json,
+                        people_json = excluded.people_json,
+                        metadata_json = excluded.metadata_json,
+                        speaker_stats_json = excluded.speaker_stats_json,
+                        segments_json = excluded.segments_json,
+                        quality_report_json = excluded.quality_report_json,
+                        updated_at = excluded.updated_at
+                    """,
+                    (
+                        transcript_id,
+                        str(analysis.get("source_provider") or "imported"),
+                        analysis.get("backend_conversation_id"),
+                        str(analysis.get("raw_text_output") or transcript_text),
+                        str(analysis.get("corrected_text_output") or transcript_text),
+                        analysis.get("summary"),
+                        _json_text(analysis.get("topics"), []),
+                        _json_text(analysis.get("action_items"), []),
+                        _json_text(analysis.get("decisions"), []),
+                        _json_text(analysis.get("people"), []),
+                        _json_text(analysis.get("metadata"), {}),
+                        _json_text(analysis.get("speaker_stats"), []),
+                        _json_text(analysis.get("segments"), []),
+                        (
+                            _json_text(analysis.get("quality_report"), {})
+                            if analysis.get("quality_report") is not None
+                            else None
+                        ),
+                        analysis.get("created_at") or now,
+                        analysis.get("updated_at") or analysis.get("created_at") or now,
+                    ),
+                )
+
             for r in refs:
-                # Update session_id to new session
-                r["session_id"] = str(session.id)
+                original_ref_id = str(r.get("id") or "")
+                ref_id = original_ref_id or str(uuid.uuid4())
+                ref_id_map[original_ref_id] = ref_id
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_source_references 
                     (id, session_id, segment_id, document_id, chunk_id, timestamp_start, timestamp_end, text_preview, created_at) 
                     VALUES (?,?,?,?,?,?,?,?,?)
                     """,
-                    (r["id"], r["session_id"], r["segment_id"], r.get("document_id"), r.get("chunk_id"), r["timestamp_start"], r["timestamp_end"], r["text_preview"], r["created_at"])
+                    (
+                        ref_id,
+                        str(session.id),
+                        r.get("segment_id") or r.get("source_segment_id"),
+                        r.get("document_id"),
+                        r.get("chunk_id"),
+                        _optional_float(r.get("timestamp_start") if r.get("timestamp_start") is not None else r.get("start_time")),
+                        _optional_float(r.get("timestamp_end") if r.get("timestamp_end") is not None else r.get("end_time")),
+                        r.get("text_preview") or r.get("source_text_preview"),
+                        r.get("created_at") or now,
+                    )
                 )
-            # Nodes
             for n in nodes:
+                metadata = _json_object(n.get("metadata_json"), {})
+                if "source_session_id" in metadata:
+                    metadata["source_session_id"] = str(session.id)
+                node_source_ref = n.get("source_reference_id")
+                if node_source_ref:
+                    node_source_ref = ref_id_map.get(str(node_source_ref), str(node_source_ref))
+                    metadata["source_reference_id"] = node_source_ref
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_graph_nodes 
                     (id, type, title, text_content, metadata_json, source_reference_id, created_at, updated_at) 
                     VALUES (?,?,?,?,?,?,?,?)
                     """,
-                    (n["id"], n["type"], n["title"], n["text_content"], n["metadata_json"], n["source_reference_id"], n["created_at"], n["updated_at"])
+                    (
+                        str(n.get("id") or uuid.uuid4()),
+                        str(n.get("type") or "TASK"),
+                        n.get("title") or metadata.get("title"),
+                        n.get("text_content") or metadata.get("text_content") or metadata.get("text"),
+                        json.dumps(metadata, ensure_ascii=False),
+                        node_source_ref,
+                        n.get("created_at") or now,
+                        n.get("updated_at") or n.get("created_at") or now,
+                    )
                 )
-            # Edges
             for e in edges:
+                edge_source_ref = e.get("source_reference_id")
+                if edge_source_ref:
+                    edge_source_ref = ref_id_map.get(str(edge_source_ref), str(edge_source_ref))
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO v2_graph_edges 
                     (id, source_node_id, target_node_id, edge_type, metadata_json, confidence, source_reference_id, created_at) 
                     VALUES (?,?,?,?,?,?,?,?)
                     """,
-                    (e["id"], e["source_node_id"], e["target_node_id"], e["edge_type"], e["metadata_json"], e["confidence"], e["source_reference_id"], e["created_at"])
+                    (
+                        str(e.get("id") or uuid.uuid4()),
+                        str(e.get("source_node_id") or ""),
+                        str(e.get("target_node_id") or ""),
+                        str(e.get("edge_type") or "RELATED_TO"),
+                        _json_text(e.get("metadata_json"), {}),
+                        _optional_float(e.get("confidence")) or 1.0,
+                        edge_source_ref,
+                        e.get("created_at") or now,
+                    )
                 )
                 
         return session
@@ -480,12 +753,20 @@ class CollectiveMindGraphService:
         # V2 Production Graph Ingest (with Review Lifecycle)
         # ---------------------------------------------------------
         session_id_str = str(session.id)
+        segment_lookup = {
+            str(seg.get("segment_id")): seg
+            for seg in result.segments
+            if seg.get("segment_id")
+        }
         # Create Session Node
         session_node = GraphNode(
             id=f"session_{session.id}",
             type=NodeType.SESSION,
-            properties={"title": session.title},
-            source=SourceReference(session_id=session_id_str)
+            properties={
+                "title": session.title,
+                "source_session_id": session_id_str,
+            },
+            source=SourceReference(session_id=session_id_str, text_preview=session.title)
         )
         if self.production_graph.get_node(session_node.id) is None:
             self.production_graph.create_node(session_node)
@@ -496,11 +777,21 @@ class CollectiveMindGraphService:
             if not seg_id:
                 continue
             graph_segment_id = f"seg_{transcript.id}_{seg_id}"
+            segment_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=seg_id,
+                segment_lookup=segment_lookup,
+                fallback_text=str(seg.get("corrected_text") or seg.get("raw_text") or ""),
+            )
             seg_node = GraphNode(
                 id=graph_segment_id,
                 type=NodeType.SEGMENT,
-                properties={"text": seg.get("corrected_text", ""), "speaker": seg.get("speaker", "")},
-                source=SourceReference(session_id=session_id_str, segment_id=seg_id)
+                properties={
+                    "text": seg.get("corrected_text", ""),
+                    "speaker": seg.get("speaker", ""),
+                    **self._source_metadata(segment_source),
+                },
+                source=segment_source,
             )
             self.production_graph.create_node(seg_node)
             self.production_graph.create_edge(GraphEdge(
@@ -509,6 +800,12 @@ class CollectiveMindGraphService:
 
         # Create Task Nodes and Edges (Pending Review)
         for idx, task in enumerate(action_items):
+            task_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=task.source_segment_id,
+                segment_lookup=segment_lookup,
+                fallback_text=task.title,
+            )
             task_node = GraphNode(
                 id=f"task_{transcript.id}_{idx}",
                 type=NodeType.TASK,
@@ -516,9 +813,10 @@ class CollectiveMindGraphService:
                     "title": task.title, 
                     "assignee": task.responsible_person,
                     "review_status": "pending",
-                    "original_text": task.title
+                    "original_text": task.title,
+                    **self._source_metadata(task_source),
                 },
-                source=SourceReference(session_id=session_id_str, segment_id=task.source_segment_id)
+                source=task_source,
             )
             self.production_graph.create_node(task_node)
             if task.source_segment_id:
@@ -528,15 +826,22 @@ class CollectiveMindGraphService:
 
         # Create Decision Nodes and Edges (Pending Review)
         for idx, dec in enumerate(decisions):
+            decision_source = self._source_reference_for_segment(
+                session_id=session_id_str,
+                segment_id=dec.source_segment_id,
+                segment_lookup=segment_lookup,
+                fallback_text=dec.decision,
+            )
             dec_node = GraphNode(
                 id=f"dec_{transcript.id}_{idx}",
                 type=NodeType.DECISION,
                 properties={
                     "title": dec.decision,
                     "review_status": "pending",
-                    "original_text": dec.decision
+                    "original_text": dec.decision,
+                    **self._source_metadata(decision_source),
                 },
-                source=SourceReference(session_id=session_id_str, segment_id=dec.source_segment_id)
+                source=decision_source,
             )
             self.production_graph.create_node(dec_node)
             if dec.source_segment_id:
@@ -546,15 +851,22 @@ class CollectiveMindGraphService:
 
         # Create Topic Nodes and Edges (Pending Review)
         for idx, topic in enumerate(topics):
+            topic_source = SourceReference(
+                session_id=session_id_str,
+                timestamp_start=topic.start,
+                timestamp_end=topic.end,
+                text_preview=topic.label,
+            )
             topic_node = GraphNode(
                 id=f"topic_{transcript.id}_{idx}",
                 type=NodeType.TOPIC,
                 properties={
                     "title": topic.label,
                     "review_status": "pending",
-                    "original_text": topic.label
+                    "original_text": topic.label,
+                    **self._source_metadata(topic_source),
                 },
-                source=SourceReference(session_id=session_id_str)
+                source=topic_source,
             )
             self.production_graph.create_node(topic_node)
             self.production_graph.create_edge(GraphEdge(
@@ -564,73 +876,13 @@ class CollectiveMindGraphService:
         # Create Extended Node Types from Metadata
         metadata = getattr(result, "metadata", {})
         
-        for idx, entity in enumerate(metadata.get("entities", [])):
-            entity_node = GraphNode(
-                id=f"entity_{transcript.id}_{idx}",
-                type=NodeType.ENTITY,
-                properties={
-                    "title": str(entity),
-                    "review_status": "pending",
-                    "original_text": str(entity),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
-                },
-                source=SourceReference(session_id=session_id_str)
-            )
-            self.production_graph.create_node(entity_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=entity_node.id, type=EdgeType.SEGMENT_MENTIONS_ENTITY
-            ))
-            
-        for idx, risk in enumerate(metadata.get("risks", [])):
-            risk_node = GraphNode(
-                id=f"risk_{transcript.id}_{idx}",
-                type=NodeType.RISK,
-                properties={
-                    "title": str(risk),
-                    "review_status": "pending",
-                    "original_text": str(risk),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
-                },
-                source=SourceReference(session_id=session_id_str)
-            )
-            self.production_graph.create_node(risk_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=risk_node.id, type=EdgeType.SEGMENT_RAISES_RISK
-            ))
-            
-        for idx, q in enumerate(metadata.get("open_questions", [])):
-            q_node = GraphNode(
-                id=f"openq_{transcript.id}_{idx}",
-                type=NodeType.OPEN_QUESTION,
-                properties={
-                    "title": str(q),
-                    "review_status": "pending",
-                    "original_text": str(q),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
-                },
-                source=SourceReference(session_id=session_id_str)
-            )
-            self.production_graph.create_node(q_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=q_node.id, type=EdgeType.SEGMENT_RAISES_OPEN_QUESTION
-            ))
-            
-        for idx, f in enumerate(metadata.get("follow_ups", [])):
-            f_node = GraphNode(
-                id=f"followup_{transcript.id}_{idx}",
-                type=NodeType.FOLLOW_UP,
-                properties={
-                    "title": str(f),
-                    "review_status": "pending",
-                    "original_text": str(f),
-                    "extraction_mode": metadata.get("extraction_mode", "unknown")
-                },
-                source=SourceReference(session_id=session_id_str)
-            )
-            self.production_graph.create_node(f_node)
-            self.production_graph.create_edge(GraphEdge(
-                id="", source_node_id=session_node.id, target_node_id=f_node.id, type=EdgeType.SEGMENT_CREATES_FOLLOW_UP
-            ))
+        self._create_extended_extraction_nodes(
+            transcript_id=transcript.id,
+            session_node_id=session_node.id,
+            session_id=session_id_str,
+            metadata=metadata,
+            segment_lookup=segment_lookup,
+        )
             
         # ---------------------------------------------------------
 
@@ -803,6 +1055,200 @@ class CollectiveMindGraphService:
                 if transcript.id == transcript_id:
                     return transcript
         return None
+
+    def _create_extended_extraction_nodes(
+        self,
+        *,
+        transcript_id: int,
+        session_node_id: str,
+        session_id: str,
+        metadata: dict[str, object],
+        segment_lookup: dict[str, dict[str, object]],
+    ) -> None:
+        specs = [
+            ("entities", "entity", NodeType.ENTITY, EdgeType.SEGMENT_MENTIONS_ENTITY),
+            ("risks", "risk", NodeType.RISK, EdgeType.SEGMENT_RAISES_RISK),
+            ("open_questions", "openq", NodeType.OPEN_QUESTION, EdgeType.SEGMENT_RAISES_OPEN_QUESTION),
+            ("follow_ups", "followup", NodeType.FOLLOW_UP, EdgeType.SEGMENT_CREATES_FOLLOW_UP),
+        ]
+        extraction_mode = str(metadata.get("extraction_mode") or "unknown")
+
+        for metadata_key, node_prefix, node_type, edge_type in specs:
+            items = self._normalized_extended_items(metadata.get(metadata_key))
+            for idx, item in enumerate(items):
+                source = self._source_reference_for_extracted_item(
+                    session_id=session_id,
+                    item=item,
+                    segment_lookup=segment_lookup,
+                )
+                node_id = f"{node_prefix}_{transcript_id}_{idx}"
+                node = GraphNode(
+                    id=node_id,
+                    type=node_type,
+                    properties={
+                        "title": item["title"],
+                        "review_status": "pending",
+                        "original_text": item["title"],
+                        "extraction_mode": extraction_mode,
+                        **self._source_metadata(source),
+                    },
+                    source=source,
+                )
+                self.production_graph.create_node(node)
+
+                source_node_id = session_node_id
+                if source.segment_id:
+                    candidate = f"seg_{transcript_id}_{source.segment_id}"
+                    if self.production_graph.get_node(candidate) is not None:
+                        source_node_id = candidate
+                self.production_graph.create_edge(GraphEdge(
+                    id="",
+                    source_node_id=source_node_id,
+                    target_node_id=node_id,
+                    type=edge_type,
+                ))
+
+    @staticmethod
+    def _normalized_extended_items(value: object) -> list[dict[str, object]]:
+        if not isinstance(value, list):
+            return []
+
+        items: list[dict[str, object]] = []
+        seen: set[str] = set()
+        for raw in value:
+            item: dict[str, object]
+            if isinstance(raw, dict):
+                title = CollectiveMindGraphService._extended_item_title(raw)
+                if not title:
+                    continue
+                item = dict(raw)
+                item["title"] = title
+            else:
+                title = str(raw).strip()
+                if not title:
+                    continue
+                item = {"title": title}
+
+            key = str(item["title"]).casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            items.append(item)
+        return items
+
+    @staticmethod
+    def _extended_item_title(item: dict[str, object]) -> str:
+        for key in (
+            "title",
+            "text",
+            "name",
+            "value",
+            "label",
+            "entity",
+            "risk",
+            "question",
+            "open_question",
+            "follow_up",
+        ):
+            value = str(item.get(key) or "").strip()
+            if value:
+                return value
+        return ""
+
+    @classmethod
+    def _source_reference_for_extracted_item(
+        cls,
+        *,
+        session_id: str,
+        item: dict[str, object],
+        segment_lookup: dict[str, dict[str, object]],
+    ) -> SourceReference:
+        segment_id = cls._item_source_segment_id(item)
+        source = cls._source_reference_for_segment(
+            session_id=session_id,
+            segment_id=segment_id,
+            segment_lookup=segment_lookup,
+            fallback_text=str(item.get("text_preview") or item.get("title") or ""),
+        )
+        if segment_id and segment_id in segment_lookup:
+            return source
+
+        return SourceReference(
+            session_id=session_id,
+            segment_id=source.segment_id,
+            timestamp_start=source.timestamp_start if source.timestamp_start is not None else cls._first_optional_float(item, ("start_time", "start")),
+            timestamp_end=source.timestamp_end if source.timestamp_end is not None else cls._first_optional_float(item, ("end_time", "end")),
+            text_preview=source.text_preview or str(item.get("text_preview") or item.get("title") or "").strip() or None,
+        )
+
+    @staticmethod
+    def _item_source_segment_id(item: dict[str, object]) -> str | None:
+        for key in ("source_segment_id", "segment_id"):
+            value = str(item.get(key) or "").strip()
+            if value:
+                return value
+        return None
+
+    @classmethod
+    def _first_optional_float(cls, item: dict[str, object], keys: tuple[str, ...]) -> float | None:
+        for key in keys:
+            value = cls._optional_float(item.get(key))
+            if value is not None:
+                return value
+        return None
+
+    @classmethod
+    def _source_reference_for_segment(
+        cls,
+        session_id: str,
+        segment_id: str | None,
+        segment_lookup: dict[str, dict[str, object]],
+        fallback_text: str | None = None,
+    ) -> SourceReference:
+        clean_segment_id = str(segment_id).strip() if segment_id else None
+        segment = segment_lookup.get(clean_segment_id) if clean_segment_id else None
+        return SourceReference(
+            session_id=session_id,
+            segment_id=clean_segment_id,
+            timestamp_start=cls._optional_float(segment.get("start")) if segment else None,
+            timestamp_end=cls._optional_float(segment.get("end")) if segment else None,
+            text_preview=cls._segment_preview(segment, fallback_text),
+        )
+
+    @staticmethod
+    def _segment_preview(segment: dict[str, object] | None, fallback_text: str | None = None) -> str | None:
+        if segment:
+            for key in ("corrected_text", "raw_text", "text"):
+                value = str(segment.get(key) or "").strip()
+                if value:
+                    return value
+        fallback = str(fallback_text or "").strip()
+        return fallback or None
+
+    @staticmethod
+    def _source_metadata(source: SourceReference) -> dict[str, object]:
+        metadata: dict[str, object] = {"source_session_id": source.session_id}
+        if source.segment_id:
+            metadata["source_segment_id"] = source.segment_id
+        if source.timestamp_start is not None:
+            metadata["source_timestamp_start"] = source.timestamp_start
+            metadata["start_time"] = source.timestamp_start
+        if source.timestamp_end is not None:
+            metadata["source_timestamp_end"] = source.timestamp_end
+            metadata["end_time"] = source.timestamp_end
+        if source.text_preview:
+            metadata["source_preview"] = source.text_preview
+            metadata["text_preview"] = source.text_preview
+        return metadata
+
+    @staticmethod
+    def _optional_float(value: object) -> float | None:
+        if value is None or value == "":
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
 
     def _build_analysis_side_nodes(
         self,

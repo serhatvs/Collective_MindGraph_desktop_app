@@ -34,7 +34,7 @@ class ProductionGraphRepository:
                     ref.segment_id,
                     ref.timestamp_start,
                     ref.timestamp_end,
-                    None,
+                    ref.text_preview,
                     self._now(),
                 )
             )
@@ -135,6 +135,8 @@ class ProductionGraphRepository:
             segment_id=row["segment_id"],
             timestamp_start=row["timestamp_start"],
             timestamp_end=row["timestamp_end"],
+            text_preview=row["text_preview"],
+            id=ref_id,
         )
 
     def _map_node(self, row: sqlite3.Row) -> GraphNode:

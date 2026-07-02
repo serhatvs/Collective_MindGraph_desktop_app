@@ -57,7 +57,7 @@ class EvidenceAnswerService:
                     is_valid = False
                     break
                 status = props.get("review_status", "pending")
-                if status == "rejected":
+                if status in {"rejected", "merged"}:
                     is_valid = False
                     break
                 if status == "pending":
@@ -86,14 +86,27 @@ class EvidenceAnswerService:
         api_chains = []
         for chain in filtered_chains:
             steps = []
+            edge_path = [
+                step.edge.type.value
+                for step in chain.steps
+                if step.edge
+            ]
             for step in chain.steps:
+                source = step.node.source
                 steps.append(
                     EvidenceStep(
                         node_id=step.node.id,
                         node_type=step.node.type.value,
                         text=step.node.properties.get("title") or step.node.properties.get("text") or step.node.properties.get("decision") or "",
                         edge_type=step.edge.type.value if step.edge else None,
-                        direction=step.direction
+                        direction=step.direction,
+                        source_reference_id=getattr(source, "id", None) if source else None,
+                        source_session_id=source.session_id if source else None,
+                        source_segment_id=source.segment_id if source else None,
+                        text_preview=getattr(source, "text_preview", None) if source else None,
+                        start_time=source.timestamp_start if source else None,
+                        end_time=source.timestamp_end if source else None,
+                        edge_path=edge_path,
                     )
                 )
             api_chains.append(EvidenceChain(steps=steps, explanation=chain.explanation))

@@ -112,10 +112,10 @@ class AIExtractionService:
                     }
                 },
                 "topics": {"type": "array", "items": {"type": "string"}},
-                "entities": {"type": "array", "items": {"type": "string"}},
-                "risks": {"type": "array", "items": {"type": "string"}},
-                "open_questions": {"type": "array", "items": {"type": "string"}},
-                "follow_ups": {"type": "array", "items": {"type": "string"}}
+                "entities": {"type": "array", "items": {"type": "object", "properties": {"title": {"type": "string"}, "segment_id": {"type": "string"}}}},
+                "risks": {"type": "array", "items": {"type": "object", "properties": {"title": {"type": "string"}, "segment_id": {"type": "string"}}}},
+                "open_questions": {"type": "array", "items": {"type": "object", "properties": {"title": {"type": "string"}, "segment_id": {"type": "string"}}}},
+                "follow_ups": {"type": "array", "items": {"type": "object", "properties": {"title": {"type": "string"}, "segment_id": {"type": "string"}}}}
             },
             "required": ["summary", "tasks", "decisions", "topics"]
         }

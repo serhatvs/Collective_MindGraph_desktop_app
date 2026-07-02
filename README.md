@@ -1,38 +1,24 @@
 # Collective MindGraph
 
 > [!IMPORTANT]
-> You are viewing the **Memory Track** branch:
+> Collective MindGraph currently uses separate development tracks:
 >
-> `feature/transcript-to-memory-pipeline`
+> - `feature/transcription-quality-pipeline` - Transcription Track  
+>   For ASR/STT, Turkish transcription quality, Faster-Whisper settings, VAD/audio preprocessing, and transcription benchmarks.
 >
-> This branch is only for transcript-to-memory product work:
+> - `feature/transcript-to-memory-pipeline` - Memory Track  
+>   For transcript/session ingestion, structured memory extraction, review lifecycle, graph memory, source traceability, hybrid search, Ask Memory, and export/import.
 >
-> - transcript/session ingestion
-> - structured memory extraction
-> - pending suggestions
-> - human review lifecycle
-> - graph nodes and edges
-> - source references and source traceability
-> - hybrid keyword/vector/graph search
-> - evidence-only Ask Memory
-> - export/import memory roundtrip
-> - diagnostics for the memory pipeline
->
-> Do **not** use this branch for transcription quality work.
->
-> Transcription Track work belongs on:
->
-> `feature/transcription-quality-pipeline`
->
-> Transcription Track includes ASR/STT, Faster-Whisper settings, Turkish transcription quality, VAD/audio preprocessing, and transcription benchmarks.
+> Do not mix Transcription Track and Memory Track work in the same branch.
 
 ## Branch Scope
 
-This branch is the **Memory Track** branch.
+Collective MindGraph development is currently split into two scoped tracks:
 
-Its purpose is to turn transcript/session data into reviewable, source-linked graph memory that can be queried through hybrid search and evidence-only Ask Memory.
+- **Transcription Track** (`feature/transcription-quality-pipeline`): keeps the ASR/STT and Turkish transcription pipeline stable, benchmarked, and safely maintainable.
+- **Memory Track** (`feature/transcript-to-memory-pipeline`): turns transcript/session data into reviewable, source-linked graph memory that can be queried through hybrid search and evidence-only Ask Memory.
 
-It should not include transcription quality work such as ASR tuning, Faster-Whisper settings, VAD tuning, audio preprocessing, or transcription benchmarking.
+Keep branch work aligned with its track. Transcription quality changes such as ASR tuning, Faster-Whisper settings, VAD tuning, audio preprocessing, or transcription benchmarking should stay separate from Memory Track changes such as graph persistence, review lifecycle, source tracing, hybrid memory search, Ask Memory, and export/import.
 
 Collective MindGraph is a local-first, privacy-focused organizational memory system for technical teams. It captures, transcribes, and extracts structured knowledge from technical conversations—entirely on local hardware.
 

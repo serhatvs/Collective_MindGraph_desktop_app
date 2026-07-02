@@ -60,6 +60,7 @@ PYTHONPATH=src:. python3 -m pytest
 - **[Product Status](docs/product/STATUS.md)**: Capability matrix and current implementation details.
 - **[Roadmap](docs/product/ROADMAP.md)**: Future development phases.
 - **[Demo Guide](docs/demo/DEMO_FLOW.md)**: Instructions for running the technical demonstration loop.
+- **[Demo / Packaging Quickstart](docs/demo/DEMO_PACKAGING_QUICKSTART.md)**: Windows-first manual demo launch, database notes, optional local AI settings, and current packaging readiness.
 - **[Developer Setup](docs/dev/SETUP.md)**: Configuration for local models and environment.
 - **[Architecture](docs/dev/ARCHITECTURE.md)**: Technical overview of the system design.
 - **[Reports Archive](docs/reports/README.md)**: Dated benchmark, validation, and simulation report archive.

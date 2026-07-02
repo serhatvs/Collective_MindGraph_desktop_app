@@ -56,6 +56,15 @@ Expected branch:
 
 ## Backend Launch
 
+Recommended helper:
+
+```powershell
+cd D:\Workspace\cmg-main-test\realtime_backend
+.\scripts\run_dev.ps1
+```
+
+Manual fallback:
+
 Start the FastAPI backend from the backend source directory:
 
 ```powershell

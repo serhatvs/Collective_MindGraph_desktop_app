@@ -72,6 +72,15 @@ Invoke-RestMethod http://127.0.0.1:8080/health
 
 ## Desktop Launch
 
+Recommended helper:
+
+```powershell
+cd D:\Workspace\cmg-main-test
+.\scripts\dev_desktop.ps1
+```
+
+Manual launch for debugging:
+
 Start the native PySide6 desktop app from the repository root:
 
 ```powershell

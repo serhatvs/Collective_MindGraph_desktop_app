@@ -1,5 +1,39 @@
 # Collective MindGraph
 
+> [!IMPORTANT]
+> You are viewing the **Memory Track** branch:
+>
+> `feature/transcript-to-memory-pipeline`
+>
+> This branch is only for transcript-to-memory product work:
+>
+> - transcript/session ingestion
+> - structured memory extraction
+> - pending suggestions
+> - human review lifecycle
+> - graph nodes and edges
+> - source references and source traceability
+> - hybrid keyword/vector/graph search
+> - evidence-only Ask Memory
+> - export/import memory roundtrip
+> - diagnostics for the memory pipeline
+>
+> Do **not** use this branch for transcription quality work.
+>
+> Transcription Track work belongs on:
+>
+> `feature/transcription-quality-pipeline`
+>
+> Transcription Track includes ASR/STT, Faster-Whisper settings, Turkish transcription quality, VAD/audio preprocessing, and transcription benchmarks.
+
+## Branch Scope
+
+This branch is the **Memory Track** branch.
+
+Its purpose is to turn transcript/session data into reviewable, source-linked graph memory that can be queried through hybrid search and evidence-only Ask Memory.
+
+It should not include transcription quality work such as ASR tuning, Faster-Whisper settings, VAD tuning, audio preprocessing, or transcription benchmarking.
+
 Collective MindGraph is a local-first, privacy-focused organizational memory system for technical teams. It captures, transcribes, and extracts structured knowledge from technical conversations—entirely on local hardware.
 
 ## Current Status: Stable Fallback-First

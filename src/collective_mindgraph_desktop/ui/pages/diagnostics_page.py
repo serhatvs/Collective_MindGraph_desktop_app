@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QDateTime, Qt
 from PySide6.QtWidgets import (
     QFormLayout,
     QLabel,
@@ -33,10 +33,30 @@ class DiagnosticsPage(QWidget):
         self.container_layout.setContentsMargins(24, 24, 24, 24)
         self.container_layout.setSpacing(24)
         scroll.setWidget(container)
+
+        self.intro_card = CardWidget("How to Read Diagnostics")
+        self.container_layout.addWidget(self.intro_card)
+        self.intro_card.body_layout.addWidget(self._helper_label(
+            "Diagnostics shows current runtime readiness for the local demo environment.\n\n"
+            "Some values are live backend checks, while others are selected-session or local "
+            "configuration indicators. A fallback status is not always an error; it often means "
+            "the app is using the safe offline/evidence-only path."
+        ))
         
         # 1. Pipeline Status Card
         self.status_card = CardWidget("Technical Diagnostics")
         self.container_layout.addWidget(self.status_card)
+        self.last_refreshed_label = self._source_hint_label("Last refreshed: not yet")
+        self.status_card.body_layout.addWidget(self.last_refreshed_label)
+        self.status_card.body_layout.addWidget(self._helper_label(
+            "Backend values show whether the local backend is reachable. ASR, GPU, and VAD "
+            "rows are runtime capability checks only; they do not validate meeting-room "
+            "transcription quality. Embedding status uses MOCK_ONLY for fallback/mock embeddings "
+            "and REAL_ACTIVE when a local embedding provider appears active. Local LLM support is "
+            "optional, and evidence-only Ask Memory can work without it. LLM-assisted Ask Memory "
+            "is guarded by fallback behavior. Diarization is roadmap-only here, with no speaker "
+            "separation claim."
+        ))
         
         self.form = QFormLayout()
         self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -76,60 +96,60 @@ class DiagnosticsPage(QWidget):
         for label in self.labels.values():
             label.setStyleSheet("font-family: 'Consolas', monospace; color: #264a7f;")
             
-        self.form.addRow("Backend URL", self.labels["backend_url"])
-        self.form.addRow("ASR Provider", self.labels["asr_provider"])
-        self.form.addRow("ASR Backend Resolved", self.labels["asr_backend_resolved"])
-        self.form.addRow("ASR Model", self.labels["asr_model"])
-        self.form.addRow("ASR Device", self.labels["asr_device"])
-        self.form.addRow("ASR Compute Type", self.labels["asr_compute_type"])
-        self.form.addRow("ASR Language", self.labels["asr_language"])
-        self.form.addRow("Runtime Profile", self.labels["asr_runtime_profile"])
-        self.form.addRow("GPU Enabled", self.labels["gpu_enabled"])
-        self.form.addRow("GPU Required", self.labels["gpu_required"])
-        self.form.addRow("CUDA Available", self.labels["cuda_available"])
-        self.form.addRow("GPU Requested By ASR", self.labels["gpu_requested"])
-        self.form.addRow("GPU Actually Used By ASR", self.labels["gpu_actual"])
-        self.form.addRow("ASR Fallback", self.labels["gpu_fallback"])
-        self.form.addRow("Fallback Reason", self.labels["gpu_fallback_reason"])
-        self.form.addRow("VAD Provider", self.labels["vad_provider"])
-        self.form.addRow("Embedding Device", self.labels["embedding_device"])
-        self.form.addRow("Security Mode", self.labels["offline_mode"])
+        self._add_row("Backend URL", self.labels["backend_url"], "Local configuration indicator")
+        self._add_row("ASR Provider", self.labels["asr_provider"], "Live backend check")
+        self._add_row("ASR Backend Resolved", self.labels["asr_backend_resolved"], "Live backend check")
+        self._add_row("ASR Model", self.labels["asr_model"], "Live backend check")
+        self._add_row("ASR Device", self.labels["asr_device"], "Runtime capability check")
+        self._add_row("ASR Compute Type", self.labels["asr_compute_type"], "Runtime capability check")
+        self._add_row("ASR Language", self.labels["asr_language"], "Live backend check")
+        self._add_row("Runtime Profile", self.labels["asr_runtime_profile"], "Local configuration indicator")
+        self._add_row("GPU Enabled", self.labels["gpu_enabled"], "Local configuration indicator")
+        self._add_row("GPU Required", self.labels["gpu_required"], "Local configuration indicator")
+        self._add_row("CUDA Available", self.labels["cuda_available"], "Runtime capability check")
+        self._add_row("GPU Requested By ASR", self.labels["gpu_requested"], "Runtime capability check")
+        self._add_row("GPU Actually Used By ASR", self.labels["gpu_actual"], "Runtime capability check")
+        self._add_row("ASR Fallback", self.labels["gpu_fallback"], "Runtime capability check")
+        self._add_row("Fallback Reason", self.labels["gpu_fallback_reason"], "Runtime capability check")
+        self._add_row("VAD Provider", self.labels["vad_provider"], "Runtime capability check")
+        self._add_row("Embedding Device", self.labels["embedding_device"], "Live backend check")
+        self._add_row("Security Mode", self.labels["offline_mode"], "Safety posture indicator")
         
         # Production Status rows
         self.labels["llm_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
-        self.form.addRow("Local AI Layer (LLM)", self.labels["llm_status"])
-        self.form.addRow("Local LLM Enabled", self.labels["local_llm_enabled"])
-        self.form.addRow("LLM Endpoint", self.labels["llm_endpoint"])
+        self._add_row("Local AI Layer (LLM)", self.labels["llm_status"], "Optional provider status")
+        self._add_row("Local LLM Enabled", self.labels["local_llm_enabled"], "Optional provider status")
+        self._add_row("LLM Endpoint", self.labels["llm_endpoint"], "Local configuration indicator")
 
         self.labels["extraction_mode"].setStyleSheet("color: #ca8a04; font-weight: bold;")
-        self.form.addRow("Extraction Mode", self.labels["extraction_mode"])
+        self._add_row("Extraction Mode", self.labels["extraction_mode"], "Selected-session indicator")
         
         self.labels["embedding_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
-        self.form.addRow("Semantic Memory", self.labels["embedding_status"])
-        self.form.addRow("Model Path", self.labels["embedding_path"])
-        self.form.addRow("Vector Index Size", self.labels["vector_count"])
-        self.form.addRow("Vector Dimension", self.labels["embedding_dim"])
+        self._add_row("Semantic Memory", self.labels["embedding_status"], "Local configuration indicator")
+        self._add_row("Model Path", self.labels["embedding_path"], "Local configuration indicator")
+        self._add_row("Vector Index Size", self.labels["vector_count"], "Local configuration indicator")
+        self._add_row("Vector Dimension", self.labels["embedding_dim"], "Local configuration indicator")
         
         self.labels["graph_status"] = QLabel("ACTIVE (V2 Graph Nodes/Edges)")
         self.labels["graph_status"].setStyleSheet("color: #166534; font-weight: bold;")
-        self.form.addRow("Graph Reasoning", self.labels["graph_status"])
+        self._add_row("Graph Reasoning", self.labels["graph_status"], "Roadmap/static status")
         
         self.labels["ask_memory_evidence"] = QLabel("ACTIVE")
         self.labels["ask_memory_evidence"].setStyleSheet("color: #166534; font-weight: bold;")
-        self.form.addRow("Ask Memory (Evidence-only)", self.labels["ask_memory_evidence"])
+        self._add_row("Ask Memory (Evidence-only)", self.labels["ask_memory_evidence"], "Roadmap/static status")
 
         self.labels["ask_memory_llm"] = QLabel("FALLBACK_TO_EVIDENCE_ONLY")
         self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")
-        self.form.addRow("Ask Memory (LLM-assisted)", self.labels["ask_memory_llm"])
+        self._add_row("Ask Memory (LLM-assisted)", self.labels["ask_memory_llm"], "Optional provider status")
 
         self.labels["hybrid_status"] = QLabel("ACTIVE (Keyword + Graph)")
         self.labels["hybrid_status"].setStyleSheet("color: #166534; font-weight: bold;")
-        self.form.addRow("Hybrid Query", self.labels["hybrid_status"])
+        self._add_row("Hybrid Query", self.labels["hybrid_status"], "Roadmap/static status")
 
-        self.form.addRow("Diarization", QLabel("NOT ENABLED (Roadmap)"))
-        self.form.addRow("Raw Audio Trace Count", self.labels["raw_length"])
-        self.form.addRow("Memory Cache Size", self.labels["clean_length"])
-        self.form.addRow("Analysis Duration", self.labels["processing_time"])
+        self._add_row("Diarization", QLabel("NOT ENABLED (Roadmap)"), "Roadmap/static status")
+        self._add_row("Raw Audio Trace Count", self.labels["raw_length"], "Selected-session indicator")
+        self._add_row("Memory Cache Size", self.labels["clean_length"], "Selected-session indicator")
+        self._add_row("Analysis Duration", self.labels["processing_time"], "Selected-session indicator")
         
         self.status_card.body_layout.addLayout(self.form)
         
@@ -144,8 +164,37 @@ class DiagnosticsPage(QWidget):
         )
         safety_text.setStyleSheet("color: #19693d; font-weight: 600;")
         self.safety_card.body_layout.addWidget(safety_text)
+        self.safety_card.body_layout.addWidget(self._helper_label(
+            "These guards describe the app's local-first, offline-ready safety posture for demo "
+            "readiness. They are not a production security certification or installer readiness claim."
+        ))
         
         self.container_layout.addStretch(1)
+
+    def _add_row(self, title: str, value_label: QLabel, hint_text: str) -> None:
+        self.form.addRow(title, self._field_with_hint(value_label, hint_text))
+
+    def _field_with_hint(self, value_label: QLabel, hint_text: str) -> QWidget:
+        field = QWidget()
+        layout = QVBoxLayout(field)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(2)
+        layout.addWidget(value_label)
+        layout.addWidget(self._source_hint_label(hint_text))
+        return field
+
+    @staticmethod
+    def _source_hint_label(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setStyleSheet("color: #66788a; font-size: 9pt;")
+        return label
+
+    @staticmethod
+    def _helper_label(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setStyleSheet("color: #66788a; line-height: 1.4;")
+        return label
 
     def set_app_summary(self, vector_count: int, embedding_dim: int, provider_name: str, model_path: str = "") -> None:
         self.labels["vector_count"].setText(str(vector_count))
@@ -166,6 +215,7 @@ class DiagnosticsPage(QWidget):
             self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
 
     def set_backend_health(self, health: BackendHealthStatus | None) -> None:
+        self._mark_last_refreshed()
         if health is None:
             self.labels["asr_provider"].setText("-")
             self.labels["asr_backend_resolved"].setText("-")
@@ -215,6 +265,10 @@ class DiagnosticsPage(QWidget):
             self.labels["gpu_actual"].setStyleSheet("color: #9a3412; font-weight: bold;")
         else:
             self.labels["gpu_actual"].setStyleSheet("font-family: 'Consolas', monospace; color: #264a7f;")
+
+    def _mark_last_refreshed(self) -> None:
+        refreshed_at = QDateTime.currentDateTime().toString("HH:mm:ss")
+        self.last_refreshed_label.setText(f"Last refreshed: {refreshed_at}")
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         if not detail or not detail.transcripts:

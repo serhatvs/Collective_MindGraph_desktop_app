@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...models import SessionDetail
+from ..widgets import EmptyStateWidget
 
 
 class ReviewQueuePage(QWidget):
@@ -40,6 +41,18 @@ class ReviewQueuePage(QWidget):
         self.table.setHorizontalHeaderLabels(["Type", "Confidence", "Suggestion", "Actions"])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
+
+        self.empty_state = EmptyStateWidget(
+            "No pending review suggestions yet.",
+            "This page shows extracted memory items that still need human review before they become trusted memory.\n\n"
+            "To populate it:\n"
+            "- Open or import a session with extracted memory\n"
+            "- Transcribe a local file\n"
+            "- Or use Tools > Seed Technical Demo\n\n"
+            "If you already reviewed everything, check Reviewed Memory or Knowledge Graph.",
+        )
+        layout.addWidget(self.empty_state, 1)
+        self.table.hide()
         
         self._all_nodes = []
 
@@ -54,6 +67,14 @@ class ReviewQueuePage(QWidget):
             meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
             if meta.get("review_status") == "pending":
                 pending.append(n)
+
+        if not pending:
+            self.table.hide()
+            self.empty_state.show()
+            return
+
+        self.empty_state.hide()
+        self.table.show()
         
         for node in pending:
             row = self.table.rowCount()

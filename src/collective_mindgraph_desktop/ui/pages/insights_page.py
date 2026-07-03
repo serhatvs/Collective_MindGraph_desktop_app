@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...models import SessionDetail, TranscriptAnalysis
-from ..widgets import CardWidget
+from ..widgets import CardWidget, EmptyStateWidget
 
 class InsightsPage(QWidget):
     knowledge_item_updated = Signal(str, str, str) # item_type, original_text, new_text
@@ -94,6 +94,29 @@ class InsightsPage(QWidget):
         self.followups_list.itemDoubleClicked.connect(self._edit_item)
         self.followups_card.body_layout.addWidget(self.followups_list)
         self.container_layout.addWidget(self.followups_card)
+
+        self.empty_state = EmptyStateWidget(
+            "No reviewed memory yet.",
+            "This page shows trusted memory items after they are approved or edited during human review.\n\n"
+            "To populate it:\n"
+            "- Review pending items in Review Suggestions\n"
+            "- Open or import a session with extracted memory\n"
+            "- Transcribe a local file\n"
+            "- Or use Tools > Seed Technical Demo\n\n"
+            "If you expected items here, check Review Suggestions for pending memory.",
+        )
+        self.container_layout.addWidget(self.empty_state, 1)
+
+        self._review_cards = (
+            self.tasks_card,
+            self.decisions_card,
+            self.topics_card,
+            self.entities_card,
+            self.risks_card,
+            self.open_qs_card,
+            self.followups_card,
+        )
+        self._set_review_content_visible(False)
         
         self.container_layout.addStretch(1)
 
@@ -131,6 +154,11 @@ class InsightsPage(QWidget):
         self.tasks_list.clear()
         self.decisions_list.clear()
         self.topics_list.clear()
+        self.entities_list.clear()
+        self.risks_list.clear()
+        self.open_qs_list.clear()
+        self.followups_list.clear()
+        self._set_review_content_visible(False)
         
         if not detail:
             return
@@ -152,6 +180,8 @@ class InsightsPage(QWidget):
         # Filter for approved or edited
         reviewed = [n for n in nodes if n.get("metadata_json") and 
                    (json.loads(n["metadata_json"]) if isinstance(n["metadata_json"], str) else n["metadata_json"]).get("review_status") in ("approved", "edited")]
+
+        self._set_review_content_visible(bool(reviewed))
         
         for node in reviewed:
             meta_str = node.get("metadata_json") or "{}"
@@ -177,3 +207,8 @@ class InsightsPage(QWidget):
                 self.open_qs_list.addItem(QListWidgetItem(f"❓ {title}"))
             elif n_type == "FOLLOW_UP":
                 self.followups_list.addItem(QListWidgetItem(f"⏭️ {title}"))
+
+    def _set_review_content_visible(self, has_reviewed_items: bool) -> None:
+        for card in self._review_cards:
+            card.setVisible(has_reviewed_items)
+        self.empty_state.setVisible(not has_reviewed_items)

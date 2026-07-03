@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...models import SessionDetail
-from ..widgets import CardWidget
+from ..widgets import CardWidget, EmptyStateWidget
 
 
 class KnowledgeGraphPage(QWidget):
@@ -69,6 +69,18 @@ class KnowledgeGraphPage(QWidget):
         # 1. Main View (Splitter)
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         layout.addWidget(self.splitter, 1)
+
+        self.empty_state = EmptyStateWidget(
+            "No knowledge graph items yet.",
+            "This page shows structured memory relationships after sessions are processed and reviewed.\n\n"
+            "To populate it:\n"
+            "- Open or import a session with extracted memory\n"
+            "- Review pending items in Review Suggestions\n"
+            "- Transcribe a local file\n"
+            "- Or use Tools > Seed Technical Demo\n\n"
+            "Graph items may include tasks, decisions, topics, entities, risks, open questions, and follow-ups.",
+        )
+        layout.addWidget(self.empty_state, 1)
         
         # Tables Container
         self.tabs = QTabWidget()
@@ -149,10 +161,26 @@ class KnowledgeGraphPage(QWidget):
         self._all_nodes = []
         self._all_edges = []
         self._selected_node = None
+        self.splitter.hide()
 
     def update_graph_data(self, nodes: list[dict], edges: list[dict]) -> None:
         self._all_nodes = nodes
         self._all_edges = edges
+        has_graph_items = bool(nodes or edges)
+        self.splitter.setVisible(has_graph_items)
+        self.empty_state.setVisible(not has_graph_items)
+        if not has_graph_items:
+            self.nodes_table.setRowCount(0)
+            self.edges_table.setRowCount(0)
+            self._selected_node = None
+            self.detail_text.clear()
+            self.neighbors_list.clear()
+            self.trace_button.setEnabled(False)
+            self.edit_button.setEnabled(False)
+            self.disable_button.setEnabled(False)
+            self.merge_button.setEnabled(False)
+            return
+
         self._apply_filters()
         
         self.edges_table.setRowCount(0)

@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         app_title.setStyleSheet("font-size: 18pt; font-weight: 700; color: #264a7f; margin-bottom: 8px;")
         sidebar_layout.addWidget(app_title)
         
-        status_label = QLabel("● Secure Offline Memory")
+        status_label = QLabel("Local-First Memory")
         status_label.setStyleSheet("color: #19693d; font-weight: 600; margin-bottom: 12px;")
         sidebar_layout.addWidget(status_label)
         
@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
         self.session_list_panel.new_session_requested.connect(self._create_session)
         self.session_list_panel.global_search_requested.connect(self._show_memory_search)
         self.session_list_panel.transcribe_file_requested.connect(self._handle_manual_file_ingest)
+        self.session_list_panel.seed_demo_requested.connect(self._seed_demo_data)
         
         self.voice_command_panel.transcript_captured.connect(self._ingest_transcript)
         self.voice_command_panel.backend_health_updated.connect(self.diagnostics_page.set_backend_health)

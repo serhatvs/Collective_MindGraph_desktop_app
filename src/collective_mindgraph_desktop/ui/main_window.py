@@ -176,7 +176,9 @@ class MainWindow(QMainWindow):
         self.session_list_panel.seed_demo_requested.connect(self._seed_demo_data)
         
         self.voice_command_panel.transcript_captured.connect(self._ingest_transcript)
-        self.voice_command_panel.backend_health_updated.connect(self.diagnostics_page.set_backend_health)
+        backend_health_signal = getattr(self.voice_command_panel, "backend_health_updated", None)
+        if backend_health_signal is not None:
+            backend_health_signal.connect(self.diagnostics_page.set_backend_health)
         self.insights_page.knowledge_item_updated.connect(self._handle_knowledge_update)
         self.review_page.node_approved.connect(self._handle_node_approve)
         self.review_page.node_rejected.connect(self._handle_node_reject)

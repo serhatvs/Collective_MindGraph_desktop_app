@@ -26,6 +26,7 @@ class SessionListPanel(QWidget):
     delete_session_requested = Signal(int)
     session_selected = Signal(int)
     global_search_requested = Signal()
+    seed_demo_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -42,10 +43,14 @@ class SessionListPanel(QWidget):
         self.transcribe_button.setProperty("secondary", True)
         self.search_button = QPushButton("Global Memory Search")
         self.search_button.setProperty("secondary", True)
+        self.seed_demo_button = QPushButton("Seed Demo Data")
+        self.seed_demo_button.setProperty("secondary", True)
+        self.seed_demo_button.setToolTip("Create local sample memory data for exploring the demo flow.")
         
         action_layout.addWidget(self.new_button)
         action_layout.addWidget(self.transcribe_button)
         action_layout.addWidget(self.search_button)
+        action_layout.addWidget(self.seed_demo_button)
         layout.addLayout(action_layout)
 
         # Search / Filter
@@ -84,6 +89,7 @@ class SessionListPanel(QWidget):
         self.new_button.clicked.connect(self.new_session_requested.emit)
         self.transcribe_button.clicked.connect(self.transcribe_file_requested.emit)
         self.search_button.clicked.connect(self.global_search_requested.emit)
+        self.seed_demo_button.clicked.connect(self.seed_demo_requested.emit)
         self.delete_button.clicked.connect(self._confirm_delete)
 
         self._sessions_by_id: dict[int, Session] = {}

@@ -40,7 +40,9 @@ class DiagnosticsPage(QWidget):
             "Diagnostics shows current runtime readiness for the local demo environment.\n\n"
             "Some values are live backend checks, while others are selected-session or local "
             "configuration indicators. A fallback status is not always an error; it often means "
-            "the app is using the safe offline/evidence-only path."
+            "the app is using the safe offline/evidence-only path. Empty or unavailable values "
+            "usually mean a check has not run yet, the optional provider is unavailable, or no "
+            "session-specific analysis is selected."
         ))
         
         # 1. Pipeline Status Card
@@ -48,6 +50,16 @@ class DiagnosticsPage(QWidget):
         self.container_layout.addWidget(self.status_card)
         self.last_refreshed_label = self._source_hint_label("Last refreshed: not yet")
         self.status_card.body_layout.addWidget(self.last_refreshed_label)
+        self.backend_state_label = self._helper_label(
+            "Backend check: not yet checked. The local backend may be started separately for "
+            "runtime diagnostics; stored memory data is not changed by this check."
+        )
+        self.status_card.body_layout.addWidget(self.backend_state_label)
+        self.session_state_label = self._helper_label(
+            "Selected session: no selected session. Select a session to see session-specific "
+            "diagnostics; global runtime checks can still be useful without one."
+        )
+        self.status_card.body_layout.addWidget(self.session_state_label)
         self.status_card.body_layout.addWidget(self._helper_label(
             "Backend values show whether the local backend is reachable. ASR, GPU, and VAD "
             "rows are runtime capability checks only; they do not validate meeting-room "
@@ -64,34 +76,34 @@ class DiagnosticsPage(QWidget):
         
         self.labels = {
             "backend_url": QLabel("http://127.0.0.1:8081"),
-            "asr_provider": QLabel("-"),
-            "asr_backend_resolved": QLabel("-"),
-            "asr_model": QLabel("-"),
-            "asr_device": QLabel("-"),
-            "asr_compute_type": QLabel("-"),
-            "asr_language": QLabel("-"),
-            "asr_runtime_profile": QLabel("-"),
-            "gpu_enabled": QLabel("-"),
-            "gpu_required": QLabel("-"),
-            "cuda_available": QLabel("-"),
-            "gpu_requested": QLabel("-"),
-            "gpu_actual": QLabel("-"),
-            "gpu_fallback": QLabel("-"),
-            "gpu_fallback_reason": QLabel("-"),
-            "vad_provider": QLabel("-"),
-            "embedding_device": QLabel("-"),
-            "local_llm_enabled": QLabel("-"),
+            "asr_provider": QLabel("not yet checked"),
+            "asr_backend_resolved": QLabel("not yet checked"),
+            "asr_model": QLabel("not yet checked"),
+            "asr_device": QLabel("not yet checked"),
+            "asr_compute_type": QLabel("not yet checked"),
+            "asr_language": QLabel("not yet checked"),
+            "asr_runtime_profile": QLabel("not yet checked"),
+            "gpu_enabled": QLabel("not yet checked"),
+            "gpu_required": QLabel("not yet checked"),
+            "cuda_available": QLabel("not yet checked"),
+            "gpu_requested": QLabel("not yet checked"),
+            "gpu_actual": QLabel("not yet checked"),
+            "gpu_fallback": QLabel("not yet checked"),
+            "gpu_fallback_reason": QLabel("not yet checked"),
+            "vad_provider": QLabel("not yet checked"),
+            "embedding_device": QLabel("not yet checked"),
+            "local_llm_enabled": QLabel("not yet checked"),
             "llm_status": QLabel("WIRED BUT UNAVAILABLE"),
-            "llm_endpoint": QLabel("-"),
+            "llm_endpoint": QLabel("provider not configured"),
             "extraction_mode": QLabel("HEURISTIC_FALLBACK"),
             "embedding_status": QLabel("MOCK_ONLY"),
-            "embedding_path": QLabel("-"),
+            "embedding_path": QLabel("provider not configured"),
             "vector_count": QLabel("0"),
             "embedding_dim": QLabel("384"),
             "offline_mode": QLabel("ACTIVE (Strict Local-First)"),
-            "processing_time": QLabel("-"),
-            "raw_length": QLabel("-"),
-            "clean_length": QLabel("-"),
+            "processing_time": QLabel("no selected session"),
+            "raw_length": QLabel("no selected session"),
+            "clean_length": QLabel("no selected session"),
         }
         for label in self.labels.values():
             label.setStyleSheet("font-family: 'Consolas', monospace; color: #264a7f;")
@@ -217,25 +229,33 @@ class DiagnosticsPage(QWidget):
     def set_backend_health(self, health: BackendHealthStatus | None) -> None:
         self._mark_last_refreshed()
         if health is None:
-            self.labels["asr_provider"].setText("-")
-            self.labels["asr_backend_resolved"].setText("-")
-            self.labels["asr_model"].setText("-")
-            self.labels["asr_device"].setText("-")
-            self.labels["asr_compute_type"].setText("-")
-            self.labels["asr_language"].setText("-")
-            self.labels["asr_runtime_profile"].setText("-")
-            self.labels["gpu_enabled"].setText("-")
-            self.labels["gpu_required"].setText("-")
-            self.labels["cuda_available"].setText("-")
-            self.labels["gpu_requested"].setText("-")
-            self.labels["gpu_actual"].setText("-")
-            self.labels["gpu_fallback"].setText("-")
-            self.labels["gpu_fallback_reason"].setText("-")
-            self.labels["vad_provider"].setText("-")
-            self.labels["embedding_device"].setText("-")
-            self.labels["local_llm_enabled"].setText("-")
+            self.backend_state_label.setText(
+                "Backend check: backend not reachable. The local backend may not be running. "
+                "Start the backend and refresh Diagnostics. This does not change stored memory data."
+            )
+            self.labels["asr_provider"].setText("unavailable")
+            self.labels["asr_backend_resolved"].setText("unavailable")
+            self.labels["asr_model"].setText("unavailable")
+            self.labels["asr_device"].setText("unavailable")
+            self.labels["asr_compute_type"].setText("unavailable")
+            self.labels["asr_language"].setText("unavailable")
+            self.labels["asr_runtime_profile"].setText("unavailable")
+            self.labels["gpu_enabled"].setText("unavailable")
+            self.labels["gpu_required"].setText("unavailable")
+            self.labels["cuda_available"].setText("unavailable")
+            self.labels["gpu_requested"].setText("unavailable")
+            self.labels["gpu_actual"].setText("unavailable")
+            self.labels["gpu_fallback"].setText("unavailable")
+            self.labels["gpu_fallback_reason"].setText("backend not reachable")
+            self.labels["vad_provider"].setText("unavailable")
+            self.labels["embedding_device"].setText("unavailable")
+            self.labels["local_llm_enabled"].setText("optional provider unavailable")
             return
 
+        self.backend_state_label.setText(
+            "Backend check: live backend check completed. Unavailable optional providers can still "
+            "use fallback paths for demo readiness."
+        )
         self.labels["asr_provider"].setText(health.asr_provider)
         self.labels["asr_backend_resolved"].setText(health.asr_provider_resolved or "-")
         self.labels["asr_model"].setText(health.asr_model_name or "-")
@@ -272,13 +292,31 @@ class DiagnosticsPage(QWidget):
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         if not detail or not detail.transcripts:
+            self.session_state_label.setText(
+                "Selected session: no selected session diagnostics available. Select a session "
+                "to see session-specific diagnostics. Some selected-session indicators may remain "
+                "unavailable until a session is opened."
+            )
+            self.labels["raw_length"].setText("no selected session")
+            self.labels["clean_length"].setText("no selected session")
+            self.labels["processing_time"].setText("no selected session")
             return
 
         last_id = detail.transcripts[-1].id
         analysis = detail.transcript_analyses.get(last_id)
         if not analysis:
+            self.session_state_label.setText(
+                "Selected session: analysis metadata unavailable. Session-specific diagnostics "
+                "will appear after transcript analysis data is available."
+            )
+            self.labels["raw_length"].setText("unavailable")
+            self.labels["clean_length"].setText("unavailable")
+            self.labels["processing_time"].setText("unavailable")
             return
 
+        self.session_state_label.setText(
+            "Selected session: session-specific diagnostics loaded from the selected transcript analysis."
+        )
         self.labels["asr_provider"].setText(analysis.source_provider)
         self.labels["llm_endpoint"].setText(analysis.metadata.get("llm_endpoint", "-"))
         

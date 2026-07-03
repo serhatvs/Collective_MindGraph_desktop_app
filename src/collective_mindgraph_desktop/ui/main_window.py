@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         app_title.setStyleSheet("font-size: 18pt; font-weight: 700; color: #264a7f; margin-bottom: 8px;")
         sidebar_layout.addWidget(app_title)
         
-        status_label = QLabel("● Secure Offline Memory")
+        status_label = QLabel("Local-First Memory")
         status_label.setStyleSheet("color: #19693d; font-weight: 600; margin-bottom: 12px;")
         sidebar_layout.addWidget(status_label)
         

@@ -311,7 +311,7 @@ class TranscriptionSettingsDialog(QDialog):
         self.llm_endpoint_edit = QLineEdit(os.getenv("CMG_RT_LLM_ENDPOINT", "http://127.0.0.1:1234/v1"))
         self.llm_endpoint_edit.setPlaceholderText("http://127.0.0.1:1234/v1")
 
-        form_layout.addRow(QLabel("<b>Production AI</b>"), QLabel(""))
+        form_layout.addRow(QLabel("<b>Optional Local AI</b>"), QLabel(""))
         form_layout.addRow("Backend URL", self.base_url_edit)
         form_layout.addRow("LLM API Endpoint", self.llm_endpoint_edit)
         form_layout.addRow("", self.embeddings_checkbox)

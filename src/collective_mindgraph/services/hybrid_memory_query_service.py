@@ -53,9 +53,9 @@ class HybridMemoryQueryService(HybridQueryInterface):
                 for hit in vec_hits:
                     node_id = hit["node_id"]
                     if node_id not in enhanced_results:
-                    node = self.graph_repo.get_node(node_id)
-                    if node and not self._is_excluded(node.properties):
-                        enhanced_results[node_id] = EnhancedQueryResult(node=node)
+                        node = self.graph_repo.get_node(node_id)
+                        if node and not self._is_excluded(node.properties):
+                            enhanced_results[node_id] = EnhancedQueryResult(node=node)
                     
                     if node_id in enhanced_results:
                         res = enhanced_results[node_id]

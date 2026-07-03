@@ -63,11 +63,10 @@ class DiagnosticsPage(QWidget):
         self.status_card.body_layout.addWidget(self._helper_label(
             "Backend values show whether the local backend is reachable. ASR, GPU, and VAD "
             "rows are runtime capability checks only; they do not validate meeting-room "
-            "transcription quality. Embedding status uses MOCK_ONLY for fallback/mock embeddings "
-            "and REAL_ACTIVE when a local embedding provider appears active. Local LLM support is "
-            "optional, and evidence-only Ask Memory can work without it. LLM-assisted Ask Memory "
-            "is guarded by fallback behavior. Diarization is roadmap-only here, with no speaker "
-            "separation claim."
+            "transcription quality. Status values use ACTIVE, DISABLED, OPTIONAL, ROADMAP, and "
+            "NOT IMPLEMENTED. Local LLM support is optional, and evidence-only Ask Memory can "
+            "work without it. LLM-assisted Ask Memory is guarded by fallback behavior. "
+            "Diarization is not implemented here, with no speaker separation claim."
         ))
         
         self.form = QFormLayout()
@@ -93,10 +92,10 @@ class DiagnosticsPage(QWidget):
             "vad_provider": QLabel("not yet checked"),
             "embedding_device": QLabel("not yet checked"),
             "local_llm_enabled": QLabel("not yet checked"),
-            "llm_status": QLabel("WIRED BUT UNAVAILABLE"),
+            "llm_status": QLabel("OPTIONAL / DISABLED"),
             "llm_endpoint": QLabel("provider not configured"),
             "extraction_mode": QLabel("HEURISTIC_FALLBACK"),
-            "embedding_status": QLabel("MOCK_ONLY"),
+            "embedding_status": QLabel("DISABLED (mock embeddings only)"),
             "embedding_path": QLabel("provider not configured"),
             "vector_count": QLabel("0"),
             "embedding_dim": QLabel("384"),
@@ -142,23 +141,25 @@ class DiagnosticsPage(QWidget):
         self._add_row("Vector Index Size", self.labels["vector_count"], "Local configuration indicator")
         self._add_row("Vector Dimension", self.labels["embedding_dim"], "Local configuration indicator")
         
-        self.labels["graph_status"] = QLabel("ACTIVE (V2 Graph Nodes/Edges)")
+        self.labels["graph_status"] = QLabel("ACTIVE (V2 graph persistence)")
         self.labels["graph_status"].setStyleSheet("color: #166534; font-weight: bold;")
-        self._add_row("Graph Reasoning", self.labels["graph_status"], "Roadmap/static status")
-        
-        self.labels["ask_memory_evidence"] = QLabel("ACTIVE")
+        self._add_row("Graph Reasoning", self.labels["graph_status"], "Persistence-backed status")
+
+        self.labels["ask_memory_evidence"] = QLabel("ACTIVE (evidence-only)")
         self.labels["ask_memory_evidence"].setStyleSheet("color: #166534; font-weight: bold;")
-        self._add_row("Ask Memory (Evidence-only)", self.labels["ask_memory_evidence"], "Roadmap/static status")
+        self._add_row("Ask Memory (Evidence-only)", self.labels["ask_memory_evidence"], "Evidence path status")
 
         self.labels["ask_memory_llm"] = QLabel("FALLBACK_TO_EVIDENCE_ONLY")
         self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")
         self._add_row("Ask Memory (LLM-assisted)", self.labels["ask_memory_llm"], "Optional provider status")
 
-        self.labels["hybrid_status"] = QLabel("ACTIVE (Keyword + Graph)")
+        self.labels["hybrid_status"] = QLabel("ACTIVE (keyword + graph)")
         self.labels["hybrid_status"].setStyleSheet("color: #166534; font-weight: bold;")
-        self._add_row("Hybrid Query", self.labels["hybrid_status"], "Roadmap/static status")
+        self._add_row("Hybrid Query", self.labels["hybrid_status"], "Configured retrieval status")
 
-        self._add_row("Diarization", QLabel("NOT ENABLED (Roadmap)"), "Roadmap/static status")
+        self.labels["diarization_status"] = QLabel("NOT IMPLEMENTED / ROADMAP")
+        self.labels["diarization_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
+        self._add_row("Diarization", self.labels["diarization_status"], "Roadmap/static status")
         self._add_row("Raw Audio Trace Count", self.labels["raw_length"], "Selected-session indicator")
         self._add_row("Memory Cache Size", self.labels["clean_length"], "Selected-session indicator")
         self._add_row("Analysis Duration", self.labels["processing_time"], "Selected-session indicator")
@@ -214,17 +215,17 @@ class DiagnosticsPage(QWidget):
         self.labels["embedding_path"].setText(model_path or "N/A (Mock)")
         
         if provider_name == "Mock":
-            self.labels["embedding_status"].setText("MOCK_ONLY")
+            self.labels["embedding_status"].setText("DISABLED (mock embeddings only)")
             self.labels["embedding_status"].setStyleSheet("color: #ca8a04; font-weight: bold;")
-            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
+            self.labels["hybrid_status"].setText("ACTIVE (keyword + graph)")
         elif provider_name == "SentenceTransformer":
-            self.labels["embedding_status"].setText("REAL_ACTIVE")
+            self.labels["embedding_status"].setText("ACTIVE (local embeddings)")
             self.labels["embedding_status"].setStyleSheet("color: #166534; font-weight: bold;")
-            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Vector + Graph)")
+            self.labels["hybrid_status"].setText("ACTIVE (keyword + vector + graph)")
         else:
-            self.labels["embedding_status"].setText("MISSING_MODEL")
+            self.labels["embedding_status"].setText("DISABLED (embedding model unavailable)")
             self.labels["embedding_status"].setStyleSheet("color: #9a3412; font-weight: bold;")
-            self.labels["hybrid_status"].setText("ACTIVE (Keyword + Graph)")
+            self.labels["hybrid_status"].setText("ACTIVE (keyword + graph)")
 
     def set_backend_health(self, health: BackendHealthStatus | None) -> None:
         self._mark_last_refreshed()

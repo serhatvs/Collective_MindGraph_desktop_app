@@ -33,10 +33,28 @@ class DiagnosticsPage(QWidget):
         self.container_layout.setContentsMargins(24, 24, 24, 24)
         self.container_layout.setSpacing(24)
         scroll.setWidget(container)
+
+        self.intro_card = CardWidget("How to Read Diagnostics")
+        self.container_layout.addWidget(self.intro_card)
+        self.intro_card.body_layout.addWidget(self._helper_label(
+            "Diagnostics shows current runtime readiness for the local demo environment.\n\n"
+            "Some values are live backend checks, while others are selected-session or local "
+            "configuration indicators. A fallback status is not always an error; it often means "
+            "the app is using the safe offline/evidence-only path."
+        ))
         
         # 1. Pipeline Status Card
         self.status_card = CardWidget("Technical Diagnostics")
         self.container_layout.addWidget(self.status_card)
+        self.status_card.body_layout.addWidget(self._helper_label(
+            "Backend values show whether the local backend is reachable. ASR, GPU, and VAD "
+            "rows are runtime capability checks only; they do not validate meeting-room "
+            "transcription quality. Embedding status uses MOCK_ONLY for fallback/mock embeddings "
+            "and REAL_ACTIVE when a local embedding provider appears active. Local LLM support is "
+            "optional, and evidence-only Ask Memory can work without it. LLM-assisted Ask Memory "
+            "is guarded by fallback behavior. Diarization is roadmap-only here, with no speaker "
+            "separation claim."
+        ))
         
         self.form = QFormLayout()
         self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -144,8 +162,19 @@ class DiagnosticsPage(QWidget):
         )
         safety_text.setStyleSheet("color: #19693d; font-weight: 600;")
         self.safety_card.body_layout.addWidget(safety_text)
+        self.safety_card.body_layout.addWidget(self._helper_label(
+            "These guards describe the app's local-first, offline-ready safety posture for demo "
+            "readiness. They are not a production security certification or installer readiness claim."
+        ))
         
         self.container_layout.addStretch(1)
+
+    @staticmethod
+    def _helper_label(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setStyleSheet("color: #66788a; line-height: 1.4;")
+        return label
 
     def set_app_summary(self, vector_count: int, embedding_dim: int, provider_name: str, model_path: str = "") -> None:
         self.labels["vector_count"].setText(str(vector_count))

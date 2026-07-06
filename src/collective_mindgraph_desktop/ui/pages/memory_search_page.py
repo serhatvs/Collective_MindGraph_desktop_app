@@ -137,11 +137,22 @@ class MemorySearchPage(QWidget):
     def _handle_search(self) -> None:
         query = self.search_input.text().strip()
         mode = self.mode_selector.currentText().lower()
-        if not query or not self._config:
+        if not query:
+            self.empty_state.set_text("Search Memory", "Enter a query to search sessions, tasks, decisions, and graph context.")
+            self.empty_state.show()
+            self.results_list.hide()
+            return
+        if not self._config:
+            self.empty_state.set_text("Search Unavailable", "Open Global Search from the sidebar so the page can use the current backend settings.")
+            self.empty_state.show()
+            self.results_list.hide()
+            return
+        if self._query_thread is not None:
             return
 
         self.search_button.setEnabled(False)
         self.results_list.clear()
+        self.empty_state.set_text("Searching Memory", "Querying the local backend...")
         self.empty_state.hide()
 
         self._query_thread = QThread()
@@ -154,6 +165,7 @@ class MemorySearchPage(QWidget):
         self._query_worker.reasoning_finished.connect(self._handle_reasoning_finished)
         self._query_worker.finished.connect(self._query_thread.quit)
         self._query_worker.failed.connect(self._query_thread.quit)
+        self._query_thread.finished.connect(self._cleanup_query_worker)
         
         self._query_thread.start()
 
@@ -166,6 +178,7 @@ class MemorySearchPage(QWidget):
                 LOGGER.warning("Query Warning: %s", w)
 
         if not response.results:
+            self.empty_state.set_text("No Matches Found", "Try a different term, or ingest/review memory first.")
             self.empty_state.show()
             self.results_list.hide()
             return
@@ -198,7 +211,14 @@ class MemorySearchPage(QWidget):
 
     def _handle_query_failed(self, error: str) -> None:
         self.search_button.setEnabled(True)
+        self.empty_state.set_text("Search Failed", error)
+        self.empty_state.show()
+        self.results_list.hide()
         LOGGER.error("Search failed: %s", error)
+
+    def _cleanup_query_worker(self) -> None:
+        self._query_thread = None
+        self._query_worker = None
 
     def _handle_item_double_clicked(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.ItemDataRole.UserRole)

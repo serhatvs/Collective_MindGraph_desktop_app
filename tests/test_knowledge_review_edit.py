@@ -1,10 +1,13 @@
 
 import pytest
 import json
+from PySide6.QtCore import Qt
 from datetime import datetime, UTC
 from collective_mindgraph_desktop.database import Database
 from collective_mindgraph_desktop.services import CollectiveMindGraphService
 from collective_mindgraph_desktop.transcription import TranscriptionResult
+from collective_mindgraph_desktop.ui.pages.insights_page import InsightsPage
+from collective_mindgraph_desktop.ui.pages.review_queue_page import ReviewQueuePage
 from collective_mindgraph.core.memory_graph import NodeType, GraphNode, EdgeType, GraphEdge
 from collective_mindgraph.core.source_reference import SourceReference
 
@@ -129,3 +132,32 @@ def test_graph_traversal_preserves_source_after_edit(service):
     assert node.properties["title"] == "New"
     assert node.source.session_id == "s1"
     assert node.source.segment_id == "seg1"
+
+
+def test_review_queue_empty_state_is_visible(qtbot):
+    page = ReviewQueuePage()
+    qtbot.addWidget(page)
+
+    page.update_pending_data([])
+
+    assert not page.empty_label.isHidden()
+    assert page.table.isHidden()
+
+
+def test_insights_page_shows_reviewed_items_without_garbled_prefixes(qtbot):
+    page = InsightsPage()
+    qtbot.addWidget(page)
+
+    page.update_reviewed_data([
+        {
+            "id": "task_1",
+            "type": "TASK",
+            "title": "Test FastAPI endpoint",
+            "metadata_json": json.dumps({"review_status": "approved", "assignee": "Ali"}),
+        }
+    ])
+
+    item = page.tasks_list.item(0)
+    assert item.text() == "Test FastAPI endpoint (Resp: Ali)"
+    assert item.data(Qt.ItemDataRole.UserRole)["type"] == "task"
+    assert page.decisions_list.item(0).text() == "No reviewed items in this category."

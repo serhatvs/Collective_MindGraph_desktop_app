@@ -20,7 +20,7 @@ def test_rebuilt_ui_is_loaded(qtbot):
     qtbot.addWidget(window)
     
     # 1. Check title
-    assert "Collective MindGraph — Local Technical Memory" in window.windowTitle()
+    assert "Collective MindGraph - Local Technical Memory" in window.windowTitle()
     
     # 2. Check sidebar exists
     assert hasattr(window, "sidebar_container")

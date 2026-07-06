@@ -57,6 +57,8 @@ class AskMemoryPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._config: RealtimeBackendTranscriptionConfig | None = None
+        self._thread: QThread | None = None
+        self._worker: MemoryAskWorker | None = None
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -93,6 +95,7 @@ class AskMemoryPanel(QWidget):
         self.answer_box.setReadOnly(True)
         self.answer_box.setPlaceholderText("Answers will appear here with evidence links...")
         self.answer_box.setMinimumHeight(150)
+        self.answer_box.setText("Connect to the local backend, then ask a question about your memory.")
         self.card.body_layout.addWidget(self.answer_box)
 
         # Evidence List
@@ -116,7 +119,13 @@ class AskMemoryPanel(QWidget):
         mode_text = self.mode_selector.currentText()
         mode = "llm_assisted" if mode_text == "LLM Assisted" else "evidence_only"
         
-        if not query or not self._config:
+        if not query:
+            self.answer_box.setText("Enter a question first.")
+            return
+        if not self._config:
+            self.answer_box.setText("Open Global Search from the sidebar so Ask Memory can use the current backend settings.")
+            return
+        if self._thread is not None:
             return
 
         self.ask_button.setEnabled(False)
@@ -132,6 +141,7 @@ class AskMemoryPanel(QWidget):
         self._worker.failed.connect(self._handle_failed)
         self._worker.finished.connect(self._thread.quit)
         self._worker.failed.connect(self._thread.quit)
+        self._thread.finished.connect(self._cleanup_worker)
         
         self._thread.start()
 
@@ -152,7 +162,8 @@ class AskMemoryPanel(QWidget):
         score_color = "#28a745" if score > 80 else "#ffc107" if score > 50 else "#dc3545"
         html += f"<b>Coverage: <span style='color: {score_color};'>{score:.0f}%</span></b><br>"
 
-        if response.mode_used == "evidence_only_fallback":
+        mode_used = response.mode_used or response.answer_type
+        if mode_used == "evidence_only_fallback":
             status_map = {
                 "rejected_unsupported_terms": "added unsupported information",
                 "rejected_missing_sources": "failed to cite valid sources",
@@ -162,7 +173,7 @@ class AskMemoryPanel(QWidget):
             warning_msg = f"LLM answer rejected because it {reason}. Showing evidence-only answer."
             if response.rejected_terms:
                 warning_msg += f" (Rejected terms: {', '.join(response.rejected_terms)})"
-            html += f"<br><b style='color: #dc3545;'>⚠️ {warning_msg}</b>"
+            html += f"<br><b style='color: #dc3545;'>Warning: {warning_msg}</b>"
         elif response.warnings:
             html += "<br><i style='color: #856404;'>Warnings: " + ", ".join(response.warnings) + "</i>"
             
@@ -178,6 +189,10 @@ class AskMemoryPanel(QWidget):
     def _handle_failed(self, error: str) -> None:
         self.ask_button.setEnabled(True)
         self.answer_box.setText(f"Error: {error}")
+
+    def _cleanup_worker(self) -> None:
+        self._thread = None
+        self._worker = None
 
     def _clear_evidence(self) -> None:
         while self.evidence_layout.count() > 1:

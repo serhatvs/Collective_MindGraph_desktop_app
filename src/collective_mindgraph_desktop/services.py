@@ -282,6 +282,22 @@ class CollectiveMindGraphService:
     def update_node(self, node_id: str, properties: dict[str, Any]) -> bool:
         return self.production_graph.update_node(node_id, properties)
 
+    def resolve_source_reference(self, source_reference_id: str | None) -> tuple[str, str] | None:
+        if not source_reference_id:
+            return None
+        with self._database.connect() as conn:
+            row = conn.execute(
+                "SELECT session_id, segment_id FROM v2_source_references WHERE id = ?",
+                (source_reference_id,),
+            ).fetchone()
+        if not row:
+            return None
+        session_id = str(row["session_id"] or "")
+        segment_id = str(row["segment_id"] or "")
+        if not session_id:
+            return None
+        return session_id, segment_id
+
     def get_session_graph_data(self, session_id: int) -> dict[str, Any]:
         session_id_str = str(session_id)
         v2_nodes = []

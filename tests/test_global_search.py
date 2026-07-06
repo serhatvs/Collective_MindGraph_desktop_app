@@ -4,10 +4,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from collective_mindgraph_desktop.transcription import (
+    MemoryAskResponse,
     QueryResultItem,
     QueryResponse,
     RealtimeBackendTranscriptionConfig,
 )
+from collective_mindgraph_desktop.ui.components.ask_memory_panel import AskMemoryPanel
 from collective_mindgraph_desktop.ui.pages.memory_search_page import MemorySearchPage
 from collective_mindgraph_desktop.ui.components.result_card import ResultCard
 
@@ -72,6 +74,43 @@ def test_memory_search_page_emits_navigation_signal(qtbot):
         page.results_list.itemDoubleClicked.emit(page.results_list.item(0))
         
     assert blocker.args == ["conv_2", "s2"]
+
+
+def test_memory_search_page_shows_failed_query_message(qtbot):
+    page = MemorySearchPage()
+    qtbot.addWidget(page)
+
+    page._handle_query_failed("Realtime transcription backend is not reachable.")
+
+    assert not page.empty_state.isHidden()
+    assert "Search Failed" == page.empty_state.title_label.text()
+    assert "not reachable" in page.empty_state.message_label.text()
+    assert page.search_button.isEnabled()
+
+
+def test_ask_memory_panel_handles_backend_schema_fields(qtbot):
+    panel = AskMemoryPanel()
+    qtbot.addWidget(panel)
+
+    response = MemoryAskResponse(
+        query="FastAPI tasks?",
+        mode="llm_assisted",
+        mode_used="evidence_only_fallback",
+        answer_type="llm_assisted",
+        answer_validation_status="rejected_missing_sources",
+        short_answer="Use the FastAPI endpoint task.",
+        confidence_level="medium",
+        evidence_coverage_score=0.75,
+        used_sources=["s1"],
+        rejected_terms=["unsupported"],
+    )
+
+    panel._handle_finished(response)
+
+    text = panel.answer_box.toPlainText()
+    assert "Use the FastAPI endpoint task." in text
+    assert "Coverage: 75%" in text
+    assert "LLM answer rejected" in text
 
 if __name__ == "__main__":
     pytest.main([__file__])

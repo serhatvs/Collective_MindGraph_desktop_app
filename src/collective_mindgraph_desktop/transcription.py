@@ -116,10 +116,15 @@ class MemoryAskResponse:
     answer_type: str
     short_answer: str
     confidence_level: str
+    mode_used: str | None = None
+    answer_validation_status: str = "accepted"
+    evidence_coverage_score: float = 0.0
     evidence_chains: list[EvidenceChain] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     source_session_ids: list[str] = field(default_factory=list)
     source_segment_ids: list[str] = field(default_factory=list)
+    used_sources: list[str] = field(default_factory=list)
+    rejected_terms: list[str] = field(default_factory=list)
     missing_evidence_note: str | None = None
 
 
@@ -519,11 +524,16 @@ class RealtimeBackendTranscriptionService:
             mode=mode,
             answer_type=str(payload.get("answer_type") or "evidence_only"),
             short_answer=str(payload.get("short_answer") or ""),
+            mode_used=self._extract_string(payload, "mode_used"),
+            answer_validation_status=str(payload.get("answer_validation_status") or "accepted"),
+            evidence_coverage_score=float(payload.get("evidence_coverage_score") or 0.0),
             evidence_chains=chains,
             warnings=payload.get("warnings") or [],
             confidence_level=str(payload.get("confidence_level") or "low"),
             source_session_ids=self._extract_string_list(payload, "source_session_ids"),
             source_segment_ids=self._extract_string_list(payload, "source_segment_ids"),
+            used_sources=self._extract_string_list(payload, "used_sources"),
+            rejected_terms=self._extract_string_list(payload, "rejected_terms"),
             missing_evidence_note=self._extract_string(payload, "missing_evidence_note")
         )
 

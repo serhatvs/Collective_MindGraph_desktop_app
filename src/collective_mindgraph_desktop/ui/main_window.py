@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import asdict
 
 from PySide6.QtCore import Qt, QObject, QThread
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -47,7 +47,7 @@ class MainWindow(QMainWindow):
         self._transcription_thread: QThread | None = None
         self._transcription_worker: BackendTranscriptionWorker | None = None
 
-        self.setWindowTitle("Collective MindGraph — Local Technical Memory")
+        self.setWindowTitle("Collective MindGraph - Local Technical Memory")
         self.resize(1400, 900)
 
         self._build_actions()
@@ -57,9 +57,9 @@ class MainWindow(QMainWindow):
 
         self._refresh_sessions()
         
-        status_msg = f"Local-first memory engine • Backend: {self.voice_command_panel.current_transcription_config().base_url}"
+        status_msg = f"Local-first memory engine - Backend: {self.voice_command_panel.current_transcription_config().base_url}"
         self.statusBar().showMessage(status_msg)
-        self.statusBar().addPermanentWidget(QLabel("Collective MindGraph — Native MVP"))
+        self.statusBar().addPermanentWidget(QLabel("Collective MindGraph - Native MVP"))
 
         if os.getenv("CMG_DEBUG_UI_TREE") == "1":
             self.dump_ui_tree()
@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
         app_title.setStyleSheet("font-size: 18pt; font-weight: 700; color: #264a7f; margin-bottom: 8px;")
         sidebar_layout.addWidget(app_title)
         
-        status_label = QLabel("● Secure Offline Memory")
+        status_label = QLabel("Secure Offline Memory")
         status_label.setStyleSheet("color: #19693d; font-weight: 600; margin-bottom: 12px;")
         sidebar_layout.addWidget(status_label)
         
@@ -175,7 +175,8 @@ class MainWindow(QMainWindow):
         self.session_list_panel.transcribe_file_requested.connect(self._handle_manual_file_ingest)
         
         self.voice_command_panel.transcript_captured.connect(self._ingest_transcript)
-        self.voice_command_panel.backend_health_updated.connect(self.diagnostics_page.set_backend_health)
+        if hasattr(self.voice_command_panel, "backend_health_updated"):
+            self.voice_command_panel.backend_health_updated.connect(self.diagnostics_page.set_backend_health)
         self.insights_page.knowledge_item_updated.connect(self._handle_knowledge_update)
         self.review_page.node_approved.connect(self._handle_node_approve)
         self.review_page.node_rejected.connect(self._handle_node_reject)
@@ -199,8 +200,13 @@ class MainWindow(QMainWindow):
         self._refresh_current_session_graph()
 
     def _handle_graph_trace(self, node_id: str, source_ref_id: str) -> None:
+        resolved = self._service.resolve_source_reference(source_ref_id)
+        if resolved:
+            session_id, segment_id = resolved
+            self._navigate_to_source(session_id, segment_id)
+            return
         if node_id.startswith("seg_"):
-            seg_id = node_id[4:]
+            seg_id = node_id.split("_", 2)[-1]
             if self._selected_session_id:
                 self._navigate_to_source(str(self._selected_session_id), seg_id)
 
@@ -250,7 +256,10 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Demo data loaded.")
 
     def _rebuild_snapshots(self) -> None:
-        pass
+        rebuilt = self._service.rebuild_snapshots(self._selected_session_id)
+        self._refresh_sessions()
+        scope = "selected session" if self._selected_session_id is not None else "all sessions"
+        self.statusBar().showMessage(f"Rebuilt {len(rebuilt)} memory index snapshot(s) for {scope}.")
 
     def _show_about(self) -> None:
         QMessageBox.about(self, "About Collective MindGraph", "Native MVP UI - Local-First Technical Memory")
@@ -361,12 +370,17 @@ class MainWindow(QMainWindow):
         self.tabs.setCurrentWidget(self.memory_search_page)
 
     def _navigate_to_source(self, session_id_str: str, segment_id: str) -> None:
-        session_id = int(session_id_str)
+        try:
+            session_id = int(session_id_str)
+        except (TypeError, ValueError):
+            QMessageBox.warning(self, "Open Source", "The selected source does not point to a local session.")
+            return
         if session_id != self._selected_session_id:
             self._select_session(session_id)
         
         self.tabs.setCurrentWidget(self.transcript_page)
-        self.transcript_page.scroll_to_segment(segment_id)
+        if segment_id:
+            self.transcript_page.scroll_to_segment(segment_id)
 
     def dump_ui_tree(self) -> None:
         print("\n--- UI TREE DUMP ---")
@@ -378,3 +392,8 @@ class MainWindow(QMainWindow):
                     _dump(child, indent + 1)
         _dump(self)
         print("--- END UI DUMP ---\n")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if hasattr(self.voice_command_panel, "shutdown"):
+            self.voice_command_panel.shutdown()
+        super().closeEvent(event)

@@ -40,6 +40,11 @@ class ReviewQueuePage(QWidget):
         self.table.setHorizontalHeaderLabels(["Type", "Confidence", "Suggestion", "Actions"])
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         layout.addWidget(self.table)
+
+        self.empty_label = QLabel("No pending suggestions. New extracted memory appears here for review.")
+        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setStyleSheet("color: #66788a; padding: 16px;")
+        layout.addWidget(self.empty_label)
         
         self._all_nodes = []
 
@@ -51,9 +56,12 @@ class ReviewQueuePage(QWidget):
         pending = []
         for n in nodes:
             meta_str = n.get("metadata_json") or "{}"
-            meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+            meta = self._metadata(meta_str)
             if meta.get("review_status") == "pending":
                 pending.append(n)
+
+        self.empty_label.setVisible(not pending)
+        self.table.setVisible(bool(pending))
         
         for node in pending:
             row = self.table.rowCount()
@@ -63,7 +71,7 @@ class ReviewQueuePage(QWidget):
             
             # Confidence from metadata or 1.0
             meta_str = node.get("metadata_json") or "{}"
-            meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
+            meta = self._metadata(meta_str)
             conf = meta.get("confidence", 1.0)
             self.table.setItem(row, 1, QTableWidgetItem(f"{conf:.2f}"))
             
@@ -94,3 +102,13 @@ class ReviewQueuePage(QWidget):
         reason, ok = QInputDialog.getText(self, "Reject Suggestion", "Reason for rejection:")
         if ok:
             self.node_rejected.emit(node_id, reason)
+
+    @staticmethod
+    def _metadata(value: object) -> dict:
+        if isinstance(value, str):
+            try:
+                loaded = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+            return loaded if isinstance(loaded, dict) else {}
+        return value if isinstance(value, dict) else {}

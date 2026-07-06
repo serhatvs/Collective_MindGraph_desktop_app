@@ -103,16 +103,22 @@ class EmptyStateWidget(QWidget):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title_label = QLabel(title)
+        self.title_label = title_label
         title_label.setObjectName("SectionTitle")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         message_label = QLabel(message)
+        self.message_label = message_label
         message_label.setWordWrap(True)
         message_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         message_label.setStyleSheet("color: #66788a;")
 
         layout.addWidget(title_label)
         layout.addWidget(message_label)
+
+    def set_text(self, title: str, message: str) -> None:
+        self.title_label.setText(title)
+        self.message_label.setText(message)
 
 
 class ActionEmptyStateWidget(QWidget):
@@ -354,7 +360,7 @@ class TranscriptionSettingsDialog(QDialog):
             audio_input_device_label=None if is_default_selection else selected_label,
             auto_stop_enabled=self.auto_stop_checkbox.isChecked(),
             auto_stop_min_speech_seconds=self.auto_stop_min_speech_spin.value(),
-            auto_stop_silence_seconds=self.auto_stop_silence_seconds_spin.value() if hasattr(self, "auto_stop_silence_seconds_spin") else 1.25,
+            auto_stop_silence_seconds=self.auto_stop_silence_spin.value(),
             auto_stop_silence_threshold=self.auto_stop_threshold_spin.value(),
             wake_trigger_enabled=self.wake_enabled_checkbox.isChecked(),
             wake_phrase=self.wake_phrase_edit.text().strip() or DEFAULT_WAKE_PHRASE,

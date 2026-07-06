@@ -8,7 +8,7 @@ from pathlib import Path
 from dataclasses import asdict
 
 from PySide6.QtCore import Qt, QObject, QThread
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -160,6 +160,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.reasoning_page, "Reasoning Trace")
 
         self.memory_search_page = MemorySearchPage()
+        self.memory_search_page.set_config(self.voice_command_panel.current_transcription_config())
         self.tabs.addTab(self.memory_search_page, "Global Search")
 
         self.diagnostics_page = DiagnosticsPage()
@@ -173,6 +174,8 @@ class MainWindow(QMainWindow):
         self.session_list_panel.new_session_requested.connect(self._create_session)
         self.session_list_panel.global_search_requested.connect(self._show_memory_search)
         self.session_list_panel.transcribe_file_requested.connect(self._handle_manual_file_ingest)
+        self.session_list_panel.delete_session_requested.connect(self._delete_session)
+        self.session_list_panel.search_changed.connect(lambda _query: self._refresh_sessions())
         self.session_list_panel.seed_demo_requested.connect(self._seed_demo_data)
         
         self.voice_command_panel.transcript_captured.connect(self._ingest_transcript)
@@ -238,7 +241,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Update Error", f"Failed to persist update for {item_type}.")
 
     def _refresh_sessions(self, selected_id: int | None = None) -> None:
-        sessions = self._service.list_sessions()
+        sessions = self._service.list_sessions(self.session_list_panel.search_text())
         self.session_list_panel.set_sessions(sessions, selected_id or self._selected_session_id)
         
         vector_count = self._service.vector_repo.get_count()
@@ -253,6 +256,20 @@ class MainWindow(QMainWindow):
             title, dev_id, status = dialog.values()
             session = self._service.create_session(title, dev_id, status)
             self._refresh_sessions(selected_id=session.id)
+
+    def _delete_session(self, session_id: int) -> None:
+        deleted = self._service.delete_session(session_id)
+        if not deleted:
+            QMessageBox.warning(self, "Delete Session", "The selected session could not be found.")
+            self._refresh_sessions()
+            return
+
+        if self._selected_session_id == session_id:
+            self._selected_session_id = None
+            self._clear_session_pages()
+
+        self._refresh_sessions()
+        self.statusBar().showMessage("Memory session deleted.")
 
     def _seed_demo_data(self) -> None:
         self._service.seed_demo_data()
@@ -351,20 +368,32 @@ class MainWindow(QMainWindow):
             except Exception as exc:
                 QMessageBox.critical(self, "Import Error", f"Failed to import knowledge:\n{str(exc)}")
 
-    def _select_session(self, session_id: int) -> None:
-        self._selected_session_id = session_id
+    def _select_session(self, session_id: int) -> bool:
         detail = self._service.get_session_detail(session_id)
-        if detail:
-            self.overview_page.set_detail(detail)
-            self.transcript_page.set_detail(detail)
-            self.insights_page.set_detail(detail)
-            self.diagnostics_page.set_detail(detail)
-            
-            # Refresh V2 tabs
-            self._refresh_current_session_graph()
-            
-            self.tabs.setCurrentWidget(self.overview_page)
-            self.statusBar().showMessage(f"Memory Loaded: {detail.session.title}")
+        if not detail:
+            self.statusBar().showMessage(f"Memory session not found: {session_id}")
+            return False
+
+        self._selected_session_id = session_id
+        self.overview_page.set_detail(detail)
+        self.transcript_page.set_detail(detail)
+        self.insights_page.set_detail(detail)
+        self.diagnostics_page.set_detail(detail)
+
+        # Refresh V2 tabs
+        self._refresh_current_session_graph()
+
+        self.tabs.setCurrentWidget(self.overview_page)
+        self.statusBar().showMessage(f"Memory Loaded: {detail.session.title}")
+        return True
+
+    def _clear_session_pages(self) -> None:
+        self.overview_page.set_detail(None)
+        self.transcript_page.set_detail(None)
+        self.insights_page.set_detail(None)
+        self.diagnostics_page.set_detail(None)
+        self.graph_page.update_graph_data([], [])
+        self.review_page.update_pending_data([])
 
     def _show_memory_search(self) -> None:
         self.memory_search_page.set_config(self.voice_command_panel.current_transcription_config())
@@ -373,7 +402,9 @@ class MainWindow(QMainWindow):
     def _navigate_to_source(self, session_id_str: str, segment_id: str) -> None:
         session_id = int(session_id_str)
         if session_id != self._selected_session_id:
-            self._select_session(session_id)
+            if not self._select_session(session_id):
+                QMessageBox.warning(self, "Open Source", "The source session could not be found.")
+                return
         
         self.tabs.setCurrentWidget(self.transcript_page)
         self.transcript_page.scroll_to_segment(segment_id)
@@ -388,3 +419,16 @@ class MainWindow(QMainWindow):
                     _dump(child, indent + 1)
         _dump(self)
         print("--- END UI DUMP ---\n")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        if self._transcription_thread is not None and self._transcription_thread.isRunning():
+            QMessageBox.warning(
+                self,
+                "Transcription in Progress",
+                "A local file is still being processed. Wait for it to finish before closing the app.",
+            )
+            event.ignore()
+            return
+        if hasattr(self.voice_command_panel, "shutdown"):
+            self.voice_command_panel.shutdown()
+        super().closeEvent(event)

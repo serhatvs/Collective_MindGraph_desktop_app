@@ -171,9 +171,9 @@ class DiagnosticsPage(QWidget):
         self.container_layout.addWidget(self.safety_card)
         
         safety_text = QLabel(
-            "✓ External cloud AI providers (Deepgram, Bedrock) are REMOVED.\n"
-            "✓ Mandatory URL validation restricts API calls to local/private network ranges.\n"
-            "✓ Local model verification prevents silent auto-downloads."
+            "OK - External cloud AI providers (Deepgram, Bedrock) are removed.\n"
+            "OK - URL validation restricts API calls to local/private network ranges.\n"
+            "OK - Local model verification prevents silent auto-downloads."
         )
         safety_text.setStyleSheet("color: #19693d; font-weight: 600;")
         self.safety_card.body_layout.addWidget(safety_text)
@@ -293,26 +293,13 @@ class DiagnosticsPage(QWidget):
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         if not detail or not detail.transcripts:
-            self.session_state_label.setText(
-                "Selected session: no selected session diagnostics available. Select a session "
-                "to see session-specific diagnostics. Some selected-session indicators may remain "
-                "unavailable until a session is opened."
-            )
-            self.labels["raw_length"].setText("no selected session")
-            self.labels["clean_length"].setText("no selected session")
-            self.labels["processing_time"].setText("no selected session")
+            self._clear_session_detail()
             return
 
         last_id = detail.transcripts[-1].id
         analysis = detail.transcript_analyses.get(last_id)
         if not analysis:
-            self.session_state_label.setText(
-                "Selected session: analysis metadata unavailable. Session-specific diagnostics "
-                "will appear after transcript analysis data is available."
-            )
-            self.labels["raw_length"].setText("unavailable")
-            self.labels["clean_length"].setText("unavailable")
-            self.labels["processing_time"].setText("unavailable")
+            self._clear_session_detail()
             return
 
         self.session_state_label.setText(
@@ -343,6 +330,19 @@ class DiagnosticsPage(QWidget):
         self.labels["raw_length"].setText(str(len(analysis.raw_text_output)))
         self.labels["clean_length"].setText(str(len(analysis.corrected_text_output)))
         self.labels["processing_time"].setText(f"{analysis.metadata.get('processing_time_seconds', '-')}s")
+
+    def _clear_session_detail(self) -> None:
+        self.labels["llm_endpoint"].setText("-")
+        self.labels["extraction_mode"].setText("NO_SESSION_ANALYSIS")
+        self.labels["extraction_mode"].setStyleSheet("color: #64748b; font-weight: bold;")
+        self.labels["llm_status"].setText("NO_SESSION_ANALYSIS")
+        self.labels["llm_status"].setToolTip("")
+        self.labels["llm_status"].setStyleSheet("color: #64748b; font-weight: bold;")
+        self.labels["ask_memory_llm"].setText("FALLBACK_TO_EVIDENCE_ONLY")
+        self.labels["ask_memory_llm"].setStyleSheet("color: #ca8a04; font-weight: bold;")
+        self.labels["raw_length"].setText("-")
+        self.labels["clean_length"].setText("-")
+        self.labels["processing_time"].setText("-")
 
 
 def _bool_text(value: bool | None) -> str:

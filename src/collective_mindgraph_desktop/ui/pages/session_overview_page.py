@@ -88,7 +88,12 @@ class SessionOverviewPage(QWidget):
         if not detail:
             self.labels["title"].setText("-")
             self.labels["id"].setText("-")
+            self.labels["created"].setText("-")
+            self.labels["language"].setText("-")
+            self.labels["provider"].setText("-")
             self.summary_text.setText("Select a session.")
+            for pill in self.pills.values():
+                pill.set_value(0)
             return
 
         session = detail.session

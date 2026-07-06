@@ -48,6 +48,62 @@ def test_knowledge_graph_selection_shows_detail(page, qtbot):
     assert page.edit_button.isEnabled()
     assert page.disable_button.isEnabled()
 
+
+def test_knowledge_graph_neighbors_use_readable_direction_text(page, qtbot):
+    nodes = [
+        {"id": "n1", "type": "TASK", "title": "Task One", "metadata_json": "{}"},
+        {"id": "n2", "type": "DECISION", "title": "Decision Two", "metadata_json": "{}"},
+    ]
+    edges = [
+        {
+            "source_node_id": "n1",
+            "target_node_id": "n2",
+            "edge_type": "SUPPORTS",
+            "confidence": 1.0,
+        }
+    ]
+
+    page.update_graph_data(nodes, edges)
+    page.nodes_table.selectRow(0)
+
+    assert page.neighbors_list.item(0).text() == "OUT [SUPPORTS] to: Decision Two"
+
+
+def test_knowledge_graph_clears_stale_detail_when_data_clears(page, qtbot):
+    nodes = [{"id": "n1", "type": "TASK", "title": "My Task", "metadata_json": "{}"}]
+    page.update_graph_data(nodes, [])
+    page.nodes_table.selectRow(0)
+    assert page.edit_button.isEnabled()
+
+    page.update_graph_data([], [])
+
+    assert page.nodes_table.rowCount() == 0
+    assert page.detail_text.toPlainText() == ""
+    assert page.neighbors_list.count() == 0
+    assert not page.edit_button.isEnabled()
+    assert not page.trace_button.isEnabled()
+
+
+def test_knowledge_graph_filter_includes_runtime_node_types(page, qtbot):
+    nodes = [
+        {"id": "r1", "type": "RISK", "title": "Runtime risk", "metadata_json": "{}"},
+        {"id": "q1", "type": "OPEN_QUESTION", "title": "Open question", "metadata_json": "{}"},
+        {"id": "f1", "type": "FOLLOW_UP", "title": "Follow up", "metadata_json": "{}"},
+    ]
+    page.update_graph_data(nodes, [])
+
+    page.type_filter.setCurrentText("RISK")
+    assert page.nodes_table.rowCount() == 1
+    assert page.nodes_table.item(0, 0).text() == "r1"
+
+    page.type_filter.setCurrentText("OPEN_QUESTION")
+    assert page.nodes_table.rowCount() == 1
+    assert page.nodes_table.item(0, 0).text() == "q1"
+
+    page.type_filter.setCurrentText("FOLLOW_UP")
+    assert page.nodes_table.rowCount() == 1
+    assert page.nodes_table.item(0, 0).text() == "f1"
+
 def test_knowledge_graph_disabled_node_search_fallback():
     # This tests the reasoning logic in backend
     from realtime_backend.app.services.hybrid_memory_query_service import HybridMemoryQueryService

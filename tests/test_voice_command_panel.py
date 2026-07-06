@@ -176,11 +176,11 @@ def test_voice_command_panel_preserves_startup_retry_message_during_cleanup(monk
 
     panel._handle_backend_health_failed("Connection refused.")
 
-    assert panel.provider_status_label.text() == "Starting local backend and retrying health check..."
+    assert panel.provider_status_label.text() == "Local backend is not reachable. Starting it now and retrying..."
 
     panel._cleanup_health_worker()
 
-    assert panel.provider_status_label.text() == "Starting local backend and retrying health check..."
+    assert panel.provider_status_label.text() == "Local backend is not reachable. Starting it now and retrying..."
     panel.close()
 
 

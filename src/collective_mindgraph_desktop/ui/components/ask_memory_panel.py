@@ -70,7 +70,7 @@ class AskMemoryPanel(QWidget):
         input_layout.setContentsMargins(0, 0, 0, 0)
         
         self.ask_input = QLineEdit()
-        self.ask_input.setPlaceholderText("e.g. 'FastAPI ile ilgili görevler neler?'")
+        self.ask_input.setPlaceholderText("e.g. 'What FastAPI tasks did we discuss?'")
         self.ask_input.setMinimumHeight(44)
         self.ask_input.setStyleSheet("font-size: 11pt; padding-left: 12px;")
         self.ask_input.returnPressed.connect(self._handle_ask)
@@ -208,7 +208,7 @@ class AskMemoryPanel(QWidget):
             frame.setStyleSheet("background: #f8f9fa; border-radius: 4px; padding: 5px;")
             flayout = QVBoxLayout(frame)
             
-            chain_text = " ➔ ".join([f"<b>{step.node_type.upper()}</b>: {step.text}" for step in chain.steps])
+            chain_text = " -> ".join([f"<b>{step.node_type.upper()}</b>: {step.text}" for step in chain.steps])
             lbl = QLabel(chain_text)
             lbl.setWordWrap(True)
             flayout.addWidget(lbl)

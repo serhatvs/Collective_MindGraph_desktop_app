@@ -153,7 +153,8 @@ class MemorySearchPage(QWidget):
         self.search_button.setEnabled(False)
         self.results_list.clear()
         self.empty_state.set_text("Searching Memory", "Querying the local backend...")
-        self.empty_state.hide()
+        self.empty_state.show()
+        self.results_list.hide()
 
         self._query_thread = QThread()
         self._query_worker = MemoryQueryWorker(query, mode, self._config)

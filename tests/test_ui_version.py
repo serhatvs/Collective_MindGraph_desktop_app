@@ -1,5 +1,7 @@
 import os
 import pytest
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QCloseEvent
 from PySide6.QtWidgets import QApplication, QStatusBar, QLabel, QTabWidget
 
 # Ensure offscreen for CI
@@ -20,7 +22,8 @@ def test_rebuilt_ui_is_loaded(qtbot):
     qtbot.addWidget(window)
     
     # 1. Check title
-    assert "Collective MindGraph - Local Technical Memory" in window.windowTitle()
+    assert "Collective MindGraph" in window.windowTitle()
+    assert "Local Technical Memory" in window.windowTitle()
     
     # 2. Check sidebar exists
     assert hasattr(window, "sidebar_container")
@@ -40,6 +43,8 @@ def test_rebuilt_ui_is_loaded(qtbot):
     assert "InsightsPage" in found_pages
     assert "MemorySearchPage" in found_pages
     assert "DiagnosticsPage" in found_pages
+    assert window.memory_search_page._config is not None
+    assert window.memory_search_page.ask_panel._config is not None
     
     # 4. Check for Global Search in the sidebar list panel
     assert hasattr(window.session_list_panel, "search_button")
@@ -150,3 +155,72 @@ def test_main_window_missing_session_does_not_replace_selection(qtbot, tmp_path)
 
     assert window._selected_session_id == session.id
     assert "not found" in window.statusBar().currentMessage()
+
+
+def test_main_window_session_filter_uses_sidebar_query(qtbot, tmp_path):
+    from collective_mindgraph_desktop.database import Database
+    from collective_mindgraph_desktop.services import CollectiveMindGraphService
+    from collective_mindgraph_desktop.ui.main_window import MainWindow
+
+    service = CollectiveMindGraphService(Database(tmp_path / "filter_sessions.sqlite3"))
+    alpha = service.create_session("Alpha Runtime", "DEV")
+    service.create_session("Beta Runtime", "DEV")
+    window = MainWindow(service)
+    qtbot.addWidget(window)
+
+    window.session_list_panel.set_search_text("Alpha")
+
+    assert window.session_list_panel.list_widget.count() == 1
+    assert window.session_list_panel.list_widget.item(0).data(Qt.ItemDataRole.UserRole) == alpha.id
+
+
+def test_main_window_delete_signal_removes_session_and_clears_detail(qtbot, tmp_path):
+    from collective_mindgraph_desktop.database import Database
+    from collective_mindgraph_desktop.services import CollectiveMindGraphService
+    from collective_mindgraph_desktop.ui.main_window import MainWindow
+
+    service = CollectiveMindGraphService(Database(tmp_path / "delete_session.sqlite3"))
+    session = service.ingest_transcript("Delete me from the sidebar.")
+    window = MainWindow(service)
+    qtbot.addWidget(window)
+
+    assert window._select_session(session.id)
+    assert window.overview_page.labels["title"].text() == "Delete me from the sidebar."
+
+    window.session_list_panel.delete_session_requested.emit(session.id)
+
+    assert service.get_session_detail(session.id) is None
+    assert window._selected_session_id is None
+    assert window.overview_page.labels["title"].text() == "-"
+    assert window.transcript_page.table.rowCount() == 0
+    assert window.graph_page.nodes_table.rowCount() == 0
+    assert not window.graph_page.edit_button.isEnabled()
+
+
+def test_main_window_close_ignores_active_file_transcription(qtbot, tmp_path, monkeypatch):
+    from collective_mindgraph_desktop.database import Database
+    from collective_mindgraph_desktop.services import CollectiveMindGraphService
+    import collective_mindgraph_desktop.ui.main_window as main_window_module
+
+    class ActiveThread:
+        def isRunning(self):
+            return True
+
+    warnings: list[str] = []
+    monkeypatch.setattr(
+        main_window_module.QMessageBox,
+        "warning",
+        lambda _parent, title, message: warnings.append(f"{title}: {message}"),
+    )
+
+    service = CollectiveMindGraphService(Database(tmp_path / "close_guard.sqlite3"))
+    window = main_window_module.MainWindow(service)
+    qtbot.addWidget(window)
+    window._transcription_thread = ActiveThread()
+    event = QCloseEvent()
+
+    window.closeEvent(event)
+
+    assert not event.isAccepted()
+    assert warnings
+    assert "still being processed" in warnings[0]

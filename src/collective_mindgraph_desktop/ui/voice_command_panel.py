@@ -168,7 +168,7 @@ class VoiceCommandPanel(QWidget):
         self.card.body_layout.addLayout(control_row)
 
         # Provider / Health status at the bottom of the card
-        self.provider_status_label = QLabel("Backend Status: Checking...")
+        self.provider_status_label = QLabel("Backend Status: checking local backend...")
         self.provider_status_label.setObjectName("MutedText")
         self.provider_status_label.setStyleSheet("font-size: 9pt;")
         self.card.body_layout.addWidget(self.provider_status_label)
@@ -440,7 +440,7 @@ class VoiceCommandPanel(QWidget):
         self._backend_health = None
         can_retry = self._backend_health_retry_after_start or self._backend_manager.can_manage(self._transcription_config.base_url)
         if can_retry and not is_frozen_build():
-            self._backend_status_override = "Starting local backend and retrying health check..."
+            self._backend_status_override = "Local backend is not reachable. Starting it now and retrying..."
             self._backend_manager.ensure_running(self._transcription_config.base_url)
             self._backend_health_retry_after_start = False
             QTimer.singleShot(5000, self._refresh_backend_health)
@@ -476,7 +476,10 @@ class VoiceCommandPanel(QWidget):
         if self._backend_status_override:
             return self._backend_status_override
         if self._backend_health is None:
-            return f"Backend unreachable at {self._transcription_config.base_url}"
+            return (
+                f"Local backend is not reachable at {self._transcription_config.base_url}. "
+                "Start the backend or use Settings to choose a local backend URL."
+            )
         
         h = self._backend_health
         asr_resolved = h.asr_provider_resolved or h.asr_provider
@@ -537,6 +540,28 @@ class VoiceCommandPanel(QWidget):
 
     def _refresh_config_summary(self) -> None:
         pass
+
+    def shutdown(self) -> None:
+        self._backend_health_timer.stop()
+        self._cancel_live_stream()
+        self._stop_thread(self._health_thread)
+        self._health_thread = None
+        self._health_worker = None
+        self._stop_thread(self._transcription_thread)
+        self._transcription_thread = None
+        self._transcription_worker = None
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.shutdown()
+        super().closeEvent(event)
+
+    @staticmethod
+    def _stop_thread(thread: QThread | None) -> None:
+        if thread is None:
+            return
+        if thread.isRunning():
+            thread.quit()
+            thread.wait(3000)
 
 
 def _bool_text(value: bool | None) -> str:

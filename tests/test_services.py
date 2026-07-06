@@ -1,5 +1,6 @@
 import json
 
+from collective_mindgraph.core.source_reference import SourceReference
 from collective_mindgraph_desktop.database import Database
 from collective_mindgraph_desktop.models import TranscriptAnalysisSegment
 from collective_mindgraph_desktop.services import CollectiveMindGraphService, SnapshotHasher
@@ -8,6 +9,16 @@ from collective_mindgraph_desktop.transcription import TranscriptionResult
 
 def build_service(tmp_path) -> CollectiveMindGraphService:
     return CollectiveMindGraphService(Database(tmp_path / "collective_mindgraph.sqlite3"))
+
+
+def test_resolve_source_reference_returns_session_and_segment(tmp_path):
+    service = build_service(tmp_path)
+    source_id = service.production_graph.create_source_reference(
+        SourceReference(session_id="42", segment_id="segment_1")
+    )
+
+    assert service.resolve_source_reference(source_id) == ("42", "segment_1")
+    assert service.resolve_source_reference("missing") is None
 
 
 def test_seed_demo_data_creates_sessions_and_related_records(tmp_path):

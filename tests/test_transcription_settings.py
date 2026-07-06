@@ -4,6 +4,7 @@ from collective_mindgraph_desktop.transcription import (
     RealtimeBackendTranscriptionConfig,
     RealtimeBackendTranscriptionSettingsStore,
 )
+from collective_mindgraph_desktop.ui.widgets import TranscriptionSettingsDialog
 
 
 def test_realtime_backend_settings_store_round_trips_config(tmp_path):
@@ -62,3 +63,13 @@ def test_realtime_backend_settings_store_ignores_stale_payload_shape(tmp_path):
     assert loaded.audio_input_device_id is None
     assert loaded.wake_phrase
     assert loaded.shutdown_phrase
+
+
+def test_transcription_settings_dialog_preserves_auto_stop_silence(qtbot):
+    config = RealtimeBackendTranscriptionConfig(auto_stop_silence_seconds=2.75)
+    dialog = TranscriptionSettingsDialog(config)
+    qtbot.addWidget(dialog)
+
+    dialog.auto_stop_silence_spin.setValue(3.5)
+
+    assert dialog.config().auto_stop_silence_seconds == 3.5

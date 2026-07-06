@@ -279,7 +279,7 @@ class KnowledgeGraphPage(QWidget):
                     if n.get("id") == target_id:
                         target_title = n.get("title") or n.get("text_content") or target_id
                         break
-                self.neighbors_list.addItem(f"→ [{edge.get('edge_type')}] to: {target_title}")
+                self.neighbors_list.addItem(f"OUT [{edge.get('edge_type')}] to: {target_title}")
                 
             elif edge.get("target_node_id") == node_id:
                 source_id = edge.get("source_node_id")
@@ -289,7 +289,7 @@ class KnowledgeGraphPage(QWidget):
                     if n.get("id") == source_id:
                         source_title = n.get("title") or n.get("text_content") or source_id
                         break
-                self.neighbors_list.addItem(f"← [{edge.get('edge_type')}] from: {source_title}")
+                self.neighbors_list.addItem(f"IN [{edge.get('edge_type')}] from: {source_title}")
 
     def _handle_trace_click(self) -> None:
         if not self._selected_node: return

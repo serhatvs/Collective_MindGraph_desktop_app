@@ -54,10 +54,10 @@ class KnowledgeGraphPage(QWidget):
             "DECISION",
             "TOPIC",
             "ENTITY",
+            "PERSON",
             "RISK",
             "OPEN_QUESTION",
             "FOLLOW_UP",
-            "PERSON",
         ])
         self.type_filter.currentIndexChanged.connect(self._apply_filters)
         
@@ -166,19 +166,13 @@ class KnowledgeGraphPage(QWidget):
     def update_graph_data(self, nodes: list[dict], edges: list[dict]) -> None:
         self._all_nodes = nodes
         self._all_edges = edges
+        self._clear_selection_detail()
         has_graph_items = bool(nodes or edges)
         self.splitter.setVisible(has_graph_items)
         self.empty_state.setVisible(not has_graph_items)
         if not has_graph_items:
             self.nodes_table.setRowCount(0)
             self.edges_table.setRowCount(0)
-            self._selected_node = None
-            self.detail_text.clear()
-            self.neighbors_list.clear()
-            self.trace_button.setEnabled(False)
-            self.edit_button.setEnabled(False)
-            self.disable_button.setEnabled(False)
-            self.merge_button.setEnabled(False)
             return
 
         self._apply_filters()
@@ -224,16 +218,13 @@ class KnowledgeGraphPage(QWidget):
             # Store full node in item for retrieval
             self.nodes_table.item(row, 0).setData(Qt.ItemDataRole.UserRole, node)
 
+        if self.nodes_table.rowCount() == 0:
+            self._clear_selection_detail()
+
     def _handle_node_selection(self) -> None:
         selected_items = self.nodes_table.selectedItems()
         if not selected_items:
-            self._selected_node = None
-            self.detail_text.clear()
-            self.neighbors_list.clear()
-            self.trace_button.setEnabled(False)
-            self.edit_button.setEnabled(False)
-            self.disable_button.setEnabled(False)
-            self.merge_button.setEnabled(False)
+            self._clear_selection_detail()
             return
             
         row = selected_items[0].row()
@@ -353,3 +344,12 @@ class KnowledgeGraphPage(QWidget):
         if len(parts) == 3 and parts[2]:
             return parts[2]
         return None
+
+    def _clear_selection_detail(self) -> None:
+        self._selected_node = None
+        self.detail_text.clear()
+        self.neighbors_list.clear()
+        self.trace_button.setEnabled(False)
+        self.edit_button.setEnabled(False)
+        self.disable_button.setEnabled(False)
+        self.merge_button.setEnabled(False)

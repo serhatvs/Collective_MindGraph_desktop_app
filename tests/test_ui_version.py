@@ -56,3 +56,97 @@ def test_rebuilt_ui_is_loaded(qtbot):
     assert found_marker, "Version marker 'Native MVP' not found in status bar"
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+def test_empty_detail_clears_overview_and_diagnostics(qtbot):
+    from collective_mindgraph_desktop.models import (
+        Session,
+        SessionDetail,
+        Transcript,
+        TranscriptAnalysis,
+        TranscriptAnalysisSegment,
+    )
+    from collective_mindgraph_desktop.ui.pages.session_overview_page import SessionOverviewPage
+    from collective_mindgraph_desktop.ui.pages.diagnostics_page import DiagnosticsPage
+
+    session = Session(
+        id=1,
+        title="Analyzed Session",
+        device_id="DEV",
+        status="active",
+        created_at="2026-07-06 10:00:00",
+        updated_at="2026-07-06 10:00:00",
+    )
+    transcript = Transcript(id=10, session_id=1, text="Hello", confidence=1.0, created_at=session.created_at)
+    analysis = TranscriptAnalysis(
+        transcript_id=10,
+        source_provider="mock-asr",
+        backend_conversation_id="conv",
+        raw_text_output="raw",
+        corrected_text_output="clean",
+        summary="Summary",
+        topics=[],
+        action_items=[],
+        decisions=[],
+        people=[],
+        speaker_stats=[],
+        segments=[
+            TranscriptAnalysisSegment(
+                segment_id="s1",
+                start=0.0,
+                end=1.0,
+                speaker="Unknown",
+                raw_text="raw",
+                corrected_text="clean",
+                confidence=1.0,
+                speaker_confidence=None,
+                overlap=False,
+                notes=[],
+            )
+        ],
+        quality_report=None,
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+        metadata={"extraction_source": "local_llm", "llm_endpoint": "http://127.0.0.1:1234/v1"},
+    )
+    detail = SessionDetail(
+        session=session,
+        transcripts=[transcript],
+        graph_nodes=[],
+        snapshots=[],
+        transcript_analyses={10: analysis},
+    )
+
+    overview = SessionOverviewPage()
+    diagnostics = DiagnosticsPage()
+    qtbot.addWidget(overview)
+    qtbot.addWidget(diagnostics)
+
+    overview.set_detail(detail)
+    diagnostics.set_detail(detail)
+    overview.set_detail(None)
+    diagnostics.set_detail(None)
+
+    assert overview.labels["title"].text() == "-"
+    assert overview.labels["created"].text() == "-"
+    assert overview.pills["segments"].value_label.text() == "0"
+    assert diagnostics.labels["llm_endpoint"].text() == "-"
+    assert diagnostics.labels["extraction_mode"].text() == "NO_SESSION_ANALYSIS"
+    assert diagnostics.labels["raw_length"].text() == "-"
+
+
+def test_main_window_missing_session_does_not_replace_selection(qtbot, tmp_path):
+    from collective_mindgraph_desktop.database import Database
+    from collective_mindgraph_desktop.services import CollectiveMindGraphService
+    from collective_mindgraph_desktop.ui.main_window import MainWindow
+
+    service = CollectiveMindGraphService(Database(tmp_path / "missing_session.sqlite3"))
+    session = service.ingest_transcript("Existing session")
+    window = MainWindow(service)
+    qtbot.addWidget(window)
+
+    assert window._select_session(session.id)
+    assert not window._select_session(9999)
+
+    assert window._selected_session_id == session.id
+    assert "not found" in window.statusBar().currentMessage()

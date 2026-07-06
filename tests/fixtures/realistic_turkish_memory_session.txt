@@ -1,0 +1,23 @@
+[RAW_TRANSCRIPT]
+Ayşe: Merhaba ekip, bugün ödeme akışı, PostgreSQL indeksleri ve mobil sürüm yayın planını konuşalım.
+Mehmet: Dün gece ödeme sayfasında yavaşlık gördük, muhtemelen sepet sorgusu indeks kullanmıyor.
+Ayşe: Ece, PostgreSQL indeks planını yarın öğlene kadar çıkarır mısın?
+Ece: Tamam, indeks planını hazırlayacağım ve sorgu örneklerini de ekleyeceğim.
+Mehmet: Karar olarak mobil sürüm yayınını cuma gününe alalım; ödeme akışı düzelmeden yayın yapmayalım.
+Ayşe: Risk şu, ödeme akışı yine yavaş kalırsa kampanya trafiğinde sepet terk oranı artabilir.
+Ece: Açık soru: kampanya kuponu ödeme servisinde mi yoksa mobil uygulamada mı doğrulanacak?
+Mehmet: Takip maddesi olarak DevOps ekibiyle Redis önbellek limitlerini kontrol edelim.
+Ayşe: Belki ödeme akışını da etkiler, emin değiliz.
+Ece: Bu sadece sohbet olsun, toplantıdan sonra kahve içebiliriz; bunu görev yapmayalım.
+
+[CLEANED_TRANSCRIPT]
+Ayşe: Merhaba ekip, bugün ödeme akışı, PostgreSQL indeksleri ve mobil sürüm yayın planını konuşalım.
+Mehmet: Dün gece ödeme sayfasında yavaşlık gördük; sepet sorgusu büyük olasılıkla indeks kullanmıyor.
+Ayşe: Ece, PostgreSQL indeks planını yarın öğlene kadar çıkarır mısın?
+Ece: Tamam, indeks planını hazırlayacağım ve sorgu örneklerini de ekleyeceğim.
+Mehmet: Karar olarak mobil sürüm yayınını cuma gününe alalım; ödeme akışı düzelmeden yayın yapmayalım.
+Ayşe: Risk şu: ödeme akışı yine yavaş kalırsa kampanya trafiğinde sepet terk oranı artabilir.
+Ece: Açık soru: kampanya kuponu ödeme servisinde mi yoksa mobil uygulamada mı doğrulanacak?
+Mehmet: Takip maddesi olarak DevOps ekibiyle Redis önbellek limitlerini kontrol edelim.
+Ayşe: Belki ödeme akışını da etkiler, emin değiliz.
+Ece: Bu sadece sohbet olsun, toplantıdan sonra kahve içebiliriz; bunu görev yapmayalım.

@@ -140,6 +140,23 @@ def test_desktop_ask_memory_parses_minimal_payload_with_safe_defaults():
     assert response.evidence_chains == []
 
 
+def test_desktop_ask_memory_can_include_pending_sources():
+    captured_urls: list[str] = []
+
+    def fake_opener(request, timeout=None):
+        captured_urls.append(request.full_url)
+        return FakeHTTPResponse({"answer": "No evidence."})
+
+    service = RealtimeBackendTranscriptionService(
+        config=RealtimeBackendTranscriptionConfig(base_url="http://127.0.0.1:8080"),
+        request_opener=fake_opener,
+    )
+
+    service.ask_memory("tasks?", include_pending=True)
+
+    assert "include_pending=true" in captured_urls[0]
+
+
 def test_ask_memory_panel_renders_full_and_minimal_responses_without_qtbot():
     app = QApplication.instance() or QApplication([])
     panel = AskMemoryPanel()
@@ -253,6 +270,43 @@ def test_ask_memory_panel_source_button_falls_back_to_response_sources():
     open_buttons[0].click()
 
     assert captured == [("fallback_session", "fallback_segment")]
+
+    panel.deleteLater()
+    app.processEvents()
+
+
+def test_ask_memory_panel_renders_local_fallback_when_backend_fails():
+    app = QApplication.instance() or QApplication([])
+    panel = AskMemoryPanel()
+    panel.set_local_fallback_provider(
+        lambda query: MemoryAskResponse(
+            query=query,
+            mode="evidence_only",
+            answer_type="local_selected_session",
+            short_answer="Selected-session evidence found. Tasks: Keep testing",
+            confidence_level="medium",
+            mode_used="desktop_selected_session",
+            evidence_chains=[
+                EvidenceChain(
+                    steps=[
+                        EvidenceStep(
+                            node_id="local_task_1",
+                            node_type="TASK",
+                            text="Keep testing",
+                            source_session_id="1",
+                            source_segment_id="seg_2",
+                            text_preview="Keep testing.",
+                        )
+                    ]
+                )
+            ],
+        )
+    )
+
+    panel._handle_failed("Backend offline.", "What tasks?")
+
+    assert "Keep testing" in panel.answer_box.toPlainText()
+    assert "selected-session evidence" in panel.answer_box.toPlainText()
 
     panel.deleteLater()
     app.processEvents()

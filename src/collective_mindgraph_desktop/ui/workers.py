@@ -34,8 +34,8 @@ class BackendTranscriptionWorker(QObject):
         self.progress_updated.emit(10, "Starting transcription...")
         try:
             result = RealtimeBackendTranscriptionService(config=self._config).transcribe_file(self._audio_path)
-            JOB_REGISTRY.update_job(self._job.id, status=JobStatus.SUCCEEDED, progress=100, message="Complete")
-            self.progress_updated.emit(100, "Extraction complete")
+            JOB_REGISTRY.update_job(self._job.id, status=JobStatus.SUCCEEDED, progress=100, message="Transcript ready")
+            self.progress_updated.emit(100, "Transcript ready")
         except Exception as exc:
             JOB_REGISTRY.update_job(self._job.id, status=JobStatus.FAILED, error=str(exc), message="Failed")
             self.failed.emit(str(exc))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable
+import logging
 from pathlib import Path
 from dataclasses import asdict
 
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 
 from ..models import TranscriptAnalysisSegment, SessionDetail
 from ..services import CollectiveMindGraphService
-from ..transcription import TranscriptionResult, ReasoningResponse
+from ..transcription import EvidenceChain, EvidenceStep, MemoryAskResponse, TranscriptionResult, ReasoningResponse
 from .pages.session_overview_page import SessionOverviewPage
 from .pages.transcript_page import TranscriptPage
 from .pages.insights_page import InsightsPage
@@ -37,6 +37,9 @@ from .session_list_panel import SessionListPanel
 from .voice_command_panel import VoiceCommandPanel
 from .widgets import SessionDialog
 from .workers import BackendTranscriptionWorker
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -119,6 +122,17 @@ class MainWindow(QMainWindow):
         status_label = QLabel("Local-First Memory")
         status_label.setStyleSheet("color: #19693d; font-weight: 600; margin-bottom: 12px;")
         sidebar_layout.addWidget(status_label)
+
+        self.alpha_limitations_label = QLabel(
+            "Friend alpha: Turkish-first local transcription. No speaker separation yet. "
+            "Ask answers use available evidence; local LLM is optional."
+        )
+        self.alpha_limitations_label.setWordWrap(True)
+        self.alpha_limitations_label.setStyleSheet(
+            "color: #5a6b7d; background: #f8fbff; border: 1px solid #d6dfe8; "
+            "border-radius: 6px; padding: 8px;"
+        )
+        sidebar_layout.addWidget(self.alpha_limitations_label)
         
         self.session_list_panel = SessionListPanel()
         sidebar_layout.addWidget(self.session_list_panel, 1)
@@ -148,7 +162,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.transcript_page, "Knowledge Audit")
 
         self.insights_page = InsightsPage()
-        self.tabs.addTab(self.insights_page, "Reviewed Memory")
+        self.tabs.addTab(self.insights_page, "Extracted Notes")
 
         self.review_page = ReviewQueuePage()
         self.tabs.addTab(self.review_page, "Review Suggestions")
@@ -161,6 +175,7 @@ class MainWindow(QMainWindow):
 
         self.memory_search_page = MemorySearchPage()
         self.memory_search_page.set_config(self.voice_command_panel.current_transcription_config())
+        self.memory_search_page.ask_panel.set_local_fallback_provider(self._ask_selected_session_locally)
         self.tabs.addTab(self.memory_search_page, "Global Search")
 
         self.diagnostics_page = DiagnosticsPage()
@@ -174,6 +189,7 @@ class MainWindow(QMainWindow):
         self.session_list_panel.new_session_requested.connect(self._create_session)
         self.session_list_panel.global_search_requested.connect(self._show_memory_search)
         self.session_list_panel.transcribe_file_requested.connect(self._handle_manual_file_ingest)
+        self.session_list_panel.export_session_requested.connect(self._export_session)
         self.session_list_panel.delete_session_requested.connect(self._delete_session)
         self.session_list_panel.search_changed.connect(lambda _query: self._refresh_sessions())
         self.session_list_panel.seed_demo_requested.connect(self._seed_demo_data)
@@ -282,10 +298,11 @@ class MainWindow(QMainWindow):
     def _show_about(self) -> None:
         QMessageBox.about(self, "About Collective MindGraph", "Native MVP UI - Local-First Technical Memory")
 
-    def _ingest_transcript(self, result: TranscriptionResult) -> None:
+    def _ingest_transcript(self, result: TranscriptionResult):
         session = self._service.ingest_transcription_result(result, self._selected_session_id)
         self._refresh_sessions(selected_id=session.id)
         self._select_session(session.id)
+        return session
 
     def _handle_manual_file_ingest(self) -> None:
         if self._transcription_thread is not None:
@@ -302,7 +319,8 @@ class MainWindow(QMainWindow):
             return
 
         config = self.voice_command_panel.current_transcription_config()
-        self.statusBar().showMessage(f"Extracting memory from {Path(file_path).name} locally...")
+        self.statusBar().showMessage(f"Transcribing {Path(file_path).name} locally...")
+        self.session_list_panel.set_transcription_busy(True)
         
         self._transcription_thread = QThread(self)
         self._transcription_worker = BackendTranscriptionWorker(file_path, config)
@@ -322,17 +340,36 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"[{progress}%] {message}")
 
     def _handle_file_transcription_finished(self, result: TranscriptionResult) -> None:
-        self.statusBar().showMessage("Memory extraction complete.")
-        self._ingest_transcript(result)
-        QMessageBox.information(self, "Extraction Success", "File processed and added to memory.")
+        try:
+            self._ingest_transcript(result)
+        except Exception as exc:
+            LOGGER.exception("Failed to persist transcription result.")
+            self._handle_file_transcription_failed(f"Transcript was created, but could not be saved: {exc}")
+            return
+        self.tabs.setCurrentWidget(self.transcript_page)
+        self.statusBar().showMessage("Transcript ready. Extracted notes are available in Extracted Notes.")
+        QMessageBox.information(
+            self,
+            "Transcript Ready",
+            "The audio file was transcribed and added to the selected session.",
+        )
 
     def _handle_file_transcription_failed(self, error: str) -> None:
-        self.statusBar().showMessage("Memory extraction failed.")
-        QMessageBox.critical(self, "Extraction Error", f"Failed to extract memory from file:\n{error}")
+        LOGGER.error("Local file transcription failed: %s", error)
+        self.statusBar().showMessage("Local file transcription failed.")
+        QMessageBox.critical(
+            self,
+            "Transcription Error",
+            "Could not transcribe this audio file.\n\n"
+            "Try again after the local backend finishes starting. You can also check Settings for the "
+            "backend URL and confirm the file contains audible speech.\n\n"
+            f"Details:\n{error}",
+        )
 
     def _cleanup_transcription_worker(self) -> None:
         self._transcription_thread = None
         self._transcription_worker = None
+        self.session_list_panel.set_transcription_busy(False)
 
     def _export_session(self) -> None:
         if self._selected_session_id is None:
@@ -341,6 +378,7 @@ class MainWindow(QMainWindow):
 
         detail = self._service.get_session_detail(self._selected_session_id)
         if not detail:
+            QMessageBox.warning(self, "Export Knowledge", "The selected session could not be found.")
             return
 
         file_path, _ = QFileDialog.getSaveFileName(
@@ -351,11 +389,16 @@ class MainWindow(QMainWindow):
         )
         if not file_path:
             return
+        export_path = Path(file_path)
+        if export_path.suffix.lower() != ".json":
+            export_path = export_path.with_suffix(".json")
 
         try:
-            self._service.export_session(self._selected_session_id, file_path)
-            QMessageBox.information(self, "Export Knowledge", f"Knowledge successfully exported to:\n{file_path}")
+            self._service.export_session(self._selected_session_id, export_path)
+            self.statusBar().showMessage(f"Session exported to {export_path}")
+            QMessageBox.information(self, "Export Knowledge", f"Session exported to:\n{export_path}")
         except Exception as exc:
+            LOGGER.exception("Session export failed.")
             QMessageBox.critical(self, "Export Error", f"Failed to export knowledge:\n{str(exc)}")
 
     def _import_session(self) -> None:
@@ -398,6 +441,251 @@ class MainWindow(QMainWindow):
     def _show_memory_search(self) -> None:
         self.memory_search_page.set_config(self.voice_command_panel.current_transcription_config())
         self.tabs.setCurrentWidget(self.memory_search_page)
+
+    def _ask_selected_session_locally(self, query: str) -> MemoryAskResponse:
+        if self._selected_session_id is None:
+            return MemoryAskResponse(
+                query=query,
+                mode="evidence_only",
+                answer_type="local_selected_session",
+                short_answer="Select a transcribed session first, then ask again.",
+                confidence_level="insufficient",
+                warnings=["No selected desktop session."],
+            )
+
+        detail = self._service.get_session_detail(self._selected_session_id)
+        if not detail or not detail.transcripts:
+            return MemoryAskResponse(
+                query=query,
+                mode="evidence_only",
+                answer_type="local_selected_session",
+                short_answer="No transcript evidence is available for the selected session.",
+                confidence_level="insufficient",
+                warnings=["Selected session has no transcript."],
+            )
+
+        transcript_id = detail.transcripts[-1].id
+        analysis = detail.transcript_analyses.get(transcript_id)
+        if analysis is None:
+            return MemoryAskResponse(
+                query=query,
+                mode="evidence_only",
+                answer_type="local_selected_session",
+                short_answer="The selected session has a transcript, but no extracted evidence yet.",
+                confidence_level="insufficient",
+                warnings=["Selected session has no transcript analysis."],
+            )
+
+        evidence_items = self._local_evidence_items(query, detail, transcript_id)
+        if not evidence_items:
+            return MemoryAskResponse(
+                query=query,
+                mode="evidence_only",
+                answer_type="local_selected_session",
+                short_answer="I could not find evidence in the selected session for this question.",
+                confidence_level="insufficient",
+                warnings=["No selected-session evidence matched the question."],
+            )
+
+        chains = [
+            EvidenceChain(
+                steps=[
+                    EvidenceStep(
+                        node_id=item["node_id"],
+                        node_type=item["node_type"],
+                        text=item["text"],
+                        source_session_id=str(detail.session.id),
+                        source_segment_id=item.get("segment_id"),
+                        text_preview=item.get("preview"),
+                        start_time=item.get("start"),
+                        end_time=item.get("end"),
+                    )
+                ],
+                explanation="Selected desktop session evidence.",
+            )
+            for item in evidence_items
+        ]
+        source_segment_ids = [
+            str(item["segment_id"])
+            for item in evidence_items
+            if item.get("segment_id")
+        ]
+        return MemoryAskResponse(
+            query=query,
+            mode="evidence_only",
+            answer_type="local_selected_session",
+            short_answer=self._local_answer_text(evidence_items),
+            confidence_level="medium",
+            mode_used="desktop_selected_session",
+            evidence_chains=chains,
+            evidence_coverage_score=1.0,
+            source_session_ids=[str(detail.session.id)],
+            source_segment_ids=source_segment_ids,
+            used_sources=[f"Session {detail.session.id}"],
+            warnings=["Answer uses selected desktop-session evidence, including unreviewed extracted items."],
+        )
+
+    def _local_evidence_items(
+        self,
+        query: str,
+        detail: SessionDetail,
+        transcript_id: int,
+    ) -> list[dict[str, object]]:
+        analysis = detail.transcript_analyses[transcript_id]
+        segment_lookup = {segment.segment_id: segment for segment in analysis.segments}
+        categories = self._local_ask_categories(query)
+        candidates: list[dict[str, object]] = []
+
+        if "TASK" in categories:
+            for index, task in enumerate(analysis.action_items):
+                candidates.append(
+                    self._local_evidence_item(
+                        node_type="TASK",
+                        node_id=f"local_task_{transcript_id}_{index}",
+                        text=task.title,
+                        segment_id=task.source_segment_id,
+                        segment_lookup=segment_lookup,
+                    )
+                )
+
+        if "DECISION" in categories:
+            for index, decision in enumerate(analysis.decisions):
+                candidates.append(
+                    self._local_evidence_item(
+                        node_type="DECISION",
+                        node_id=f"local_decision_{transcript_id}_{index}",
+                        text=decision.decision,
+                        segment_id=decision.source_segment_id,
+                        segment_lookup=segment_lookup,
+                    )
+                )
+
+        if "TOPIC" in categories:
+            for index, topic in enumerate(analysis.topics):
+                candidates.append(
+                    {
+                        "node_type": "TOPIC",
+                        "node_id": f"local_topic_{transcript_id}_{index}",
+                        "text": topic.label,
+                        "segment_id": None,
+                        "preview": topic.label,
+                        "start": topic.start,
+                        "end": topic.end,
+                    }
+                )
+
+        if "SEGMENT" in categories:
+            for index, segment in enumerate(analysis.segments[:8]):
+                text = segment.corrected_text or segment.raw_text
+                candidates.append(
+                    {
+                        "node_type": "SEGMENT",
+                        "node_id": f"local_segment_{transcript_id}_{index}",
+                        "text": text,
+                        "segment_id": segment.segment_id,
+                        "preview": text,
+                        "start": segment.start,
+                        "end": segment.end,
+                    }
+                )
+
+        candidates = [item for item in candidates if str(item.get("text") or "").strip()]
+        if not candidates:
+            return []
+
+        terms = self._local_query_terms(query)
+        matched = [
+            item for item in candidates
+            if any(term in self._normalize_local_text(f"{item.get('text', '')} {item.get('preview', '')}") for term in terms)
+        ]
+        return (matched or candidates)[:8]
+
+    @staticmethod
+    def _local_evidence_item(
+        *,
+        node_type: str,
+        node_id: str,
+        text: str,
+        segment_id: str | None,
+        segment_lookup: dict[str, TranscriptAnalysisSegment],
+    ) -> dict[str, object]:
+        segment = segment_lookup.get(segment_id or "")
+        preview = text
+        start = None
+        end = None
+        if segment is not None:
+            preview = segment.corrected_text or segment.raw_text or text
+            start = segment.start
+            end = segment.end
+        return {
+            "node_type": node_type,
+            "node_id": node_id,
+            "text": text,
+            "segment_id": segment_id,
+            "preview": preview,
+            "start": start,
+            "end": end,
+        }
+
+    @classmethod
+    def _local_ask_categories(cls, query: str) -> set[str]:
+        normalized = cls._normalize_local_text(query)
+        categories: set[str] = set()
+        if any(token in normalized for token in ("gorev", "task", "action", "yapilacak", "yapacaktik")):
+            categories.add("TASK")
+        if any(token in normalized for token in ("karar", "decision", "kararlastir")):
+            categories.add("DECISION")
+        if any(token in normalized for token in ("konu", "topic", "baslik", "hakkinda")):
+            categories.add("TOPIC")
+        if any(token in normalized for token in ("transkript", "transcript", "soyledi", "bahset")):
+            categories.add("SEGMENT")
+        return categories or {"TASK", "DECISION", "TOPIC", "SEGMENT"}
+
+    @classmethod
+    def _local_query_terms(cls, query: str) -> list[str]:
+        stopwords = {
+            "about", "adet", "beni", "bana", "bir", "bu", "did", "for", "gorev", "hangi",
+            "hakkinda", "ile", "ilgili", "karar", "konu", "nasil", "nedir", "neler", "ne",
+            "session", "task", "the", "var", "what", "yapacaktik", "yapilacak",
+        }
+        words = cls._normalize_local_text(query).replace("?", " ").replace(".", " ").split()
+        return [word for word in words if len(word) > 2 and word not in stopwords]
+
+    @staticmethod
+    def _normalize_local_text(text: str) -> str:
+        translation = str.maketrans({
+            "ç": "c", "Ç": "c",
+            "ğ": "g", "Ğ": "g",
+            "ı": "i", "I": "i", "İ": "i",
+            "ö": "o", "Ö": "o",
+            "ş": "s", "Ş": "s",
+            "ü": "u", "Ü": "u",
+        })
+        return text.translate(translation).casefold()
+
+    @staticmethod
+    def _local_answer_text(evidence_items: list[dict[str, object]]) -> str:
+        grouped: dict[str, list[str]] = {"TASK": [], "DECISION": [], "TOPIC": [], "SEGMENT": []}
+        for item in evidence_items:
+            node_type = str(item.get("node_type") or "")
+            text = str(item.get("text") or "").strip()
+            if node_type in grouped and text:
+                grouped[node_type].append(text)
+
+        parts: list[str] = []
+        if grouped["TASK"]:
+            parts.append("Tasks: " + "; ".join(grouped["TASK"][:3]))
+        if grouped["DECISION"]:
+            parts.append("Decisions: " + "; ".join(grouped["DECISION"][:3]))
+        if grouped["TOPIC"]:
+            parts.append("Topics: " + ", ".join(grouped["TOPIC"][:5]))
+        if grouped["SEGMENT"] and not parts:
+            parts.append("Transcript evidence: " + "; ".join(grouped["SEGMENT"][:2]))
+
+        answer = "Selected-session evidence found. " + " ".join(parts)
+        if len(answer) > 700:
+            answer = answer[:697].rstrip() + "..."
+        return answer
 
     def _navigate_to_source(self, session_id_str: str, segment_id: str) -> None:
         session_id = int(session_id_str)

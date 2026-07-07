@@ -48,8 +48,17 @@ def build_local_backend_launch_spec(base_url: str, repo_root: Path | None = None
             },
         )
 
-    root = (repo_root or Path.cwd()).resolve()
-    backend_dir = root / "realtime_backend"
+    roots = [(repo_root or Path.cwd()).resolve()]
+    source_repo_root = Path(__file__).resolve().parents[2]
+    if source_repo_root not in roots:
+        roots.append(source_repo_root)
+
+    backend_dir = roots[0] / "realtime_backend"
+    for candidate_root in roots:
+        candidate_backend_dir = candidate_root / "realtime_backend"
+        if (candidate_backend_dir / "app" / "main.py").exists():
+            backend_dir = candidate_backend_dir
+            break
     app_entry = backend_dir / "app" / "main.py"
     if not app_entry.exists():
         return None

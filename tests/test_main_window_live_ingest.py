@@ -143,3 +143,42 @@ def test_main_window_appends_stream_result_to_selected_session(tmp_path, monkeyp
     assert detail.graph_nodes[-1].branch_type == "side"
     assert len(detail.snapshots) == 1
     window.close()
+
+
+def test_file_transcription_finish_lands_on_transcript_and_shows_pending_notes(tmp_path, monkeypatch):
+    window, service = build_window(tmp_path, monkeypatch)
+    messages: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        main_window_module.QMessageBox,
+        "information",
+        lambda _parent, title, message: messages.append((title, message)),
+    )
+
+    window._handle_file_transcription_finished(
+        build_stream_result(str(tmp_path / "friend-alpha.wav"), conversation_id="conv_friend_alpha")
+    )
+
+    sessions = service.list_sessions()
+    assert len(sessions) == 1
+    assert window.tabs.currentWidget() == window.transcript_page
+    assert window.transcript_page.table.rowCount() == 2
+    assert window.insights_page.tasks_list.count() == 1
+    assert window.insights_page.tasks_list.item(0).text().startswith("Task: Keep testing")
+    assert "[pending review]" in window.insights_page.tasks_list.item(0).text()
+    assert messages[0][0] == "Transcript Ready"
+    window.close()
+
+
+def test_main_window_local_ask_fallback_uses_selected_session_evidence(tmp_path, monkeypatch):
+    window, _service = build_window(tmp_path, monkeypatch)
+    window._ingest_transcript(
+        build_stream_result(str(tmp_path / "friend-alpha.wav"), conversation_id="conv_local_ask")
+    )
+
+    response = window._ask_selected_session_locally("What tasks did we discuss?")
+
+    assert response.mode_used == "desktop_selected_session"
+    assert response.evidence_chains
+    assert "Tasks:" in response.short_answer
+    assert response.evidence_chains[0].steps[0].source_session_id == str(window._selected_session_id)
+    window.close()

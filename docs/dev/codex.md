@@ -46,7 +46,25 @@
 - **Memory Track Merge Readiness**: Current Memory Track audit reports the branch merge-ready for tested Memory Track scope after focused regression tests passed. Semantic/vector retrieval remains local-embedding dependent, Local LLM remains optional, production extraction quality is not overclaimed, and packaging/installer validation remains partial.
 - **Integration Test Hardening**: PR #6 from `fix/integration-test-hardening` was squash-merged into `main` on 2026-07-03. Fixes: core hybrid query syntax/import failure, missing dev test dependencies, offscreen `MainWindow` smoke-panel signal assumption, and Diagnostics status wording. Added `tests/test_diagnostics_status_taxonomy.py` and `docs/dev/INTEGRATION_TEST_HARDENING_REPORT.md`. Full suite passes locally on `main` with `PYTHONPATH=src;.` and `QT_QPA_PLATFORM=offscreen`: `180 passed, 3 skipped`. Manual offscreen desktop smoke passed for app open, session load, Diagnostics, memory search, Ask Memory evidence rendering, and diarization status. Skips are optional Local LLM and real local semantic embedding checks. Diarization remains `NOT IMPLEMENTED / ROADMAP`; semantic/vector search is active only with real local embeddings.
 - **Realistic Turkish Fixture Validation**: PR #7 from `test/real-transcript-fixture-validation` was squash-merged into `main` on 2026-07-06. It added `tests/fixtures/realistic_turkish_memory_session.txt`, `tests/test_realistic_turkish_fixture_validation.py`, and `docs/dev/REAL_TRANSCRIPT_FIXTURE_VALIDATION_REPORT.md`. The focused test validates anonymized Turkish text input through raw/clean transcript preservation, segments, deterministic structured extraction, graph nodes/edges/source references, review state, evidence-only Ask Memory, unsupported-claim rejection, and offscreen UI/Diagnostics smoke. Post-merge full suite on `main` passes locally: `181 passed, 3 skipped`. No real Turkish meeting-room audio fixture exists in-repo, so audio validation and WER/CER were not run.
-- **Friend Alpha Validation**: On `feature/friend-alpha-app-flow`, full offscreen suite passes with `PYTHONPATH=src;.` and `QT_QPA_PLATFORM=offscreen` via `python -m pytest`: `199 passed, 3 skipped`. The direct `pytest.exe` shim is blocked by Windows application control in this environment, so `python -m pytest` is the working equivalent. An offscreen desktop smoke simulated completed local-file transcription and verified `Knowledge Audit` opens with transcript rows, extracted tasks are visible, and local Ask returns selected-session evidence. A launch smoke with `python -m collective_mindgraph_desktop` reached the GUI event loop and was timeout-stopped intentionally. No real audio-file manual ASR run was completed because no in-repo audio fixture was available.
+- **Friend Alpha App Flow — Merged**: PR #10 (`ui: harden friend alpha app flow`) was squash-merged into `main` as `979ce4b` on 2026-07-07. Branch `feature/friend-alpha-app-flow` was deleted after merge. Validation: `199 passed, 3 skipped` offscreen; offscreen alpha smoke passed; desktop reached GUI event loop. No LLM, diarization, or cloud ASR added.
+- **Friend Alpha Readiness Branch**: `feature/friend-alpha-readiness` was created from clean `main` (`979ce4b`) on 2026-07-07 and pushed. Readiness artifacts added: `scripts/launch_cmg.py` (Python launcher with PYTHONPATH wiring and friendly error messages), `scripts/launch_cmg.bat` (double-click Windows wrapper), `docs/alpha/FRIEND_TEST_GUIDE.md` (step-by-step tester guide with known limitations), and `.github/ISSUE_TEMPLATE/alpha_bug_report.md` (structured bug report template). Next: manual real-audio run, then hand off to 1–2 friends.
+
+### Friend Alpha Quick Reference
+
+```powershell
+# Launch app
+python scripts/launch_cmg.py
+# or double-click scripts/launch_cmg.bat
+
+# Run full test suite (offscreen)
+$env:PYTHONPATH='src;.'; $env:QT_QPA_PLATFORM='offscreen'; python -m pytest
+
+# Quick manual smoke (offscreen desktop)
+$env:PYTHONPATH='src;.'; $env:QT_QPA_PLATFORM='offscreen'; python -m pytest tests/test_main_window_live_ingest.py tests/test_desktop_ask_memory_response.py -v
+
+# Real launch smoke (closes on timeout)
+python scripts/launch_cmg.py
+```
 
 ## Removed Features
 - **Cloud STT**: Deepgram Nova-3 integration removed.
@@ -73,7 +91,9 @@
 - [ ] Create `feature/transcript-to-memory-pipeline` and the recommended `../cmg-memory` worktree once the current dirty working tree is resolved.
 - [ ] Create or verify `../cmg-transcription` only after deciding whether the current repo should remain on `feature/transcription-quality-pipeline` or move elsewhere, because that branch is currently checked out in the original repo.
 - [ ] Keep further transcription/audio improvements frozen unless a clear bug or explicit ASR milestone reopens that scope.
+- [x] On `feature/friend-alpha-readiness`: added `scripts/launch_cmg.py`, `scripts/launch_cmg.bat`, `docs/alpha/FRIEND_TEST_GUIDE.md`, and `.github/ISSUE_TEMPLATE/alpha_bug_report.md`.
 - [ ] Run the friend-alpha flow with a real local Turkish audio file: launch app, choose audio, wait for local transcription, confirm transcript appears, check Extracted Notes, ask one simple evidence question, and export JSON.
+- [ ] After manual audio test passes, hand app to 1–2 friends for first external alpha test.
 - [x] Merge product-runtime UI wiring fixes from PR #9; the known visible mojibake, graph arrow text, backend-unavailable health messaging, stale state, sidebar filter/delete, Search/Ask, source trace, and close-guard pass is complete.
 - [ ] Formalize V2 domain implementations following the spreadsheet-driven architecture.
 - [ ] Defer diarization/speaker separation work until after transcript-to-memory progress or an explicit reopened audio milestone.

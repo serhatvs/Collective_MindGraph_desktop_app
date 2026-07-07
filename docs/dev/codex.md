@@ -7,6 +7,9 @@
 - Philosophy: Local-first, offline-capable, privacy-focused.
 
 ## Current State
+- **Checkpoint**: `friend-alpha-ready` — locked on `main` as `4ed383b` (2026-07-07).
+- **Next checkpoint**: `friend-alpha-feedback-validated` — reached after 1–2 friends complete the test flow and report findings.
+- **Gate question for next checkpoint**: Can a normal person launch it, use the core flow, and report where they get stuck?
 - **Architecture**: Transitions to a strictly local-first design. All cloud AI providers (Amazon Bedrock, Deepgram) have been removed.
 - **Desktop UI**: `src/collective_mindgraph_desktop` provides a `QMainWindow` with session explorer, voice command panel, and session detail view.
 - **Legacy UI Compatibility**: `src/collective_mindgraph_desktop/ui/session_detail_panel.py` is restored as a compatibility aggregate panel for older product-loop tests while the main app keeps the newer page-based layout.
@@ -93,8 +96,11 @@ python scripts/launch_cmg.py
 - [ ] Keep further transcription/audio improvements frozen unless a clear bug or explicit ASR milestone reopens that scope.
 - [x] On `feature/friend-alpha-readiness`: added `scripts/launch_cmg.py`, `scripts/launch_cmg.bat`, `docs/alpha/FRIEND_TEST_GUIDE.md`, and `.github/ISSUE_TEMPLATE/alpha_bug_report.md`.
 - [x] Run alpha pipeline smoke with real Turkish WAV (`cv_tr_008.wav`): transcript, extraction, export, persistence all green.
-- [ ] Hand app to 1–2 friend testers using `docs/alpha/FRIEND_TEST_GUIDE.md` and `.github/ISSUE_TEMPLATE/alpha_bug_report.md`.
-- [ ] After manual audio test passes, hand app to 1–2 friends for first external alpha test.
+- [ ] **[NOW]** Pull fresh `main`, run `python scripts/launch_cmg.py` with backend running, and test full flow manually: import audio → transcript → notes/graph → Ask Memory → export → close/reopen.
+- [ ] Share `docs/alpha/FRIEND_TEST_GUIDE.md` with 1–2 friends. No big group yet.
+- [ ] Collect friend feedback. For each issue: is it a blocker or a rough edge?
+- [ ] Open `friend-alpha-feedback-validated` milestone once feedback is in and core flow is confirmed working by at least one external tester.
+- [ ] Do NOT start new features until `friend-alpha-feedback-validated` checkpoint is reached.
 - [x] Merge product-runtime UI wiring fixes from PR #9; the known visible mojibake, graph arrow text, backend-unavailable health messaging, stale state, sidebar filter/delete, Search/Ask, source trace, and close-guard pass is complete.
 - [ ] Formalize V2 domain implementations following the spreadsheet-driven architecture.
 - [ ] Defer diarization/speaker separation work until after transcript-to-memory progress or an explicit reopened audio milestone.

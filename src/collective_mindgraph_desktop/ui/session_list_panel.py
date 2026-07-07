@@ -23,6 +23,7 @@ class SessionListPanel(QWidget):
     search_changed = Signal(str)
     new_session_requested = Signal()
     transcribe_file_requested = Signal()
+    export_session_requested = Signal()
     delete_session_requested = Signal(int)
     session_selected = Signal(int)
     global_search_requested = Signal()
@@ -43,6 +44,9 @@ class SessionListPanel(QWidget):
         self.transcribe_button.setProperty("secondary", True)
         self.search_button = QPushButton("Global Memory Search")
         self.search_button.setProperty("secondary", True)
+        self.export_button = QPushButton("Export Selected Session")
+        self.export_button.setProperty("secondary", True)
+        self.export_button.setEnabled(False)
         self.seed_demo_button = QPushButton("Seed Demo Data")
         self.seed_demo_button.setProperty("secondary", True)
         self.seed_demo_button.setToolTip("Create local sample memory data for exploring the demo flow.")
@@ -50,6 +54,7 @@ class SessionListPanel(QWidget):
         action_layout.addWidget(self.new_button)
         action_layout.addWidget(self.transcribe_button)
         action_layout.addWidget(self.search_button)
+        action_layout.addWidget(self.export_button)
         action_layout.addWidget(self.seed_demo_button)
         layout.addLayout(action_layout)
 
@@ -89,6 +94,7 @@ class SessionListPanel(QWidget):
         self.new_button.clicked.connect(self.new_session_requested.emit)
         self.transcribe_button.clicked.connect(self.transcribe_file_requested.emit)
         self.search_button.clicked.connect(self.global_search_requested.emit)
+        self.export_button.clicked.connect(self.export_session_requested.emit)
         self.seed_demo_button.clicked.connect(self.seed_demo_requested.emit)
         self.delete_button.clicked.connect(self._confirm_delete)
 
@@ -125,7 +131,9 @@ class SessionListPanel(QWidget):
             self.list_widget.setCurrentItem(item_to_select)
         self.list_widget.blockSignals(False)
 
-        self.delete_button.setEnabled(item_to_select is not None)
+        has_selection = item_to_select is not None
+        self.export_button.setEnabled(has_selection)
+        self.delete_button.setEnabled(has_selection)
         if item_to_select is not None:
             self.session_selected.emit(int(item_to_select.data(Qt.ItemDataRole.UserRole)))
 
@@ -147,8 +155,13 @@ class SessionListPanel(QWidget):
         _previous: QListWidgetItem | None,
     ) -> None:
         self.delete_button.setEnabled(current is not None)
+        self.export_button.setEnabled(current is not None)
         if current is not None:
             self.session_selected.emit(int(current.data(Qt.ItemDataRole.UserRole)))
+
+    def set_transcription_busy(self, busy: bool) -> None:
+        self.transcribe_button.setEnabled(not busy)
+        self.transcribe_button.setText("Transcribing Local File..." if busy else "Transcribe Local File")
 
     def _confirm_delete(self) -> None:
         session_id = self.current_session_id()

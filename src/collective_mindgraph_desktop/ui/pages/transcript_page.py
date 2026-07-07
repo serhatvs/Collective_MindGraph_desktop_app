@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...models import SessionDetail, TranscriptAnalysis
-from ..widgets import CardWidget
+from ..widgets import CardWidget, EmptyStateWidget
 
 
 class TranscriptPage(QWidget):
@@ -46,16 +46,47 @@ class TranscriptPage(QWidget):
         
         self.card.body_layout.addWidget(self.table)
 
+        self.empty_state = EmptyStateWidget(
+            "No transcript selected",
+            "Transcribe a local audio file or select a session with transcript analysis.",
+        )
+        self.card.body_layout.addWidget(self.empty_state)
+        self.table.hide()
+
     def set_detail(self, detail: SessionDetail | None) -> None:
         self.table.setRowCount(0)
         if not detail or not detail.transcripts:
+            self.empty_state.set_text(
+                "No transcript selected",
+                "Transcribe a local audio file or select a session with transcript analysis.",
+            )
+            self.empty_state.show()
+            self.table.hide()
             return
 
         # Use the latest analysis
         last_id = detail.transcripts[-1].id
         analysis = detail.transcript_analyses.get(last_id)
         if not analysis:
+            self.empty_state.set_text(
+                "Transcript has no analysis",
+                "The session has transcript text, but raw/cleaned segment details are not available yet.",
+            )
+            self.empty_state.show()
+            self.table.hide()
             return
+
+        if not analysis.segments:
+            self.empty_state.set_text(
+                "Transcript has no segments",
+                "The backend returned transcript text without segment-level raw/cleaned details.",
+            )
+            self.empty_state.show()
+            self.table.hide()
+            return
+
+        self.empty_state.hide()
+        self.table.show()
 
         for row, segment in enumerate(analysis.segments):
             self.table.insertRow(row)

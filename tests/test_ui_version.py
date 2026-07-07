@@ -49,6 +49,8 @@ def test_rebuilt_ui_is_loaded(qtbot):
     # 4. Check for Global Search in the sidebar list panel
     assert hasattr(window.session_list_panel, "search_button")
     assert window.session_list_panel.search_button.text() == "Global Memory Search"
+    assert hasattr(window.session_list_panel, "export_button")
+    assert window.session_list_panel.export_button.text() == "Export Selected Session"
     
     # 5. Check for Version Marker in status bar
     status_bar = window.statusBar()

@@ -96,14 +96,13 @@ class InsightsPage(QWidget):
         self.container_layout.addWidget(self.followups_card)
 
         self.empty_state = EmptyStateWidget(
-            "No reviewed memory yet.",
-            "This page shows trusted memory items after they are approved or edited during human review.\n\n"
+            "No extracted notes yet.",
+            "This page shows the basic tasks, decisions, topics, and follow-ups extracted from the selected session.\n\n"
             "To populate it:\n"
-            "- Review pending items in Review Suggestions\n"
             "- Open or import a session with extracted memory\n"
             "- Transcribe a local file\n"
             "- Or use Tools > Seed Technical Demo\n\n"
-            "If you expected items here, check Review Suggestions for pending memory.",
+            "Items marked pending still need human review before they are trusted memory.",
         )
         self.container_layout.addWidget(self.empty_state, 1)
 
@@ -123,22 +122,35 @@ class InsightsPage(QWidget):
     def _edit_item(self, item: QListWidgetItem) -> None:
         current_text = item.text()
         
-        # Determine type from prefix emoji
+        # Determine type from visible prefix.
         item_type = "task"
-        if current_text.startswith("💡 "): item_type = "decision"
-        elif current_text.startswith("🏷️ "): item_type = "topic"
-        elif current_text.startswith("📦 "): item_type = "entity"
-        elif current_text.startswith("⚠️ "): item_type = "risk"
-        elif current_text.startswith("❓ "): item_type = "open_question"
-        elif current_text.startswith("⏭️ "): item_type = "follow_up"
-        
-        # Strip emoji and resp for clean edit
+        prefix_map = {
+            "Task: ": "task",
+            "Decision: ": "decision",
+            "Topic: ": "topic",
+            "Entity: ": "entity",
+            "Risk: ": "risk",
+            "Question: ": "open_question",
+            "Follow-up: ": "follow_up",
+        }
+        for prefix, mapped_type in prefix_map.items():
+            if current_text.startswith(prefix):
+                item_type = mapped_type
+                break
+
+        # Strip prefix and review suffix for clean edit.
         clean_text = current_text
-        if current_text.startswith(("✅ ", "💡 ", "🏷️ ", "📦 ", "⚠️ ", "❓ ", "⏭️ ")):
-            clean_text = current_text[2:]
+        for prefix in prefix_map:
+            if clean_text.startswith(prefix):
+                clean_text = clean_text[len(prefix):]
+                break
+        pending_suffix = " [pending review]"
+        if clean_text.endswith(pending_suffix):
+            clean_text = clean_text[: -len(pending_suffix)]
         
         # If task, strip resp suffix (Resp: ...)
         resp_index = clean_text.find(" (Resp:")
+        resp_suffix = clean_text[resp_index:] if resp_index != -1 else ""
         if resp_index != -1:
             clean_text = clean_text[:resp_index]
 
@@ -146,9 +158,8 @@ class InsightsPage(QWidget):
         if ok and new_text and new_text != clean_text:
             self.knowledge_item_updated.emit(item_type, clean_text, new_text)
             # Optimistically update UI
-            prefix = current_text[:2] if current_text.startswith(("✅ ", "💡 ", "🏷️ ")) else ""
-            suffix = current_text[resp_index:] if resp_index != -1 else ""
-            item.setText(f"{prefix}{new_text}{suffix}")
+            prefix = next((prefix for prefix in prefix_map if current_text.startswith(prefix)), "")
+            item.setText(f"{prefix}{new_text}{resp_suffix}")
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         self.tasks_list.clear()
@@ -177,38 +188,55 @@ class InsightsPage(QWidget):
         self.open_qs_list.clear()
         self.followups_list.clear()
         
-        # Filter for approved or edited
-        reviewed = [n for n in nodes if n.get("metadata_json") and 
-                   (json.loads(n["metadata_json"]) if isinstance(n["metadata_json"], str) else n["metadata_json"]).get("review_status") in ("approved", "edited")]
+        extracted = []
+        for node in nodes:
+            meta = self._metadata_for_node(node)
+            status = str(meta.get("review_status") or "pending")
+            if bool(meta.get("disabled")) or status in {"rejected", "merged"}:
+                continue
+            if node.get("type") in {"TASK", "DECISION", "TOPIC", "ENTITY", "RISK", "OPEN_QUESTION", "FOLLOW_UP"}:
+                extracted.append((node, meta, status))
 
-        self._set_review_content_visible(bool(reviewed))
+        self._set_review_content_visible(bool(extracted))
         
-        for node in reviewed:
-            meta_str = node.get("metadata_json") or "{}"
-            meta = json.loads(meta_str) if isinstance(meta_str, str) else meta_str
-            
+        for node, meta, status in extracted:
             title = node.get("title") or node.get("text_content") or ""
+            if status == "pending":
+                title = f"{title} [pending review]"
             n_type = node.get("type")
             
             if n_type == "TASK":
-                item = QListWidgetItem(f"✅ {title}")
+                item = QListWidgetItem(f"Task: {title}")
                 if meta.get("assignee"):
                     item.setText(f"{item.text()} (Resp: {meta['assignee']})")
                 self.tasks_list.addItem(item)
             elif n_type == "DECISION":
-                self.decisions_list.addItem(QListWidgetItem(f"💡 {title}"))
+                self.decisions_list.addItem(QListWidgetItem(f"Decision: {title}"))
             elif n_type == "TOPIC":
-                self.topics_list.addItem(QListWidgetItem(f"🏷️ {title}"))
+                self.topics_list.addItem(QListWidgetItem(f"Topic: {title}"))
             elif n_type == "ENTITY":
-                self.entities_list.addItem(QListWidgetItem(f"📦 {title}"))
+                self.entities_list.addItem(QListWidgetItem(f"Entity: {title}"))
             elif n_type == "RISK":
-                self.risks_list.addItem(QListWidgetItem(f"⚠️ {title}"))
+                self.risks_list.addItem(QListWidgetItem(f"Risk: {title}"))
             elif n_type == "OPEN_QUESTION":
-                self.open_qs_list.addItem(QListWidgetItem(f"❓ {title}"))
+                self.open_qs_list.addItem(QListWidgetItem(f"Question: {title}"))
             elif n_type == "FOLLOW_UP":
-                self.followups_list.addItem(QListWidgetItem(f"⏭️ {title}"))
+                self.followups_list.addItem(QListWidgetItem(f"Follow-up: {title}"))
 
     def _set_review_content_visible(self, has_reviewed_items: bool) -> None:
         for card in self._review_cards:
             card.setVisible(has_reviewed_items)
         self.empty_state.setVisible(not has_reviewed_items)
+
+    @staticmethod
+    def _metadata_for_node(node: dict) -> dict:
+        raw = node.get("metadata_json") or {}
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, str):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return {}

@@ -96,7 +96,7 @@ def test_collective_mindgraph_product_loop(tmp_path):
     tab_texts = [window.tabs.tabText(i) for i in range(window.tabs.count())]
     assert "Session Memory" in tab_texts
     assert "Knowledge Audit" in tab_texts
-    assert "Reviewed Memory" in tab_texts
+    assert "Extracted Notes" in tab_texts
     assert "Review Suggestions" in tab_texts
     assert "Global Search" in tab_texts
     

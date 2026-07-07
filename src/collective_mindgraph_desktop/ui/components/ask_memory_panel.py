@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from PySide6.QtCore import QObject, QThread, Signal, Slot, Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -34,19 +36,21 @@ class MemoryAskWorker(QObject):
         self,
         query: str,
         mode: str,
+        include_pending: bool,
         config: RealtimeBackendTranscriptionConfig,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._query = query
         self._mode = mode
+        self._include_pending = include_pending
         self._config = config
 
     @Slot()
     def run(self) -> None:
         try:
             service = RealtimeBackendTranscriptionService(config=self._config)
-            result = service.ask_memory(self._query, mode=self._mode)
+            result = service.ask_memory(self._query, mode=self._mode, include_pending=self._include_pending)
             self.finished.emit(result)
         except Exception as exc:
             self.failed.emit(str(exc))
@@ -57,6 +61,9 @@ class AskMemoryPanel(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._config: RealtimeBackendTranscriptionConfig | None = None
+        self._local_fallback_provider: Callable[[str], MemoryAskResponse] | None = None
+        self._ask_thread: QThread | None = None
+        self._ask_worker: MemoryAskWorker | None = None
         
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -88,6 +95,13 @@ class AskMemoryPanel(QWidget):
         input_layout.addWidget(self.ask_button)
         self.card.body_layout.addWidget(input_container)
 
+        self.include_pending_checkbox = QCheckBox("Include unreviewed extracted items")
+        self.include_pending_checkbox.setChecked(True)
+        self.include_pending_checkbox.setToolTip(
+            "Use newly extracted tasks, decisions, and topics before manual review."
+        )
+        self.card.body_layout.addWidget(self.include_pending_checkbox)
+
         # Answer Area
         self.answer_box = QTextEdit()
         self.answer_box.setReadOnly(True)
@@ -111,32 +125,54 @@ class AskMemoryPanel(QWidget):
     def set_config(self, config: RealtimeBackendTranscriptionConfig) -> None:
         self._config = config
 
+    def set_local_fallback_provider(self, provider: Callable[[str], MemoryAskResponse] | None) -> None:
+        self._local_fallback_provider = provider
+
     def _handle_ask(self) -> None:
         query = self.ask_input.text().strip()
         mode_text = self.mode_selector.currentText()
         mode = "llm_assisted" if mode_text == "LLM Assisted" else "evidence_only"
         
-        if not query or not self._config:
+        if not query:
+            self.answer_box.setPlainText("Enter a question about the selected session.")
+            return
+        if not self._config:
+            self.answer_box.setPlainText("Ask Memory is not ready yet. Reopen Global Search or check Settings.")
+            return
+        if self._ask_thread is not None:
             return
 
         self.ask_button.setEnabled(False)
         self.answer_box.setText("Thinking...")
         self._clear_evidence()
 
-        self._thread = QThread()
-        self._worker = MemoryAskWorker(query, mode, self._config)
-        self._worker.moveToThread(self._thread)
+        include_pending = self.include_pending_checkbox.isChecked()
+        self._ask_thread = QThread()
+        self._ask_worker = MemoryAskWorker(query, mode, include_pending, self._config)
+        self._ask_worker.moveToThread(self._ask_thread)
         
-        self._thread.started.connect(self._worker.run)
-        self._worker.finished.connect(self._handle_finished)
-        self._worker.failed.connect(self._handle_failed)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.failed.connect(self._thread.quit)
+        self._ask_thread.started.connect(self._ask_worker.run)
+        self._ask_worker.finished.connect(self._handle_finished)
+        self._ask_worker.failed.connect(lambda error, q=query: self._handle_failed(error, q))
+        self._ask_worker.finished.connect(self._ask_thread.quit)
+        self._ask_worker.failed.connect(self._ask_thread.quit)
+        self._ask_thread.finished.connect(self._cleanup_ask_worker)
         
-        self._thread.start()
+        self._ask_thread.start()
 
     def _handle_finished(self, response: MemoryAskResponse) -> None:
         self.ask_button.setEnabled(True)
+        if not response.evidence_chains and self._local_fallback_provider is not None:
+            fallback = self._local_fallback_provider(response.query)
+            if fallback.evidence_chains:
+                self._render_response(
+                    fallback,
+                    notice="Backend Ask had no evidence, so this answer uses the selected desktop session.",
+                )
+                return
+        self._render_response(response)
+
+    def _render_response(self, response: MemoryAskResponse, notice: str | None = None) -> None:
         
         confidence_level = getattr(response, "confidence_level", "low") or "low"
         confidence_color = {
@@ -147,6 +183,8 @@ class AskMemoryPanel(QWidget):
         }.get(confidence_level, "#000")
 
         html = f"<b style='font-size: 12pt;'>Answer:</b><br>{getattr(response, 'short_answer', '')}<br><br>"
+        if notice:
+            html += f"<b>Note:</b> {notice}<br><br>"
         html += f"<span style='color: {confidence_color};'>Confidence: {confidence_level.upper()}</span> | "
         
         raw_score = getattr(response, "evidence_coverage_score", 0.0) or 0.0
@@ -187,8 +225,16 @@ class AskMemoryPanel(QWidget):
         self.answer_box.setHtml(html)
         self._display_evidence(response)
 
-    def _handle_failed(self, error: str) -> None:
+    def _handle_failed(self, error: str, query: str | None = None) -> None:
         self.ask_button.setEnabled(True)
+        if query and self._local_fallback_provider is not None:
+            fallback = self._local_fallback_provider(query)
+            if fallback.evidence_chains:
+                self._render_response(
+                    fallback,
+                    notice=f"Backend Ask is unavailable. Showing selected-session evidence instead. Details: {error}",
+                )
+                return
         self.answer_box.setText(f"Error: {error}")
 
     def _clear_evidence(self) -> None:
@@ -269,3 +315,7 @@ class AskMemoryPanel(QWidget):
         except (TypeError, ValueError):
             return ""
         return f"{start} - {end}"
+
+    def _cleanup_ask_worker(self) -> None:
+        self._ask_thread = None
+        self._ask_worker = None

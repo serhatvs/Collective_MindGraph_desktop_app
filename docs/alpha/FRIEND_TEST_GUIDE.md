@@ -1,175 +1,181 @@
-# Collective MindGraph — Friend Alpha Test Guide
+# Collective MindGraph - Friend Alpha Test Guide
 
-> **Version**: Alpha · **Date**: July 2026  
-> **Contact**: Share feedback directly with Serhat or open a GitHub issue using the bug report template.
+Version: Alpha  
+Date: July 2026  
+Contact: Share feedback directly with Serhat or open a GitHub issue using the bug report template.
 
----
+## What This Alpha Is
 
-## What is Collective MindGraph?
+Collective MindGraph is a local-first Windows desktop app for testing a basic meeting-memory flow:
 
-Collective MindGraph is a **local-first, privacy-focused desktop app** for Windows that helps you:
+1. Open the desktop app.
+2. Select a local audio file.
+3. Transcribe it locally, Turkish-first.
+4. Review the transcript in the UI.
+5. Review extracted tasks, decisions, and topics.
+6. Ask a simple question about the selected session.
+7. Export the session result.
 
-- Transcribe audio recordings of meetings, calls, or voice notes — **entirely on your own machine**
-- Automatically extract tasks, decisions, and topics from the transcript
-- Ask simple questions about what was discussed, backed by real evidence from the transcript
-- Export the full session for your own records
+There are no accounts and no cloud transcription APIs in this alpha.
 
-There is **no cloud, no accounts, no data leaving your computer**.
+## Before Giving This To Testers
 
----
-
-## What You Should Try (Test Flow)
-
-Follow these steps in order. Each one is a checkpoint.
-
-### Step 1 — Launch the App
+Run this developer preflight first:
 
 ```powershell
-# From the repo root
 python scripts/launch_cmg.py
 ```
 
-Or on Windows, double-click `scripts/launch_cmg.bat`.
+Confirm all of these before handing the app to friends:
 
-**Expected**: The main window opens with a session explorer sidebar on the left.
+- The desktop app opens.
+- The local backend starts automatically.
+- `faster_whisper` is reported as `available` by the launcher.
+- Diagnostics or backend health shows `ASR_STATUS=OK`, not `ASR_STATUS=MOCK_FALLBACK`.
+- One real Turkish audio file transcribes into real Turkish text, not placeholder text.
+- The transcript appears in `Knowledge Audit`.
+- Extracted notes appear in `Extracted Notes`, or a clear empty state appears.
+- A simple selected-session question works from the Ask Memory panel in `Global Search`.
+- `Export Selected Session` writes a JSON file.
 
----
+### Mock Fallback Means Transcription Is Not Real
 
-### Step 2 — Transcribe a Local Audio File
+If the launcher prints:
 
-1. In the sidebar, click **"Transcribe File"** (or use the main menu).
+```text
+Real transcription is not available. The app may use mock fallback.
+```
+
+or backend health shows:
+
+```text
+ASR_STATUS=MOCK_FALLBACK
+```
+
+then Faster-Whisper is missing or could not load. The app may still open and the flow may still create a placeholder transcript, but that is not real transcription and is not ready for friend testing.
+
+The backend dependency install path for real ASR is:
+
+```powershell
+python -m pip install -r realtime_backend\requirements.txt
+```
+
+For GPU setups, follow `realtime_backend/README.md` first, because PyTorch/CUDA installs may need a specific command before installing backend requirements.
+
+## Launch The App
+
+From the repo root:
+
+```powershell
+python scripts/launch_cmg.py
+```
+
+On Windows you can also double-click:
+
+```text
+scripts\launch_cmg.bat
+```
+
+Expected: the main window opens with a session explorer sidebar on the left.
+
+## Transcribe A Local Audio File
+
+1. In the sidebar, click `Transcribe Local File`.
 2. Select an audio file from your computer.
 
-**Supported formats**:
+Supported formats:
+
 | Format | Notes |
-|--------|-------|
+| --- | --- |
 | `.wav` | Best quality, recommended |
-| `.mp3` | Common, works well |
-| `.flac` | Lossless, good quality |
-| `.m4a` | iPhone recordings |
+| `.mp3` | Common compressed format |
+| `.flac` | Lossless audio |
+| `.m4a` | Common phone recording format |
 
-3. Wait for transcription to complete. Progress is shown in the status bar.
-4. When done, the app will switch to the **Transcript** tab automatically.
+Expected: the status bar shows transcription progress. When transcription finishes, the app switches to `Knowledge Audit`.
 
-**Expected**: You see your transcript text broken into segments with timestamps.
+## View The Transcript
 
-> **Tip**: For best results, use a recording with clear speech and minimal background noise.  
-> Audio longer than ~30 minutes may take several minutes to transcribe on CPU.
+Open the `Knowledge Audit` tab.
 
----
+Expected:
 
-### Step 3 — View the Transcript
+- Transcript rows are visible.
+- Timestamp, speaker, corrected transcript, and raw ASR output columns are shown when segment details are available.
+- Turkish text is readable.
+- Placeholder text containing `ASR_STATUS=MOCK_FALLBACK` means transcription was not real.
 
-After transcription, open the **Transcript** tab if it is not already visible.
+## Check Extracted Notes
 
-- Segments are shown in order with timestamps
-- Scroll through to confirm the text looks correct
-- If the transcript is empty or shows placeholder text, see [Known Limitations](#known-limitations)
+Open the `Extracted Notes` tab.
 
----
+Expected:
 
-### Step 4 — Check Extracted Notes
+- Tasks, decisions, topics, and other extracted items appear if the transcript contains enough structure.
+- New items may show `[pending review]`.
+- If nothing was extracted, the empty state should explain what to do next.
 
-Open the **Knowledge Audit** tab (may also appear as **Extracted Notes** or **Insights**).
+## Ask A Simple Question
 
-You should see items extracted from the transcript, grouped by type:
+Open the `Global Search` tab. The Ask Memory panel is at the top.
 
-| Type | What it means |
-|------|--------------|
-| **Tasks** | Action items mentioned in the recording |
-| **Decisions** | Conclusions or choices made |
-| **Topics** | Main subjects discussed |
+1. Make sure the transcribed session is selected in the sidebar.
+2. Ask a simple question grounded in the session, such as:
+   - `What tasks were assigned?`
+   - `What was decided?`
+   - `What topics did we discuss?`
+3. Click `Ask` or press Enter.
 
-- Items marked **Pending Review** have not been approved yet
-- Click **Approve** to add an item to your memory graph
-- Click **Reject** to dismiss it
+Expected:
 
-**Expected**: At least some extracted items appear if the transcript contains structured speech.
+- The app answers from available session evidence when possible.
+- Evidence/source details appear below the answer.
+- If there is no evidence, the app says so clearly.
+- A local LLM is optional; lack of LLM is not a crash.
 
----
+## Export The Session
 
-### Step 5 — Ask a Simple Question
+1. Select the session in the sidebar.
+2. Click `Export Selected Session`.
+3. Choose a save location.
 
-Open the **Ask Memory** tab.
+Expected: a `.json` file is saved containing the transcript, extracted notes, and memory graph data for the selected session.
 
-1. Make sure the session you just transcribed is selected in the sidebar
-2. Type a simple question based on what was discussed, e.g.:
-   - *"What tasks were assigned?"*
-   - *"What was decided about X?"*
-   - *"Who should follow up?"*
-3. Press **Ask** (or Enter)
+## What To Report
 
-**Expected**: An answer appears with **evidence** — quoted text from the transcript that supports the answer.
+Please include:
 
-> **Note**: If no local LLM is running, Ask Memory will use evidence from the transcript directly without LLM-generated summaries. This is expected behavior, not a crash.
+- What you tried.
+- What you expected.
+- What actually happened.
+- Whether the app crashed, froze, or stayed open.
+- Audio format and approximate length.
+- Whether the transcript was real text or mock fallback placeholder text.
+- Screenshot or terminal output if available.
 
----
-
-### Step 6 — Export the Session
-
-1. Select the session in the sidebar
-2. Click **Export** (sidebar button or menu)
-3. Choose a save location
-
-**Expected**: A `.json` file is saved containing the transcript, extracted notes, and memory graph for that session.
-
----
-
-## What Feedback to Give
-
-Please note the following for each test run:
-
-- ✅ / ❌ Did each step above work?
-- Was the transcript readable and accurate?
-- Did the extracted notes make sense?
-- Did Ask Memory give a relevant answer?
-- Did the export file save correctly?
-- Any crashes, freezes, or confusing UI?
-- How long did transcription take?
-- What was your audio format, length, and language?
-
-Use the **[Bug Report Template](../../.github/ISSUE_TEMPLATE/alpha_bug_report.md)** on GitHub for any issues.
-
----
+Use `.github/ISSUE_TEMPLATE/alpha_bug_report.md` for structured bug reports.
 
 ## Known Limitations
 
-This is an early alpha. Please read before testing:
-
 | Limitation | Detail |
-|------------|--------|
-| **No speaker separation** | All speech is treated as one speaker. Diarization is on the roadmap. |
-| **No diarization** | You cannot identify who said what. |
-| **LLM is optional** | Ask Memory and extraction work without a local LLM, but answers are less fluent. |
-| **Transcription quality** | Depends heavily on audio quality, background noise, and microphone. |
-| **Turkish-first** | The app was designed and tested primarily with Turkish speech. Other languages may work but are not validated. |
-| **No cloud** | Everything runs locally. Cold-start transcription of large files on CPU can be slow. |
-| **Alpha UI** | Some screens may have rough edges, unclear labels, or missing error states. |
-| **Crashes possible** | This is alpha software. Please report crashes with steps to reproduce. |
-| **No installer yet** | Launch requires Python and repo dependencies installed manually. |
-
----
-
-## Requirements
-
-- Windows 10 or 11
-- Python 3.11+ installed and on PATH
-- Repo dependencies installed: `pip install -r requirements.txt` (or equivalent)
-- ~4 GB free disk space for local ASR models (downloaded on first run)
-
----
+| --- | --- |
+| No diarization | The app does not identify who said what. |
+| No speaker separation | All speech may appear as unknown or generic speaker labels. |
+| LLM optional | Ask Memory and extraction should still have evidence-only behavior without a local LLM. |
+| Transcription quality varies | Results depend on audio quality, noise, microphone, and local ASR setup. |
+| Turkish-first | Turkish is the primary alpha target. Other languages are not validated. |
+| No installer yet | Launch currently requires Python and repo dependencies installed manually. |
+| Alpha UI | Some screens may still have rough labels or empty states. |
 
 ## Quick Reference
 
 ```text
-Launch:         python scripts/launch_cmg.py
-Transcribe:     Sidebar → Transcribe File → select audio
-View:           Transcript tab
-Extract:        Knowledge Audit / Insights tab
-Ask:            Ask Memory tab → type question → Ask
-Export:         Sidebar → Export (select session first)
+Launch:      python scripts/launch_cmg.py
+Transcribe:  Sidebar -> Transcribe Local File -> select audio
+Transcript:  Knowledge Audit
+Notes:       Extracted Notes
+Ask:         Global Search -> Ask Memory panel -> Ask
+Export:      Sidebar -> Export Selected Session
 ```
 
----
-
-*Thank you for testing Collective MindGraph. Your feedback directly shapes the first real release.*
+Thank you for testing Collective MindGraph. Your feedback directly shapes the first real release.

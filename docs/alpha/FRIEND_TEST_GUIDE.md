@@ -1,7 +1,7 @@
 # Collective MindGraph - Friend Alpha Test Guide
 
-Version: Alpha  
-Date: July 2026  
+Version: Alpha
+Date: July 2026
 Contact: Share feedback directly with Serhat or open a GitHub issue using the bug report template.
 
 ## What This Alpha Is

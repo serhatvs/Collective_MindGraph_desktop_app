@@ -7,7 +7,7 @@
 - Philosophy: Local-first, offline-capable, privacy-focused.
 
 ## Current State
-- **Checkpoint**: `friend-alpha-ready` — locked on `main` as `4ed383b` (2026-07-07).
+- **Checkpoint**: `friend-alpha-ready` — locked on `main` as `4a2312f` and tag `friend-alpha-ready-2026-07-08`.
 - **Next checkpoint**: `friend-alpha-feedback-validated` — reached after 1–2 friends complete the test flow and report findings.
 - **Gate question for next checkpoint**: Can a normal person launch it, use the core flow, and report where they get stuck?
 - **Architecture**: Transitions to a strictly local-first design. All cloud AI providers (Amazon Bedrock, Deepgram) have been removed.
@@ -56,11 +56,16 @@
 - **Friend Alpha Blocker Fix Pass**: On 2026-07-08, `scripts/launch_cmg.bat` was fixed to resolve repo root from `%~dp0`, work from repo root or `scripts/`, and return nonzero on launch failure; `scripts/launch_cmg.py` now prints Python path, repo root, PYTHONPATH, and Faster-Whisper availability, warning that missing `faster_whisper` may trigger mock fallback. `docs/alpha/FRIEND_TEST_GUIDE.md` now matches actual UI labels and includes ASR preflight/mock fallback guidance. Verification: Python launcher, BAT from repo root, and BAT from `scripts/` all start the app/backend offscreen; BAT missing-Python failure exits `1`; pytest remains `199 passed, 3 skipped`. Remaining blocker: launcher Python `C:\Users\Serhat\AppData\Local\Programs\Python\Python313\python.exe` does not have `faster_whisper`, so backend health still reports `ASR_STATUS=MOCK_FALLBACK`.
 - **Friend Alpha ASR Environment Fix**: On 2026-07-08, `realtime_backend\requirements.txt` was installed into the launcher Python at `C:\Users\Serhat\AppData\Local\Programs\Python\Python313\python.exe`. `import faster_whisper` now succeeds. Offscreen `python scripts/launch_cmg.py` starts the app/backend and backend health reports `ASR_STATUS=OK`, `asr_provider_resolved=faster_whisper`, `asr_model=small`, `asr_device=cpu`, `asr_compute_type=int8`, and `asr_mock_fallback_used=False`.
 - **Friend Alpha Real-Audio UI Pass**: On 2026-07-08, an offscreen UI-driven real-audio run used a 52.96-second `.wav` built from local Common Voice Turkish clips. The app launched via the one-command path, backend health stayed on Faster-Whisper (`ASR_STATUS=OK`, mock fallback false), `Transcribe Local File` produced a readable Turkish transcript with raw/cleaned segment rows, `Extracted Notes` showed 1 task and 7 topics, selected-session Ask Memory returned sourced local evidence, export JSON included transcript and memory data, and reopening against the same database preserved the session. This validates the app-flow gate, but a final visible hand-click pass on the target tester machine is still useful before broad friend handoff.
-- **Friend Alpha Readiness PR**: PR #12 (`docs: add friend alpha readiness materials`) is open from `feature/friend-alpha-readiness` to `main`, non-draft, and mergeable/clean. Scope remains launcher/docs/readiness only: no LLM work, no diarization/speaker separation, no UI redesign, and no memory internals changes. After merge, give the alpha to only 1-2 friends and collect crashes/confusion before any broader test.
+- **Friend Alpha Readiness — Tagged**: PR #12 (`docs: add friend alpha readiness materials`) was squash-merged into `main` as `4a2312f`, tagged `friend-alpha-ready-2026-07-08`, and the remote `feature/friend-alpha-readiness` branch was deleted. Scope remained launcher/docs/readiness only: no LLM work, no diarization/speaker separation, no UI redesign, and no memory internals changes. First external test should go to one friend only, then patch/checkpoint obvious setup or launch issues before friend #2.
+- **Friend Alpha Install Hotfix**: Branch `hotfix/friend-alpha-install-script` adds a small setup script so fresh checkouts can install desktop and real-ASR dependencies before launch. Use `python scripts/install_friend_alpha_deps.py` or `scripts\install_friend_alpha_deps.bat`; the script installs the editable desktop package plus `realtime_backend\requirements.txt`, then verifies `faster_whisper`. Validation on 2026-07-08: Python installer exit `0`, BAT installer exit `0`, `import faster_whisper` succeeds, launcher health reports Faster-Whisper with mock fallback false, and pytest is `199 passed, 3 skipped`.
 
 ### Friend Alpha Quick Reference
 
 ```powershell
+# Install friend-alpha dependencies
+python scripts/install_friend_alpha_deps.py
+# or double-click scripts/install_friend_alpha_deps.bat
+
 # Launch app
 python scripts/launch_cmg.py
 # or double-click scripts/launch_cmg.bat
@@ -106,7 +111,9 @@ python scripts/launch_cmg.py
 - [x] Verify the one-command launcher Python environment has Faster-Whisper/local ASR available so local file transcription produces real Turkish text instead of `ASR_STATUS=MOCK_FALLBACK`.
 - [x] Align `docs/alpha/FRIEND_TEST_GUIDE.md` with actual UI labels (`Transcribe Local File`, `Knowledge Audit`, `Extracted Notes`, `Global Search`, `Export Selected Session`) and add mock-ASR preflight guidance.
 - [x] Run the friend-alpha flow with a real local Turkish audio file: launch app, choose audio, wait for local transcription, confirm transcript appears, check Extracted Notes, ask one simple evidence question, and export JSON.
-- [ ] Merge PR #12, then give the alpha to only 1-2 friends using the short test flow; do not broaden beyond that until crashes/confusion are collected.
+- [x] Merge PR #12 and tag `friend-alpha-ready-2026-07-08`.
+- [ ] Merge the `hotfix/friend-alpha-install-script` setup-script fix before handing a fresh checkout to friend #1.
+- [ ] Give the alpha to one friend only using the short test flow; do not broaden beyond that until crashes/confusion are collected.
 - [x] Merge product-runtime UI wiring fixes from PR #9; the known visible mojibake, graph arrow text, backend-unavailable health messaging, stale state, sidebar filter/delete, Search/Ask, source trace, and close-guard pass is complete.
 - [ ] Formalize V2 domain implementations following the spreadsheet-driven architecture.
 - [ ] Defer diarization/speaker separation work until after transcript-to-memory progress or an explicit reopened audio milestone.

@@ -18,11 +18,34 @@ Collective MindGraph is a local-first Windows desktop app for testing a basic me
 
 There are no accounts and no cloud transcription APIs in this alpha.
 
+## Before Launching
+
+Run the friend-alpha dependency installer first:
+
+```powershell
+python scripts/install_friend_alpha_deps.py
+```
+
+On Windows you can also double-click:
+
+```text
+scripts\install_friend_alpha_deps.bat
+```
+
+Then launch the app with `scripts\launch_cmg.bat`. Confirm the launcher prints:
+
+```text
+faster_whisper    : available
+```
+
+If the launcher says mock/fallback or says `faster_whisper` is missing, real transcription is not ready yet.
+
 ## Before Giving This To Testers
 
 Run this developer preflight first:
 
 ```powershell
+python scripts/install_friend_alpha_deps.py
 python scripts/launch_cmg.py
 ```
 
@@ -57,10 +80,14 @@ then Faster-Whisper is missing or could not load. The app may still open and the
 The backend dependency install path for real ASR is:
 
 ```powershell
-python -m pip install -r realtime_backend\requirements.txt
+python scripts/install_friend_alpha_deps.py
 ```
 
 For GPU setups, follow `realtime_backend/README.md` first, because PyTorch/CUDA installs may need a specific command before installing backend requirements.
+
+### Known Setup Issue
+
+On a fresh checkout, real transcription may fall back to mock mode if ASR dependencies are not installed. Run the friend-alpha dependency install script before testing.
 
 ## Launch The App
 
@@ -164,12 +191,14 @@ Use `.github/ISSUE_TEMPLATE/alpha_bug_report.md` for structured bug reports.
 | LLM optional | Ask Memory and extraction should still have evidence-only behavior without a local LLM. |
 | Transcription quality varies | Results depend on audio quality, noise, microphone, and local ASR setup. |
 | Turkish-first | Turkish is the primary alpha target. Other languages are not validated. |
-| No installer yet | Launch currently requires Python and repo dependencies installed manually. |
+| No packaged installer yet | Launch currently requires Python and repo dependencies installed with the setup script. |
+| Fresh checkout setup | Real transcription may fall back to mock mode if ASR dependencies are not installed. Run `scripts\install_friend_alpha_deps.bat` or `python scripts/install_friend_alpha_deps.py` before testing. |
 | Alpha UI | Some screens may still have rough labels or empty states. |
 
 ## Quick Reference
 
 ```text
+Setup:       python scripts/install_friend_alpha_deps.py
 Launch:      python scripts/launch_cmg.py
 Transcribe:  Sidebar -> Transcribe Local File -> select audio
 Transcript:  Knowledge Audit

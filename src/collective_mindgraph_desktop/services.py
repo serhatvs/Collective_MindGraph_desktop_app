@@ -762,6 +762,7 @@ class CollectiveMindGraphService:
                 quality_report=self._build_quality_report(result.quality_report),
                 created_at=timestamp,
                 updated_at=timestamp,
+                metadata=dict(result.metadata),
             ),
         )
 
@@ -956,6 +957,7 @@ class CollectiveMindGraphService:
                 quality_report=quality_report,
                 created_at=analysis.created_at,
                 updated_at=updated_at,
+                metadata=dict(analysis.metadata),
             ),
         )
         self.transcripts.update_text(transcript_id, flat_transcript_text)
@@ -1417,6 +1419,7 @@ class CollectiveMindGraphService:
                     speaker_confidence=0.0,
                     overlap=False,
                     notes=[],
+                    metadata={},
                 )
             ]
         built: list[TranscriptAnalysisSegment] = []
@@ -1437,6 +1440,7 @@ class CollectiveMindGraphService:
                     ),
                     overlap=bool(item.get("overlap") or False),
                     notes=[str(note) for note in notes] if isinstance(notes, list) else [],
+                    metadata=item.get("metadata") if isinstance(item.get("metadata"), dict) else {},
                 )
             )
         return built

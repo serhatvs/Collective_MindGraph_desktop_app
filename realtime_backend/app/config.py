@@ -89,6 +89,15 @@ def _env_bool(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_bool_any(names: tuple[str, ...], default: bool) -> bool:
+    for name in names:
+        value = os.getenv(name)
+        if value is None:
+            continue
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return default
+
+
 def _asr_runtime():
     return resolve_asr_runtime_config()
 
@@ -157,9 +166,33 @@ class Settings:
     asr_model_name: str = field(
         default_factory=lambda: _asr_runtime().asr_model
     )
+    asr_fast_model_name: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_FAST_MODEL") or os.getenv("CMG_ASR_FAST_MODEL") or None
+    )
+    asr_balanced_model_name: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_BALANCED_MODEL") or os.getenv("CMG_ASR_BALANCED_MODEL") or None
+    )
+    asr_max_quality_model_name: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_MAX_QUALITY_MODEL") or os.getenv("CMG_ASR_MAX_QUALITY_MODEL") or None
+    )
+    asr_bad_mic_model_name: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_BAD_MIC_MODEL") or os.getenv("CMG_ASR_BAD_MIC_MODEL") or None
+    )
     asr_device: str = field(default_factory=lambda: _asr_runtime().asr_device)
     asr_compute_type: str = field(
         default_factory=lambda: _asr_runtime().asr_compute_type
+    )
+    asr_fast_compute_type: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_FAST_COMPUTE_TYPE") or os.getenv("CMG_ASR_FAST_COMPUTE_TYPE") or None
+    )
+    asr_balanced_compute_type: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_BALANCED_COMPUTE_TYPE") or os.getenv("CMG_ASR_BALANCED_COMPUTE_TYPE") or None
+    )
+    asr_max_quality_compute_type: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_MAX_QUALITY_COMPUTE_TYPE") or os.getenv("CMG_ASR_MAX_QUALITY_COMPUTE_TYPE") or None
+    )
+    asr_bad_mic_compute_type: str | None = field(
+        default_factory=lambda: os.getenv("CMG_RT_ASR_BAD_MIC_COMPUTE_TYPE") or os.getenv("CMG_ASR_BAD_MIC_COMPUTE_TYPE") or None
     )
     asr_beam_size: int = field(default_factory=lambda: _env_int("CMG_RT_ASR_BEAM_SIZE", 5))
     asr_max_quality_beam_size: int = field(
@@ -176,6 +209,12 @@ class Settings:
     )
     asr_region_padding_seconds: float = field(
         default_factory=lambda: _env_float("CMG_RT_ASR_REGION_PADDING_SECONDS", 0.10)
+    )
+    asr_bad_mic_noise_reduction: bool = field(
+        default_factory=lambda: _env_bool_any(("CMG_RT_ASR_BAD_MIC_NOISE_REDUCTION", "CMG_ASR_BAD_MIC_NOISE_REDUCTION"), False)
+    )
+    asr_safe_silence_trim: bool = field(
+        default_factory=lambda: _env_bool_any(("CMG_RT_ASR_SAFE_SILENCE_TRIM", "CMG_ASR_SAFE_SILENCE_TRIM"), True)
     )
 
     diarizer_provider: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_PROVIDER", "pyannote"))

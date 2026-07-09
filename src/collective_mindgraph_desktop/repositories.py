@@ -126,6 +126,7 @@ def _analysis_segment_from_payload(payload: dict[str, object]) -> TranscriptAnal
         ),
         overlap=bool(payload.get("overlap") or False),
         notes=[str(item) for item in notes] if isinstance(notes, list) else [],
+        metadata=payload.get("metadata") if isinstance(payload.get("metadata"), dict) else {},
     )
 
 
@@ -485,6 +486,7 @@ class TranscriptAnalysisRepository:
                 "speaker_confidence": item.speaker_confidence,
                 "overlap": item.overlap,
                 "notes": item.notes,
+                "metadata": item.metadata,
             }
             for item in draft.segments
         ]

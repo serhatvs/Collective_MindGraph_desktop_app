@@ -16,7 +16,8 @@ async def transcribe_stream(websocket: WebSocket) -> None:
     await websocket.accept()
     service = websocket.app.state.streaming_service
     language = websocket.query_params.get("language")
-    session = service.create_session(language=language)
+    quality_mode = websocket.query_params.get("quality_mode")
+    session = service.create_session(language=language, quality_mode=quality_mode)
     await websocket.send_json(
         {
             "event": "ready",

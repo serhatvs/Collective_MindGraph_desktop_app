@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin
+from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -182,6 +182,7 @@ class BackendHealthStatus:
 class RealtimeBackendTranscriptionConfig:
     base_url: str = DEFAULT_REALTIME_BACKEND_URL
     language: str | None = None
+    transcription_quality_mode: str | None = None
     request_timeout_seconds: int = DEFAULT_REALTIME_TIMEOUT_SECONDS
     stream_live_transcription: bool = True
     stream_flush_interval_ms: int = DEFAULT_STREAM_FLUSH_INTERVAL_MS
@@ -213,6 +214,12 @@ class RealtimeBackendTranscriptionConfig:
                 or DEFAULT_REALTIME_BACKEND_URL
             ).rstrip("/"),
             language=(os.getenv("CMG_TRANSCRIPTION_LANGUAGE") or "").strip() or None,
+            transcription_quality_mode=(
+                os.getenv("CMG_TRANSCRIPTION_QUALITY_MODE")
+                or os.getenv("CMG_RT_TRANSCRIPTION_QUALITY_MODE")
+                or ""
+            ).strip()
+            or None,
             request_timeout_seconds=timeout_seconds,
             stream_live_transcription=_parse_bool(os.getenv("CMG_TRANSCRIPTION_STREAM_LIVE"), True),
             stream_flush_interval_ms=int(
@@ -242,6 +249,7 @@ class RealtimeBackendTranscriptionConfig:
         base = cls.from_env()
         base_url = str(payload.get("base_url") or payload.get("backend_url") or base.base_url).strip().rstrip("/")
         language_value = payload.get("language")
+        quality_mode_value = payload.get("transcription_quality_mode") or payload.get("quality_mode")
         timeout_value = payload.get("request_timeout_seconds")
         stream_live_value = payload.get("stream_live_transcription")
         stream_flush_interval_value = payload.get("stream_flush_interval_ms")
@@ -258,6 +266,11 @@ class RealtimeBackendTranscriptionConfig:
         return cls(
             base_url=base_url or base.base_url,
             language=str(language_value).strip() or None if language_value is not None else base.language,
+            transcription_quality_mode=(
+                str(quality_mode_value).strip() or None
+                if quality_mode_value is not None
+                else base.transcription_quality_mode
+            ),
             request_timeout_seconds=(
                 int(timeout_value) if timeout_value is not None else base.request_timeout_seconds
             ),
@@ -340,7 +353,13 @@ class RealtimeBackendTranscriptionConfig:
             base = "wss://" + base[len("https://") :]
         elif base.startswith("http://"):
             base = "ws://" + base[len("http://") :]
-        return f"{base}/transcribe/stream"
+        params: dict[str, str] = {}
+        if self.language:
+            params["language"] = self.language
+        if self.transcription_quality_mode:
+            params["quality_mode"] = self.transcription_quality_mode
+        query = f"?{urlencode(params)}" if params else ""
+        return f"{base}/transcribe/stream{query}"
 
 
 class RealtimeBackendTranscriptionSettingsStore:
@@ -655,6 +674,11 @@ class RealtimeBackendTranscriptionService:
         metadata = {}
         if transcript_payload and "metadata" in transcript_payload:
             metadata = transcript_payload.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+        response_metadata = payload.get("metadata")
+        if isinstance(response_metadata, dict):
+            metadata = {**metadata, **response_metadata}
             
         return TranscriptionResult(
             text=transcript_text,
@@ -757,6 +781,8 @@ class RealtimeBackendTranscriptionService:
         append_file_field("upload", audio_path)
         if self._config.language:
             append_text_field("language", self._config.language)
+        if self._config.transcription_quality_mode:
+            append_text_field("quality_mode", self._config.transcription_quality_mode)
         chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
         return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 

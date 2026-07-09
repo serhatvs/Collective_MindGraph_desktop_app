@@ -22,6 +22,7 @@ class _AlignedChunk:
     notes: list[str] = field(default_factory=list)
     alignment_source: str = "segment"
     confidence: float | None = None
+    asr_metadata: dict = field(default_factory=dict)
 
 
 def merge_transcript_segments(
@@ -65,6 +66,7 @@ def merge_transcript_segments(
                     metadata={
                         "raw_speaker": chunk.raw_speaker,
                         "alignment_source": chunk.alignment_source,
+                        "asr": dict(chunk.asr_metadata),
                     },
                 )
             )
@@ -120,6 +122,7 @@ def _fallback_chunk(
         overlap=_has_overlap(asr_segment.start, asr_segment.end, diarization_turns, raw_speaker),
         alignment_source="segment",
         confidence=asr_segment.confidence,
+        asr_metadata=_asr_metadata(asr_segment),
     )
 
 
@@ -145,6 +148,7 @@ def _chunk_from_words(
         overlap=_has_overlap(start, end, diarization_turns, raw_speaker),
         alignment_source="word_timestamps",
         confidence=_average_word_probability(words) or asr_segment.confidence,
+        asr_metadata=_asr_metadata(asr_segment),
     )
 
 
@@ -200,6 +204,15 @@ def _unique_notes(notes: list[str]) -> list[str]:
         seen.add(note)
         ordered.append(note)
     return ordered
+
+
+def _asr_metadata(asr_segment: ASRSegment) -> dict:
+    metadata = dict(asr_segment.metadata)
+    metadata.setdefault("avg_logprob", asr_segment.avg_logprob)
+    metadata.setdefault("no_speech_prob", asr_segment.no_speech_prob)
+    metadata.setdefault("compression_ratio", asr_segment.compression_ratio)
+    metadata.setdefault("text_length", asr_segment.text_length)
+    return metadata
 
 
 def _best_speaker_turn(start: float, end: float, turns: list[DiarizationTurn]) -> DiarizationTurn | None:

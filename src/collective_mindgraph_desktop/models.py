@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 BranchType = Literal["root", "main", "side"]
 
@@ -95,6 +95,7 @@ class TranscriptAnalysisSegment:
     speaker_confidence: float | None
     overlap: bool
     notes: list[str]
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +133,7 @@ class TranscriptAnalysis:
     quality_report: TranscriptQualityReport | None
     created_at: str
     updated_at: str
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -176,7 +177,7 @@ class TranscriptAnalysisDraft:
     quality_report: TranscriptQualityReport | None
     created_at: str
     updated_at: str
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

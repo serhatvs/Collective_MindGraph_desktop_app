@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 class StreamSession:
     conversation_id: str
     language: str | None
+    quality_mode: str | None = None
     pcm_buffer: bytearray = field(default_factory=bytearray)
     buffer_start_seconds: float = 0.0
     committed_seconds: float = 0.0
@@ -49,15 +50,17 @@ class StreamingTranscriptionService:
         self._summary_service = summary_service or ConversationSummaryService()
         self._sessions: dict[str, StreamSession] = {}
 
-    def create_session(self, language: str | None = None) -> StreamSession:
+    def create_session(self, language: str | None = None, quality_mode: str | None = None) -> StreamSession:
         conversation_id = new_conversation_id()
         session = StreamSession(
             conversation_id=conversation_id,
             language=language,
+            quality_mode=quality_mode,
             transcript=ConversationTranscript(
                 conversation_id=conversation_id,
                 source="stream",
                 language=language,
+                quality_mode=quality_mode,
                 status="streaming",
             ),
         )
@@ -118,6 +121,7 @@ class StreamingTranscriptionService:
             conversation_id=session.conversation_id,
             source="stream",
             language=session.language,
+            quality_mode=session.quality_mode,
             prior_segments=session.transcript.segments,
             speaker_mapper=session.speaker_mapper,
             chunk_offset=window_start,

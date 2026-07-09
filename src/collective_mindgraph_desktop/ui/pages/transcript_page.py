@@ -27,6 +27,14 @@ class TranscriptPage(QWidget):
         
         self.card = CardWidget("Transcript Audit")
         layout.addWidget(self.card, 1)
+        self.quality_label = QLabel("")
+        self.quality_label.setWordWrap(True)
+        self.quality_label.setStyleSheet(
+            "QLabel { color: #374151; background: #f8fafc; border: 1px solid #e5e7eb; "
+            "border-radius: 6px; padding: 8px 10px; }"
+        )
+        self.card.body_layout.addWidget(self.quality_label)
+        self.quality_label.hide()
         
         # Comparison Table
         self.table = QTableWidget(0, 4)
@@ -55,6 +63,7 @@ class TranscriptPage(QWidget):
 
     def set_detail(self, detail: SessionDetail | None) -> None:
         self.table.setRowCount(0)
+        self.quality_label.hide()
         if not detail or not detail.transcripts:
             self.empty_state.set_text(
                 "No transcript selected",
@@ -86,6 +95,7 @@ class TranscriptPage(QWidget):
             return
 
         self.empty_state.hide()
+        self._show_quality_summary(analysis)
         self.table.show()
 
         for row, segment in enumerate(analysis.segments):
@@ -117,6 +127,27 @@ class TranscriptPage(QWidget):
             self.table.setItem(row, 1, speaker_item)
             self.table.setItem(row, 2, corrected_item)
             self.table.setItem(row, 3, raw_item)
+
+    def _show_quality_summary(self, analysis: TranscriptAnalysis) -> None:
+        metadata = analysis.metadata or {}
+        confidence = metadata.get("transcription_confidence_estimate")
+        audio_label = metadata.get("audio_quality_label")
+        audio_score = metadata.get("audio_quality_score")
+        warnings = metadata.get("warnings")
+        confidence_text = f"Transcription Confidence: {confidence}/100" if confidence is not None else None
+        audio_text = None
+        if audio_label:
+            audio_text = f"Audio Quality: {audio_label}"
+            if audio_score is not None:
+                audio_text = f"{audio_text} ({audio_score}/100)"
+        warning_items = [str(item) for item in warnings] if isinstance(warnings, list) else []
+        warning_text = f"Warnings: {', '.join(warning_items[:4])}" if warning_items else None
+        parts = [part for part in (confidence_text, audio_text, warning_text) if part]
+        if not parts:
+            self.quality_label.hide()
+            return
+        self.quality_label.setText("  |  ".join(parts))
+        self.quality_label.show()
 
     def scroll_to_segment(self, segment_id: str) -> None:
         for row in range(self.table.rowCount()):

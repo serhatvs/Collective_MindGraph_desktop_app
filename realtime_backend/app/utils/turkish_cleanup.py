@@ -73,7 +73,7 @@ def clean_turkish_transcript(text: str, *, mode: str = "conservative") -> str:
 
     for term in GLOSSARY_TERMS:
         pattern = re.compile(rf"\b{re.escape(term)}\b", re.IGNORECASE)
-        cleaned = pattern.sub(term, cleaned)
+        cleaned = pattern.sub(lambda match: _preserve_leading_case(match.group(0), term), cleaned)
 
     cleaned = " ".join(cleaned.strip().split())
     if not cleaned and text:
@@ -83,6 +83,12 @@ def clean_turkish_transcript(text: str, *, mode: str = "conservative") -> str:
         cleaned += "."
 
     return cleaned
+
+
+def _preserve_leading_case(matched: str, replacement: str) -> str:
+    if matched[:1].isupper() and replacement:
+        return replacement[:1].upper() + replacement[1:]
+    return replacement
 
 
 def _remove_fillers(text: str) -> str:

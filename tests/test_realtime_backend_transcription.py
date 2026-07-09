@@ -81,6 +81,7 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
         config=RealtimeBackendTranscriptionConfig(
             base_url="http://127.0.0.1:8080",
             language="en",
+            transcription_quality_mode="balanced",
             request_timeout_seconds=90,
         ),
         request_opener=fake_opener,
@@ -101,7 +102,21 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
     assert timeout == 90
     assert b'name="upload"' in request.data
     assert b'name="language"' in request.data
+    assert b'name="quality_mode"' in request.data
+    assert b"balanced" in request.data
     assert b"sample.wav" in request.data
+
+
+def test_realtime_backend_config_includes_quality_mode_in_stream_url():
+    config = RealtimeBackendTranscriptionConfig(
+        base_url="http://127.0.0.1:8080",
+        language="tr",
+        transcription_quality_mode="bad_mic_recovery",
+    )
+
+    assert config.websocket_stream_url() == (
+        "ws://127.0.0.1:8080/transcribe/stream?language=tr&quality_mode=bad_mic_recovery"
+    )
 
 
 def test_realtime_backend_transcription_service_reports_connection_failures(tmp_path):

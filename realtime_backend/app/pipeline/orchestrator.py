@@ -19,7 +19,7 @@ from ..models import (
 )
 from ..services.summary import ConversationSummaryService
 from ..utils.audio import extract_wav_region, wav_duration_seconds
-from ..utils.audio_process import inspect_audio, normalize_audio
+from ..utils.audio_process import analyze_audio_quality, inspect_audio, normalize_audio, preprocessing_steps
 from ..utils.ids import new_conversation_id
 from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
@@ -27,6 +27,7 @@ from .asr import ASR_STATUS_MOCK_FALLBACK, ASR_STATUS_OK, BaseASR, build_asr, re
 from .diarization import BaseDiarizer, build_diarizer
 from .llm_postprocess import LLMPostProcessor, build_llm_postprocessor
 from .speaker_mapper import StableSpeakerMapper
+from .transcription_quality import estimate_transcription_confidence
 
 if TYPE_CHECKING:
     from .vad import BaseVAD
@@ -83,14 +84,28 @@ class TranscriptionPipeline:
         # 1. Audio Preprocessing
         input_inspection = await asyncio.to_thread(inspect_audio, audio_path)
         normalized_path = self._settings.temp_dir / f"{resolved_conversation_id}_pipeline_norm.wav"
+        trim_silence = resolved_profile.name == "bad_mic_recovery" and self._settings.asr_safe_silence_trim
+        noise_reduction = resolved_profile.name == "bad_mic_recovery" and self._settings.asr_bad_mic_noise_reduction
+        preprocessing_step_names = preprocessing_steps(
+            resolved_profile.preprocessing_strength,
+            trim_silence=trim_silence,
+            noise_reduction=noise_reduction,
+        )
         normalize_success = await asyncio.to_thread(
             normalize_audio,
             audio_path,
             normalized_path,
-            self._settings.sample_rate
+            self._settings.sample_rate,
+            resolved_profile.preprocessing_strength,
+            trim_silence=trim_silence,
+            noise_reduction=noise_reduction,
         )
         working_path = normalized_path if normalize_success else audio_path
-        preprocessing_status = "ffmpeg_normalized" if normalize_success else "ffmpeg_failed_original_used"
+        preprocessing_status = (
+            f"ffmpeg_{resolved_profile.preprocessing_strength}"
+            if normalize_success
+            else "ffmpeg_failed_original_used"
+        )
         if not normalize_success:
             warnings.append("ffmpeg normalization failed; original file used for transcription.")
 
@@ -98,6 +113,18 @@ class TranscriptionPipeline:
             output_inspection = await asyncio.to_thread(inspect_audio, working_path)
             if output_inspection is None:
                 warnings.append("Audio inspection unavailable for the file passed to VAD/ASR.")
+            audio_quality_analysis = await asyncio.to_thread(
+                analyze_audio_quality,
+                working_path,
+                preprocessing_applied=normalize_success,
+                preprocessing_strength=resolved_profile.preprocessing_strength,
+                preprocessing_steps=preprocessing_step_names,
+            )
+            audio_quality_metadata = audio_quality_analysis.to_metadata() if audio_quality_analysis else None
+            if audio_quality_metadata is None:
+                warnings.append("Audio quality analysis unavailable; confidence estimate is less complete.")
+            else:
+                warnings.extend(str(item) for item in audio_quality_metadata.get("warnings", []) if item)
 
             total_duration = await asyncio.to_thread(wav_duration_seconds, working_path)
             vad_regions = await asyncio.to_thread(self._vad.detect, working_path)
@@ -185,7 +212,10 @@ class TranscriptionPipeline:
             mock_fallback_used = raw_mock_fallback if isinstance(raw_mock_fallback, bool) else False
             raw_fallback_reason = getattr(self._asr, "fallback_reason", None)
             fallback_reason = raw_fallback_reason if isinstance(raw_fallback_reason, str) else None
-            gpu_fallback_reason = getattr(self._asr, "gpu_fallback_reason", None)
+            raw_gpu_fallback_reason = getattr(self._asr, "gpu_fallback_reason", None)
+            gpu_fallback_reason = raw_gpu_fallback_reason if isinstance(raw_gpu_fallback_reason, str) else None
+            raw_cuda_load_status = getattr(self._asr, "cuda_load_status", None)
+            cuda_load_status = raw_cuda_load_status if isinstance(raw_cuda_load_status, str) else None
             if mock_fallback_used:
                 warnings.append(f"{ASR_STATUS_MOCK_FALLBACK}: Mock ASR fallback used; transcript is not real ASR output.")
                 for segment in corrected_segments:
@@ -200,32 +230,56 @@ class TranscriptionPipeline:
                         segment.notes.append(asr_status)
                     segment.metadata["asr_status"] = asr_status
 
+            confidence_estimate = estimate_transcription_confidence(
+                audio_quality=audio_quality_metadata,
+                asr_segments=asr_segments,
+                transcript_segments=corrected_segments,
+                language=resolved_language,
+                duration_seconds=total_duration,
+            )
+            warnings.extend(confidence_estimate.warnings)
+            warnings = _unique_strings(warnings)
+
             metadata = {
                 "asr_provider": self._asr.provider_name,
                 "asr_status": asr_status,
                 "ASR_STATUS": asr_status.removeprefix("ASR_STATUS="),
-                "model_name": self._settings.asr_model_name,
+                "model_name": resolved_profile.model_name,
+                "base_model_name": self._settings.asr_model_name,
                 "quality_profile": resolved_profile.name,
                 "language": resolved_language,
                 "beam_size": resolved_profile.beam_size,
                 "runtime_profile": getattr(self._settings, "asr_runtime_profile", "cpu"),
                 "device": self._settings.asr_device,
-                "compute_type": self._settings.asr_compute_type,
+                "compute_type": resolved_profile.compute_type,
+                "base_compute_type": self._settings.asr_compute_type,
                 "word_timestamps": resolved_profile.word_timestamps,
                 "internal_faster_whisper_vad": resolved_profile.vad_filter,
                 "condition_on_previous_text": resolved_profile.condition_on_previous_text,
+                "no_speech_threshold": resolved_profile.no_speech_threshold,
+                "temperature_fallback": list(resolved_profile.temperature),
                 "vad_provider": getattr(self._vad, "provider_name", self._settings.vad_provider),
                 "preprocessing_status": preprocessing_status,
+                "preprocessing_strength": resolved_profile.preprocessing_strength,
+                "preprocessing_steps": list(preprocessing_step_names),
                 "ffmpeg_normalization_succeeded": normalize_success,
                 "input_audio": _audio_inspection_metadata(input_inspection),
                 "asr_input_audio": _audio_inspection_metadata(output_inspection),
+                "audio_quality": audio_quality_metadata,
+                "audio_quality_score": confidence_estimate.audio_quality_score,
+                "audio_quality_label": confidence_estimate.audio_quality_label,
+                "transcription_confidence_estimate": confidence_estimate.score,
+                "estimated_transcription_quality": confidence_estimate.score,
+                "transcription_confidence_label": confidence_estimate.label,
+                "confidence_estimate": confidence_estimate.to_metadata(),
+                "confidence_estimate_not_accuracy": True,
                 "processing_time_seconds": processing_time_seconds,
                 "mock_fallback_used": mock_fallback_used,
                 "gpu_requested": bool(getattr(self._asr, "gpu_requested", False)),
                 "gpu_loaded": bool(getattr(self._asr, "gpu_loaded", False)),
                 "gpu_fallback_happened": bool(getattr(self._asr, "gpu_fallback_happened", False)),
                 "gpu_fallback_reason": gpu_fallback_reason,
-                "faster_whisper_cuda_load_status": getattr(self._asr, "cuda_load_status", None),
+                "faster_whisper_cuda_load_status": cuda_load_status,
                 "gpu_required": bool(getattr(self._settings, "gpu_required", False)),
                 "gpu_enabled": bool(getattr(self._settings, "gpu_enabled", False)),
                 "transcript_cleanup_mode": self._settings.transcript_cleanup_mode,
@@ -237,7 +291,7 @@ class TranscriptionPipeline:
             
             diagnostics = TranscriptionDiagnostics(
                 provider=self._asr.provider_name,
-                model=self._settings.asr_model_name,
+                model=resolved_profile.model_name,
                 asr_status=asr_status,
                 mock_fallback_used=mock_fallback_used,
                 runtime_profile=getattr(self._settings, "asr_runtime_profile", "cpu"),
@@ -246,7 +300,7 @@ class TranscriptionPipeline:
                 quality_mode=resolved_quality,
                 quality_profile=resolved_profile.name,
                 beam_size=resolved_profile.beam_size,
-                compute_type=self._settings.asr_compute_type,
+                compute_type=resolved_profile.compute_type,
                 word_timestamps_enabled=resolved_profile.word_timestamps,
                 internal_vad_enabled=resolved_profile.vad_filter,
                 condition_on_previous_text=resolved_profile.condition_on_previous_text,
@@ -273,9 +327,14 @@ class TranscriptionPipeline:
                 gpu_loaded=bool(getattr(self._asr, "gpu_loaded", False)),
                 gpu_fallback_happened=bool(getattr(self._asr, "gpu_fallback_happened", False)),
                 gpu_fallback_reason=gpu_fallback_reason,
-                faster_whisper_cuda_load_status=getattr(self._asr, "cuda_load_status", None),
+                faster_whisper_cuda_load_status=cuda_load_status,
                 raw_transcript_length=sum(len(s.raw_text) for s in corrected_segments),
                 cleaned_transcript_length=sum(len(s.corrected_text) for s in corrected_segments),
+                audio_quality_score=confidence_estimate.audio_quality_score,
+                audio_quality_label=confidence_estimate.audio_quality_label,
+                transcription_confidence_estimate=confidence_estimate.score,
+                estimated_transcription_quality=confidence_estimate.score,
+                confidence_warnings=list(confidence_estimate.warnings),
                 warnings=warnings,
             )
 
@@ -442,3 +501,14 @@ def _audio_inspection_metadata(inspection: object | None) -> dict[str, object] |
         "duration_seconds": getattr(inspection, "duration_seconds", None),
         "format": getattr(inspection, "format", None),
     }
+
+
+def _unique_strings(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        result.append(item)
+    return result

@@ -73,7 +73,9 @@ async def test_orchestrator_calls_normalization(
     assert mock_normalize.called
     assert transcript.metadata["asr_provider"] == "mock_asr"
     assert transcript.metadata["quality_profile"] == "max_quality"
-    assert transcript.metadata["preprocessing_status"] == "ffmpeg_normalized"
+    assert transcript.metadata["preprocessing_status"] == "ffmpeg_safe_loudness"
+    assert "transcription_confidence_estimate" in transcript.metadata
+    assert transcript.metadata["confidence_estimate_not_accuracy"] is True
 
 
 def test_quality_mode_parameter_mapping():

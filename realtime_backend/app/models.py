@@ -28,6 +28,11 @@ class ASRSegment(BaseModel):
     text: str
     confidence: float | None = None
     words: list[WordTimestamp] = Field(default_factory=list)
+    avg_logprob: float | None = None
+    no_speech_prob: float | None = None
+    compression_ratio: float | None = None
+    text_length: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class DiarizationTurn(BaseModel):
@@ -114,6 +119,11 @@ class TranscriptionDiagnostics(BaseModel):
     faster_whisper_cuda_load_status: str | None = None
     raw_transcript_length: int | None = None
     cleaned_transcript_length: int | None = None
+    audio_quality_score: int | None = None
+    audio_quality_label: str | None = None
+    transcription_confidence_estimate: int | None = None
+    estimated_transcription_quality: int | None = None
+    confidence_warnings: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 

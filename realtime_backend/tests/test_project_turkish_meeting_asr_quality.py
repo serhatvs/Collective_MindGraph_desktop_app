@@ -1,43 +1,21 @@
-import json
-import pytest
 from pathlib import Path
+
+import pytest
+
 from realtime_backend.app.config import Settings
+from realtime_backend.app.evaluation.transcription_metrics import evaluate_transcription
 from realtime_backend.app.pipeline.orchestrator import TranscriptionPipeline
 
 FIXTURE_BASE_DIR = Path("realtime_backend/tests/fixtures")
 AUDIO_PATH = FIXTURE_BASE_DIR / "audio" / "turkish_meeting_sample.wav"
 EXPECTED_PATH = FIXTURE_BASE_DIR / "expected" / "turkish_meeting_sample.expected.txt"
 
-def levenshtein_distance(s1, s2):
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
 
-def calculate_metrics(expected, actual):
-    def tokenize(t):
-        return [w.lower().strip(".,?!") for w in t.split() if w.strip(".,?!")]
-    
-    exp_tokens = tokenize(expected)
-    act_tokens = tokenize(actual)
-    
-    exp_set = set(exp_tokens)
-    act_set = set(act_tokens)
-    
-    overlap = len(exp_set.intersection(act_set)) / len(exp_set) if exp_set else 0.0
-    wer = levenshtein_distance(exp_tokens, act_tokens) / len(exp_tokens) if exp_tokens else 0.0
-    
-    return overlap, wer
+def keyword_overlap(evaluation) -> float:
+    expected = set(evaluation.normalized.reference_text.split())
+    actual = set(evaluation.normalized.hypothesis_text.split())
+    return len(expected.intersection(actual)) / len(expected) if expected else 0.0
+
 
 @pytest.mark.asyncio
 async def test_project_turkish_meeting_asr_quality():
@@ -71,8 +49,14 @@ async def test_project_turkish_meeting_asr_quality():
     raw_text = " ".join(s.raw_text for s in transcript.segments)
     cleaned_text = " ".join(s.corrected_text for s in transcript.segments)
     
-    raw_overlap, raw_wer = calculate_metrics(expected_text, raw_text)
-    clean_overlap, clean_wer = calculate_metrics(expected_text, cleaned_text)
+    raw_evaluation = evaluate_transcription(expected_text, raw_text)
+    clean_evaluation = evaluate_transcription(expected_text, cleaned_text)
+    assert raw_evaluation is not None
+    assert clean_evaluation is not None
+    raw_overlap = keyword_overlap(raw_evaluation)
+    clean_overlap = keyword_overlap(clean_evaluation)
+    raw_wer = raw_evaluation.normalized.wer or 0.0
+    clean_wer = clean_evaluation.normalized.wer or 0.0
     
     print(f"\nRaw Keyword Overlap: {raw_overlap:.2%}")
     print(f"Cleaned Keyword Overlap: {clean_overlap:.2%}")

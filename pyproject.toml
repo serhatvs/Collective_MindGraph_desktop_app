@@ -38,5 +38,5 @@ where = ["src"]
 include = ["collective_mindgraph*", "collective_mindgraph_desktop*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "realtime_backend/tests"]
 addopts = "-ra"

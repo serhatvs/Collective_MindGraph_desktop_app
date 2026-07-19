@@ -10,9 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import subprocess
 import sys
-import wave
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,12 +20,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
 
-from app.evaluation.transcription_metrics import (  # noqa: E402
-    NormalizationPolicy,
-    compare_to_reference as _shared_compare_to_reference,
-    edit_distance_with_operations,
-    normalize_text as _shared_normalize_text,
-)
+from app.evaluation.transcription_metrics import compare_to_reference  # noqa: E402
 
 MOCK_FALLBACK_STATUS = "ASR_STATUS=MOCK_FALLBACK"
 TURKISH_CHARS = ["\u00e7", "\u011f", "\u0131", "\u0130", "\u00f6", "\u015f", "\u00fc"]
@@ -350,23 +343,6 @@ def build_error_result(
     )
 
 
-def compare_to_reference(reference: str | None, candidate: str) -> dict[str, Any] | None:
-    return _shared_compare_to_reference(reference, candidate)
-
-
-def tokenize_words(text: str) -> list[str]:
-    normalized = normalize_for_metric(text)
-    return normalized.split() if normalized else []
-
-
-def normalize_for_metric(text: str) -> str:
-    return _shared_normalize_text(text, NormalizationPolicy())
-
-
-def edit_distance_with_ops(reference: list[str], candidate: list[str]) -> tuple[int, dict[str, list[Any]]]:
-    return edit_distance_with_operations(reference, candidate)
-
-
 def check_turkish_characters(raw_text: str, cleaned_text: str) -> dict[str, dict[str, bool]]:
     return {
         char: {
@@ -415,31 +391,6 @@ def build_vad_clipping_notes(transcript: Any, metadata: dict[str, Any]) -> list[
     if not notes:
         notes.append("No obvious clipping signal from simple VAD boundary heuristics; manual listening still required.")
     return notes
-
-
-def audio_duration_seconds(path: Path) -> float | None:
-    try:
-        with wave.open(str(path), "rb") as handle:
-            frame_rate = handle.getframerate()
-            return handle.getnframes() / frame_rate if frame_rate else None
-    except (wave.Error, OSError):
-        pass
-
-    command = [
-        "ffprobe",
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
-        str(path),
-    ]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return None
-    return _as_float(result.stdout.strip())
 
 
 def write_report(

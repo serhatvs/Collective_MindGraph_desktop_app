@@ -1,17 +1,18 @@
-import pytest
-import os
-import asyncio
 from pathlib import Path
+
+import pytest
+
 from realtime_backend.scripts.run_full_scale_simulation import run_simulation
 
+
 @pytest.mark.asyncio
-async def test_full_scale_simulation_regression():
+async def test_full_scale_simulation_regression(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "localappdata"))
+    monkeypatch.chdir(tmp_path)
+
     # This will run the simulation and we can assert on the output report
     # The simulation exports into the dated report archive.
     export_path = Path("docs/reports/2026-06-30/simulation/export_simulation.json")
-    if export_path.exists():
-        export_path.unlink()
-        
     await run_simulation()
     
     assert export_path.exists()

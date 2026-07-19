@@ -18,10 +18,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
 
 from app.config import Settings  # noqa: E402
-from app.evaluation.transcription_metrics import (  # noqa: E402
-    character_error_rate as _shared_character_error_rate,
-    word_error_rate as _shared_word_error_rate,
-)
+from app.evaluation.transcription_metrics import evaluate_transcription  # noqa: E402
 from app.models import SpeechRegion  # noqa: E402
 from app.pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics  # noqa: E402
 from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
@@ -185,16 +182,6 @@ def asr_environment(*, profile: str, model: str, language: str, require_gpu: boo
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
-
-
-def word_error_rate(reference: str, hypothesis: str) -> float:
-    result = _shared_word_error_rate(reference, hypothesis)
-    return result if result is not None else (0.0 if not hypothesis.strip() else 1.0)
-
-
-def character_error_rate(reference: str, hypothesis: str) -> float:
-    result = _shared_character_error_rate(reference, hypothesis)
-    return result if result is not None else (0.0 if not hypothesis.strip() else 1.0)
 
 
 def should_score_accuracy(reference_path: Path | None) -> bool:

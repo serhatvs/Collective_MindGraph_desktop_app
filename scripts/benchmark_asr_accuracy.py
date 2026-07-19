@@ -8,13 +8,12 @@ from pathlib import Path
 
 from asr_benchmark_common import (
     REPO_ROOT,
-    character_error_rate,
     diagnostics_block,
+    evaluate_transcription,
     format_run_summary,
     format_seconds,
     run_pipeline_sync,
     should_score_accuracy,
-    word_error_rate,
 )
 
 
@@ -70,8 +69,12 @@ def main() -> int:
     cer = None
     if scoring_enabled and reference_text is not None:
         hypothesis = run.cleaned_transcript or run.raw_transcript
-        wer = word_error_rate(reference_text, hypothesis)
-        cer = character_error_rate(reference_text, hypothesis)
+        evaluation = evaluate_transcription(reference_text, hypothesis)
+        if evaluation is not None:
+            wer = evaluation.normalized.wer
+            cer = evaluation.normalized.cer
+        else:
+            wer = cer = 0.0 if not hypothesis.strip() else 1.0
 
     status = "ASR_ACCURACY_BENCHMARK_RUN"
     if run.error:

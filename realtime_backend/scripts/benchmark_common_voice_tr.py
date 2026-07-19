@@ -16,12 +16,10 @@ from pprint import pprint
 sys.path.append(str(Path(__file__).parent.parent.resolve()))
 
 from app.config import get_settings
-from app.evaluation.transcription_metrics import edit_distance_with_operations, evaluate_transcription
+from app.evaluation.transcription_metrics import evaluate_transcription
 from app.pipeline.orchestrator import TranscriptionPipeline
 from app.utils.logging import configure_logging
 
-def levenshtein_distance(s1, s2):
-    return edit_distance_with_operations(list(s1), list(s2))[0]
 
 def calculate_overlap_metrics(expected: str, actual: str):
     def tokenize(t):
@@ -171,9 +169,6 @@ async def main():
         with args.output_json.open("w", encoding="utf-8") as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
         print(f"📄 Report saved to: {args.output_json}")
-
-if __name__ == "__main__":
-    asyncio.run(main())
 
 if __name__ == "__main__":
     asyncio.run(main())

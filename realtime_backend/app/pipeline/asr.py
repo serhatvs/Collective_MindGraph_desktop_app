@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import logging
 import math
 from abc import ABC, abstractmethod
@@ -14,8 +15,8 @@ from ..config import Settings
 from ..models import ASRSegment, SpeechRegion, WordTimestamp
 from ..utils.audio import extract_wav_region
 from ..utils.time import overlap_ratio
-from ..utils.turkish_cleanup import GLOSSARY_TERMS
 from .asr_runtime_config import add_cuda_dll_directories
+from .transcription_glossary import ResolvedGlossary, resolve_transcription_glossary
 
 LOGGER = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ def resolve_asr_quality_profile(settings: Settings, quality_mode: str | None = N
     requested = (quality_mode or settings.transcription_quality_mode or "max_quality").strip().lower()
     if requested == "accurate":
         requested = "max_quality"
-    if requested not in {"fast", "balanced", "max_quality", "bad_mic_recovery"}:
+    if requested not in {"fast", "balanced", "max_quality", "bad_mic_recovery", "selective_recovery"}:
         LOGGER.warning("Unknown ASR quality profile %r; using max_quality.", requested)
         requested = "max_quality"
 
@@ -91,6 +92,26 @@ def resolve_asr_quality_profile(settings: Settings, quality_mode: str | None = N
             temperature=(0.0, 0.2, 0.4, 0.6),
             preprocessing_strength="bad_mic_recovery",
         )
+    if requested == "selective_recovery":
+        selective_compute_type = settings.selective_retranscription_compute_type
+        if not selective_compute_type:
+            selective_compute_type = "float16" if _is_cuda_device(settings.asr_device) else base_compute_type
+        return ASRQualityProfile(
+            name="selective_recovery",
+            model_name=_profile_value(settings.selective_retranscription_model, base_model),
+            compute_type=selective_compute_type,
+            beam_size=max(
+                settings.selective_retranscription_beam_size,
+                settings.asr_max_quality_beam_size,
+                settings.asr_beam_size,
+            ),
+            word_timestamps=True,
+            vad_filter=False,
+            condition_on_previous_text=False,
+            no_speech_threshold=0.85,
+            temperature=(0.0, 0.2, 0.4, 0.6),
+            preprocessing_strength="format_only",
+        )
     return ASRQualityProfile(
         name="max_quality",
         model_name=_profile_value(settings.asr_max_quality_model_name, base_model),
@@ -119,6 +140,7 @@ class BaseASR(ABC):
         language: str | None = None,
         regions: list[SpeechRegion] | None = None,
         quality_mode: str | None = None,
+        glossary: ResolvedGlossary | None = None,
     ) -> list[ASRSegment]:
         raise NotImplementedError
 
@@ -165,6 +187,7 @@ class FasterWhisperASR(BaseASR):
             model_name,
             device=device,
             compute_type=compute_type,
+            local_files_only=not self._settings.allow_remote_download,
         )
         self._model_cache[key] = model
         return model
@@ -175,6 +198,7 @@ class FasterWhisperASR(BaseASR):
         language: str | None = None,
         regions: list[SpeechRegion] | None = None,
         quality_mode: str | None = None,
+        glossary: ResolvedGlossary | None = None,
     ) -> list[ASRSegment]:
         if not regions:
             return self._transcribe_window(
@@ -182,6 +206,7 @@ class FasterWhisperASR(BaseASR):
                 language=language,
                 offset_seconds=0.0,
                 quality_mode=quality_mode,
+                glossary=glossary,
             )
 
         items: list[ASRSegment] = []
@@ -202,6 +227,7 @@ class FasterWhisperASR(BaseASR):
                         language=language,
                         offset_seconds=region.start,
                         quality_mode=quality_mode,
+                        glossary=glossary,
                     )
                 )
             finally:
@@ -215,23 +241,27 @@ class FasterWhisperASR(BaseASR):
         language: str | None,
         offset_seconds: float,
         quality_mode: str | None = None,
+        glossary: ResolvedGlossary | None = None,
     ) -> list[ASRSegment]:
         resolved_language = language or self._settings.default_language
         profile = resolve_asr_quality_profile(self._settings, quality_mode)
 
-        # Turkish specific transcription enhancements
-        initial_prompt = None
-        if resolved_language == "tr":
-            # Use combined glossary for initial prompt
-            initial_prompt = ", ".join(GLOSSARY_TERMS[:50])
-
+        resolved_glossary = glossary or resolve_transcription_glossary(self._settings)
+        initial_prompt = resolved_glossary.initial_prompt if resolved_language == "tr" else None
         model = self._load_model(profile.model_name, self._settings.asr_device, profile.compute_type)
-        segments, _info = _call_faster_whisper_transcribe(
+        hotwords_supported = bool(
+            resolved_language == "tr"
+            and resolved_glossary.hotwords
+            and _supports_transcribe_argument(model, "hotwords")
+        )
+
+        segments, _info, call_metadata = _call_faster_whisper_transcribe(
             model,
             audio_path=audio_path,
             language=resolved_language,
             profile=profile,
             initial_prompt=initial_prompt,
+            hotwords=resolved_glossary.hotwords if hotwords_supported else None,
         )
         items: list[ASRSegment] = []
         for segment in segments:
@@ -278,6 +308,9 @@ class FasterWhisperASR(BaseASR):
                     "quality_profile": profile.name,
                     "model_name": profile.model_name,
                     "compute_type": profile.compute_type,
+                    "glossary_prompt_term_count": len(resolved_glossary.terms),
+                    "hotwords_supported": hotwords_supported,
+                    "hotwords_applied": bool(call_metadata.get("hotwords_applied")),
                 },
             )
             if item.text:
@@ -305,6 +338,7 @@ class MockASR(BaseASR):
         language: str | None = None,
         regions: list[SpeechRegion] | None = None,
         quality_mode: str | None = None,
+        glossary: ResolvedGlossary | None = None,
     ) -> list[ASRSegment]:
         warning_text = f"[{self.asr_status}] Mock ASR placeholder; no real transcription was produced."
         if regions:
@@ -336,6 +370,7 @@ def _call_faster_whisper_transcribe(
     language: str | None,
     profile: ASRQualityProfile,
     initial_prompt: str | None,
+    hotwords: str | None = None,
 ):
     kwargs = {
         "language": language,
@@ -348,15 +383,40 @@ def _call_faster_whisper_transcribe(
         "no_speech_threshold": profile.no_speech_threshold,
         "temperature": profile.temperature,
     }
-    try:
-        return model.transcribe(str(audio_path), **kwargs)
-    except TypeError as exc:
-        message = str(exc)
-        if "temperature" not in message:
+    if hotwords:
+        kwargs["hotwords"] = hotwords
+    removed_options: list[str] = []
+    for _attempt in range(3):
+        try:
+            segments, info = model.transcribe(str(audio_path), **kwargs)
+            return segments, info, {
+                "hotwords_applied": bool(kwargs.get("hotwords")),
+                "removed_unsupported_options": removed_options,
+            }
+        except TypeError as exc:
+            message = str(exc)
+            if "hotwords" in kwargs and ("hotwords" in message or "unexpected keyword" in message):
+                LOGGER.warning("Faster-Whisper runtime rejected hotwords; retrying without them.")
+                kwargs.pop("hotwords", None)
+                removed_options.append("hotwords")
+                continue
+            if "temperature" in kwargs and ("temperature" in message or "unexpected keyword" in message):
+                LOGGER.warning("Faster-Whisper runtime rejected temperature fallback settings; retrying without them.")
+                kwargs.pop("temperature", None)
+                removed_options.append("temperature")
+                continue
             raise
-        LOGGER.warning("Faster-Whisper runtime rejected temperature fallback settings; retrying without them.")
-        kwargs.pop("temperature", None)
-        return model.transcribe(str(audio_path), **kwargs)
+    raise RuntimeError("Faster-Whisper transcription retry limit reached.")
+
+
+def _supports_transcribe_argument(model: Any, argument: str) -> bool:
+    try:
+        signature = inspect.signature(model.transcribe)
+    except (TypeError, ValueError):
+        return False
+    if argument in signature.parameters:
+        return True
+    return any(parameter.kind == inspect.Parameter.VAR_KEYWORD for parameter in signature.parameters.values())
 
 
 def build_asr(settings: Settings) -> BaseASR:

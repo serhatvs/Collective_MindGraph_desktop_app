@@ -20,6 +20,7 @@ from ..models import (
 )
 from ..pipeline.transcript_formatter import build_transcript_response
 from ..pipeline.asr_runtime_config import build_asr_diagnostics
+from ..pipeline.transcription_glossary import parse_term_input
 
 router = APIRouter()
 
@@ -73,6 +74,8 @@ async def transcribe_file(
     conversation_id: str | None = Form(default=None),
     language: str | None = Form(default=None),
     quality_mode: str | None = Form(default=None),
+    session_glossary: str | None = Form(default=None),
+    hotwords: str | None = Form(default=None),
 ) -> FileTranscriptionResponse:
     service = request.app.state.transcription_service
     settings = request.app.state.settings
@@ -80,13 +83,19 @@ async def transcribe_file(
     source_path = settings.temp_dir / f"upload_{request.app.state.id_factory()}{suffix}"
     source_path.write_bytes(await upload.read())
     try:
-        transcript = await service.transcribe_file(
-            source_path,
-            conversation_id=conversation_id,
-            language=language,
-            quality_mode=quality_mode,
-            source="upload",
-        )
+        service_kwargs = {
+            "conversation_id": conversation_id,
+            "language": language,
+            "quality_mode": quality_mode,
+            "source": "upload",
+        }
+        parsed_session_glossary = parse_term_input(session_glossary)
+        parsed_hotwords = parse_term_input(hotwords)
+        if parsed_session_glossary:
+            service_kwargs["session_glossary_terms"] = parsed_session_glossary
+        if parsed_hotwords:
+            service_kwargs["user_hotwords"] = parsed_hotwords
+        transcript = await service.transcribe_file(source_path, **service_kwargs)
     finally:
         source_path.unlink(missing_ok=True)
     response = build_transcript_response(transcript)

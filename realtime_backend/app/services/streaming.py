@@ -24,6 +24,8 @@ class StreamSession:
     conversation_id: str
     language: str | None
     quality_mode: str | None = None
+    session_glossary_terms: list[str] = field(default_factory=list)
+    user_hotwords: list[str] = field(default_factory=list)
     pcm_buffer: bytearray = field(default_factory=bytearray)
     buffer_start_seconds: float = 0.0
     committed_seconds: float = 0.0
@@ -50,12 +52,20 @@ class StreamingTranscriptionService:
         self._summary_service = summary_service or ConversationSummaryService()
         self._sessions: dict[str, StreamSession] = {}
 
-    def create_session(self, language: str | None = None, quality_mode: str | None = None) -> StreamSession:
+    def create_session(
+        self,
+        language: str | None = None,
+        quality_mode: str | None = None,
+        session_glossary_terms: list[str] | None = None,
+        user_hotwords: list[str] | None = None,
+    ) -> StreamSession:
         conversation_id = new_conversation_id()
         session = StreamSession(
             conversation_id=conversation_id,
             language=language,
             quality_mode=quality_mode,
+            session_glossary_terms=list(session_glossary_terms or []),
+            user_hotwords=list(user_hotwords or []),
             transcript=ConversationTranscript(
                 conversation_id=conversation_id,
                 source="stream",
@@ -127,6 +137,8 @@ class StreamingTranscriptionService:
             chunk_offset=window_start,
             include_summary=False,
             debug=False,
+            session_glossary_terms=session.session_glossary_terms,
+            user_hotwords=session.user_hotwords,
         )
         session.transcript.segments = self._replace_tail(
             session.transcript.segments,
@@ -134,6 +146,8 @@ class StreamingTranscriptionService:
             window_start,
         )
         session.transcript.updated_at = datetime.now(tz=UTC)
+        session.transcript.metadata = dict(partial.metadata)
+        session.transcript.diagnostics = partial.diagnostics
         self._store.save(session.transcript)
         session.committed_seconds = buffer_end
         if not finalize:

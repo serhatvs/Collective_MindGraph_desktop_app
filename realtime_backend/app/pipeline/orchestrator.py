@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
+import time
 from typing import TYPE_CHECKING, TypeVar
 
 from ..config import Settings
@@ -27,6 +28,9 @@ from .asr import ASR_STATUS_MOCK_FALLBACK, ASR_STATUS_OK, BaseASR, build_asr, re
 from .diarization import BaseDiarizer, build_diarizer
 from .llm_postprocess import LLMPostProcessor, build_llm_postprocessor
 from .speaker_mapper import StableSpeakerMapper
+from .selective_retranscription import SelectiveRetranscriptionEngine
+from .transcription_candidate_selector import TranscriptionCandidateSelector
+from .transcription_glossary import ResolvedGlossary, resolve_transcription_glossary
 from .transcription_quality import estimate_transcription_confidence
 
 if TYPE_CHECKING:
@@ -71,6 +75,8 @@ class TranscriptionPipeline:
         chunk_offset: float = 0.0,
         include_summary: bool = True,
         debug: bool = True,
+        session_glossary_terms: list[str] | None = None,
+        user_hotwords: list[str] | None = None,
     ) -> ConversationTranscript:
         start_process = datetime.now(tz=UTC)
         resolved_conversation_id = conversation_id or new_conversation_id()
@@ -80,6 +86,24 @@ class TranscriptionPipeline:
         prior = list(prior_segments or [])
         mapper = speaker_mapper or StableSpeakerMapper()
         warnings: list[str] = []
+        resolved_glossary = resolve_transcription_glossary(
+            self._settings,
+            session_terms=session_glossary_terms,
+            user_hotwords=user_hotwords,
+        )
+        selector = TranscriptionCandidateSelector(
+            min_improvement=self._settings.selective_retranscription_min_improvement,
+            min_words_per_second=self._settings.selective_retranscription_min_words_per_second,
+            max_words_per_second=self._settings.selective_retranscription_max_words_per_second,
+            min_text_length=self._settings.selective_retranscription_min_text_length,
+        )
+        selective_engine = SelectiveRetranscriptionEngine(
+            settings=self._settings,
+            asr_provider=self._asr,
+            selector=selector,
+            glossary=resolved_glossary,
+        )
+        selective_metadata = _initial_selective_metadata(self._settings)
 
         # 1. Audio Preprocessing
         input_inspection = await asyncio.to_thread(inspect_audio, audio_path)
@@ -135,6 +159,7 @@ class TranscriptionPipeline:
                 overlap_seconds=self._settings.pipeline_window_overlap_seconds,
             )
             asr_segments: list[ASRSegment] = []
+            first_pass_segments: list[ASRSegment] = []
             diarization_turns: list[DiarizationTurn] = []
             merged_segments: list[TranscriptSegment] = []
 
@@ -153,13 +178,51 @@ class TranscriptionPipeline:
                     cleanup_window = True
 
                 try:
+                    first_pass_started = time.perf_counter()
                     window_asr_segments = await asyncio.to_thread(
-                        self._asr.transcribe,
+                        _call_asr_provider,
+                        self._asr,
                         window_path,
                         resolved_language,
                         local_regions or None,
                         resolved_profile.name,
+                        resolved_glossary,
                     )
+                    selective_metadata["first_pass_processing_time_seconds"] += (
+                        time.perf_counter() - first_pass_started
+                    )
+                    absolute_offset = chunk_offset + window.start
+                    absolute_first_pass = _offset_asr_segments(window_asr_segments, absolute_offset)
+                    first_pass_segments = _replace_timeline_tail(
+                        first_pass_segments,
+                        absolute_first_pass,
+                        absolute_offset,
+                    )
+                    selective_metadata["number_of_first_pass_segments"] = len(first_pass_segments)
+
+                    if (
+                        self._settings.selective_retranscription_enabled
+                        and window_asr_segments
+                        and not selective_metadata.get("fallback_reason")
+                        and int(selective_metadata["number_of_second_pass_regions"])
+                        < self._settings.selective_retranscription_max_regions
+                    ):
+                        remaining_selective_regions = max(
+                            0,
+                            self._settings.selective_retranscription_max_regions
+                            - int(selective_metadata["number_of_second_pass_regions"]),
+                        )
+                        window_asr_segments, window_selective_metadata = await asyncio.to_thread(
+                            selective_engine.run,
+                            window_path=window_path,
+                            first_pass_segments=window_asr_segments,
+                            language=resolved_language,
+                            audio_duration=max(0.0, window.end - window.start),
+                            audio_quality=audio_quality_metadata,
+                            absolute_offset=absolute_offset,
+                            max_regions=remaining_selective_regions,
+                        )
+                        _merge_selective_metadata(selective_metadata, window_selective_metadata)
                     window_diarization_turns = await asyncio.to_thread(
                         self._diarizer.diarize,
                         window_path,
@@ -169,7 +232,6 @@ class TranscriptionPipeline:
                     if cleanup_window:
                         window_path.unlink(missing_ok=True)
 
-                absolute_offset = chunk_offset + window.start
                 merged_window_segments = merge_transcript_segments(
                     asr_segments=window_asr_segments,
                     diarization_turns=window_diarization_turns,
@@ -188,6 +250,55 @@ class TranscriptionPipeline:
                     _offset_diarization_turns(window_diarization_turns, absolute_offset),
                     absolute_offset,
                 )
+
+            selective_metadata["number_of_first_pass_segments"] = len(first_pass_segments)
+            for count_key in (
+                "number_of_flagged_segments",
+                "number_of_second_pass_regions",
+                "number_of_replaced_segments",
+            ):
+                selective_metadata[count_key] = int(selective_metadata[count_key])
+            selective_metadata["number_of_retained_first_pass_segments"] = max(
+                0,
+                len(first_pass_segments) - int(selective_metadata["number_of_replaced_segments"]),
+            )
+            selective_metadata["number_of_selected_segments"] = len(asr_segments)
+            selective_metadata["first_pass_processing_time_seconds"] = round(
+                float(selective_metadata["first_pass_processing_time_seconds"]),
+                6,
+            )
+            selective_metadata["second_pass_processing_time_seconds"] = round(
+                float(selective_metadata["second_pass_processing_time_seconds"]),
+                6,
+            )
+            selective_metadata["total_additional_processing_time_seconds"] = selective_metadata[
+                "second_pass_processing_time_seconds"
+            ]
+            selective_metadata["percentage_of_audio_retranscribed"] = round(
+                (float(selective_metadata["retranscribed_audio_seconds"]) / total_duration * 100.0)
+                if total_duration > 0.0
+                else 0.0,
+                3,
+            )
+            selective_metadata["first_pass_segments"] = [
+                segment.model_dump(mode="json") for segment in first_pass_segments
+            ]
+            if selective_metadata.get("fallback_reason"):
+                warnings.append(str(selective_metadata["fallback_reason"]))
+
+            glossary_metadata = resolved_glossary.to_metadata()
+            glossary_metadata["hotwords_supported"] = any(
+                bool(segment.metadata.get("hotwords_supported")) for segment in asr_segments
+            )
+            glossary_metadata["hotwords_applied"] = any(
+                bool(segment.metadata.get("hotwords_applied")) for segment in asr_segments
+            )
+            if glossary_metadata.get("omitted_count"):
+                warnings.append(
+                    f"Glossary limits omitted {glossary_metadata['omitted_count']} supplied term(s); see glossary metadata."
+                )
+            if glossary_metadata.get("project_glossary_error") and self._settings.transcription_project_glossary_path:
+                warnings.append(str(glossary_metadata["project_glossary_error"]))
 
             # 2. LLM Cleanup
             corrected_segments = await self._llm_postprocessor.apply(
@@ -273,6 +384,11 @@ class TranscriptionPipeline:
                 "transcription_confidence_label": confidence_estimate.label,
                 "confidence_estimate": confidence_estimate.to_metadata(),
                 "confidence_estimate_not_accuracy": True,
+                "selective_retranscription": selective_metadata,
+                "selective_retranscription_enabled": bool(
+                    self._settings.selective_retranscription_enabled
+                ),
+                "glossary": glossary_metadata,
                 "processing_time_seconds": processing_time_seconds,
                 "mock_fallback_used": mock_fallback_used,
                 "gpu_requested": bool(getattr(self._asr, "gpu_requested", False)),
@@ -335,6 +451,29 @@ class TranscriptionPipeline:
                 transcription_confidence_estimate=confidence_estimate.score,
                 estimated_transcription_quality=confidence_estimate.score,
                 confidence_warnings=list(confidence_estimate.warnings),
+                selective_retranscription_enabled=bool(
+                    self._settings.selective_retranscription_enabled
+                ),
+                selective_retranscription_profile=str(selective_metadata["second_pass_profile"]),
+                selective_retranscription_model=str(selective_metadata["second_pass_model"]),
+                selective_retranscription_flagged_segments=int(
+                    selective_metadata["number_of_flagged_segments"]
+                ),
+                selective_retranscription_regions=int(
+                    selective_metadata["number_of_second_pass_regions"]
+                ),
+                selective_retranscription_replaced_segments=int(
+                    selective_metadata["number_of_replaced_segments"]
+                ),
+                selective_retranscription_fallback_reason=(
+                    str(selective_metadata["fallback_reason"])
+                    if selective_metadata.get("fallback_reason")
+                    else None
+                ),
+                selective_retranscription_additional_seconds=float(
+                    selective_metadata["total_additional_processing_time_seconds"]
+                ),
+                glossary_metadata=glossary_metadata,
                 warnings=warnings,
             )
 
@@ -366,7 +505,6 @@ class TranscriptionPipeline:
         finally:
             if normalize_success:
                 normalized_path.unlink(missing_ok=True)
-
 
 def _build_processing_windows(
     total_duration: float,
@@ -512,3 +650,68 @@ def _unique_strings(items: list[str]) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
+
+
+def _call_asr_provider(
+    provider: BaseASR,
+    audio_path: Path,
+    language: str | None,
+    regions: list[SpeechRegion] | None,
+    quality_mode: str,
+    glossary: ResolvedGlossary,
+) -> list[ASRSegment]:
+    try:
+        return provider.transcribe(
+            audio_path,
+            language,
+            regions,
+            quality_mode,
+            glossary=glossary,
+        )
+    except TypeError as exc:
+        if "glossary" not in str(exc):
+            raise
+        return provider.transcribe(audio_path, language, regions, quality_mode)
+
+
+def _initial_selective_metadata(settings: Settings) -> dict[str, object]:
+    profile = resolve_asr_quality_profile(settings, settings.selective_retranscription_profile)
+    return {
+        "enabled": bool(settings.selective_retranscription_enabled),
+        "number_of_first_pass_segments": 0,
+        "number_of_flagged_segments": 0,
+        "number_of_second_pass_regions": 0,
+        "number_of_replaced_segments": 0,
+        "number_of_retained_first_pass_segments": 0,
+        "number_of_selected_segments": 0,
+        "second_pass_profile": profile.name,
+        "second_pass_model": profile.model_name,
+        "fallback_reason": None,
+        "first_pass_processing_time_seconds": 0.0,
+        "second_pass_processing_time_seconds": 0.0,
+        "total_additional_processing_time_seconds": 0.0,
+        "retranscribed_audio_seconds": 0.0,
+        "percentage_of_audio_retranscribed": 0.0,
+        "triggers": [],
+        "regions": [],
+        "first_pass_segments": [],
+        "interpretation": "Candidate scores are estimates, not accuracy or WER/CER.",
+    }
+
+
+def _merge_selective_metadata(target: dict[str, object], incoming: dict[str, object]) -> None:
+    for key in (
+        "number_of_flagged_segments",
+        "number_of_second_pass_regions",
+        "number_of_replaced_segments",
+        "second_pass_processing_time_seconds",
+        "retranscribed_audio_seconds",
+    ):
+        target[key] = float(target[key]) + float(incoming.get(key, 0.0))
+    for key in ("triggers", "regions"):
+        target_items = target.get(key)
+        incoming_items = incoming.get(key)
+        if isinstance(target_items, list) and isinstance(incoming_items, list):
+            target_items.extend(incoming_items)
+    if incoming.get("fallback_reason") and not target.get("fallback_reason"):
+        target["fallback_reason"] = incoming["fallback_reason"]

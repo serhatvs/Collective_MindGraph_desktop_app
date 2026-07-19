@@ -124,6 +124,15 @@ class TranscriptionDiagnostics(BaseModel):
     transcription_confidence_estimate: int | None = None
     estimated_transcription_quality: int | None = None
     confidence_warnings: list[str] = Field(default_factory=list)
+    selective_retranscription_enabled: bool = False
+    selective_retranscription_profile: str | None = None
+    selective_retranscription_model: str | None = None
+    selective_retranscription_flagged_segments: int = 0
+    selective_retranscription_regions: int = 0
+    selective_retranscription_replaced_segments: int = 0
+    selective_retranscription_fallback_reason: str | None = None
+    selective_retranscription_additional_seconds: float = 0.0
+    glossary_metadata: dict[str, Any] = Field(default_factory=dict)
     warnings: list[str] = Field(default_factory=list)
 
 

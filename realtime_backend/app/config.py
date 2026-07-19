@@ -217,6 +217,82 @@ class Settings:
         default_factory=lambda: _env_bool_any(("CMG_RT_ASR_SAFE_SILENCE_TRIM", "CMG_ASR_SAFE_SILENCE_TRIM"), True)
     )
 
+    selective_retranscription_enabled: bool = field(
+        default_factory=lambda: _env_bool("CMG_RT_SELECTIVE_RETRANSCRIPTION_ENABLED", False)
+    )
+    selective_retranscription_profile: str = field(
+        default_factory=lambda: _env("CMG_RT_SELECTIVE_RETRANSCRIPTION_PROFILE", "selective_recovery")
+    )
+    selective_retranscription_model: str | None = field(
+        default_factory=lambda: (os.getenv("CMG_RT_SELECTIVE_RETRANSCRIPTION_MODEL") or "large-v3").strip() or None
+    )
+    selective_retranscription_compute_type: str | None = field(
+        default_factory=lambda: (os.getenv("CMG_RT_SELECTIVE_RETRANSCRIPTION_COMPUTE_TYPE") or "").strip() or None
+    )
+    selective_retranscription_beam_size: int = field(
+        default_factory=lambda: _env_int("CMG_RT_SELECTIVE_RETRANSCRIPTION_BEAM_SIZE", 10)
+    )
+    selective_retranscription_avg_logprob_threshold: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_AVG_LOGPROB_THRESHOLD", -0.75)
+    )
+    selective_retranscription_no_speech_threshold: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_NO_SPEECH_THRESHOLD", 0.55)
+    )
+    selective_retranscription_compression_ratio_threshold: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_COMPRESSION_RATIO_THRESHOLD", 2.4)
+    )
+    selective_retranscription_word_probability_threshold: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_WORD_PROBABILITY_THRESHOLD", 0.55)
+    )
+    selective_retranscription_min_segment_duration: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MIN_SEGMENT_DURATION", 0.6)
+    )
+    selective_retranscription_padding_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_PADDING_SECONDS", 0.35)
+    )
+    selective_retranscription_max_segment_duration: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MAX_SEGMENT_DURATION", 30.0)
+    )
+    selective_retranscription_merge_gap_seconds: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MERGE_GAP_SECONDS", 0.25)
+    )
+    selective_retranscription_max_regions: int = field(
+        default_factory=lambda: _env_int("CMG_RT_SELECTIVE_RETRANSCRIPTION_MAX_REGIONS", 8)
+    )
+    selective_retranscription_min_improvement: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MIN_IMPROVEMENT", 6.0)
+    )
+    selective_retranscription_candidate_score_threshold: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_CANDIDATE_SCORE_THRESHOLD", 62.0)
+    )
+    selective_retranscription_min_words_per_second: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MIN_WORDS_PER_SECOND", 0.45)
+    )
+    selective_retranscription_max_words_per_second: float = field(
+        default_factory=lambda: _env_float("CMG_RT_SELECTIVE_RETRANSCRIPTION_MAX_WORDS_PER_SECOND", 5.5)
+    )
+    selective_retranscription_min_text_length: int = field(
+        default_factory=lambda: _env_int("CMG_RT_SELECTIVE_RETRANSCRIPTION_MIN_TEXT_LENGTH", 4)
+    )
+    selective_retranscription_audio_quality_threshold: int = field(
+        default_factory=lambda: _env_int("CMG_RT_SELECTIVE_RETRANSCRIPTION_AUDIO_QUALITY_THRESHOLD", 60)
+    )
+
+    transcription_project_glossary_path: Path | None = field(
+        default_factory=lambda: (
+            Path(value).expanduser() if (value := (os.getenv("CMG_RT_TRANSCRIPTION_PROJECT_GLOSSARY") or "").strip()) else None
+        )
+    )
+    transcription_glossary_max_terms: int = field(
+        default_factory=lambda: _env_int("CMG_RT_TRANSCRIPTION_GLOSSARY_MAX_TERMS", 120)
+    )
+    transcription_glossary_max_prompt_chars: int = field(
+        default_factory=lambda: _env_int("CMG_RT_TRANSCRIPTION_GLOSSARY_MAX_PROMPT_CHARS", 1500)
+    )
+    transcription_glossary_max_term_length: int = field(
+        default_factory=lambda: _env_int("CMG_RT_TRANSCRIPTION_GLOSSARY_MAX_TERM_LENGTH", 80)
+    )
+
     diarizer_provider: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_PROVIDER", "pyannote"))
     diarizer_device: str = field(default_factory=lambda: _env("CMG_RT_DIARIZER_DEVICE", "cuda"))
     diarizer_model_name: str = field(

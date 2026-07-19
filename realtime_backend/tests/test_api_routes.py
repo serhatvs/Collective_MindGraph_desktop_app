@@ -174,6 +174,8 @@ class StubTranscriptionService:
         conversation_id: str | None = None,
         language: str | None = None,
         quality_mode: str | None = None,
+        session_glossary_terms: list[str] | None = None,
+        user_hotwords: list[str] | None = None,
         source: str = "",
     ) -> ConversationTranscript:
         self.transcribe_requests.append(
@@ -182,6 +184,8 @@ class StubTranscriptionService:
                 "conversation_id": conversation_id,
                 "language": language,
                 "quality_mode": quality_mode,
+                "session_glossary_terms": list(session_glossary_terms or []),
+                "user_hotwords": list(user_hotwords or []),
                 "source": source,
                 "bytes": source_path.read_bytes(),
             }
@@ -273,7 +277,11 @@ def test_transcribe_file_route_returns_transcript_renderings_and_stats():
     response = client.post(
         "/transcribe/file",
         files={"upload": ("sample.flac", b"fake-flac-bytes", "audio/flac")},
-        data={"language": "en"},
+        data={
+            "language": "en",
+            "session_glossary": '["MindGraph", "proje terimi"]',
+            "hotwords": "ozel terim, ikinci terim",
+        },
     )
 
     assert response.status_code == 200
@@ -301,6 +309,8 @@ def test_transcribe_file_route_returns_transcript_renderings_and_stats():
     assert Path(request["source_path"]).suffix == ".flac"
     assert request["language"] == "en"
     assert request["source"] == "upload"
+    assert request["session_glossary_terms"] == ["MindGraph", "proje terimi"]
+    assert request["user_hotwords"] == ["ozel terim", "ikinci terim"]
     assert request["bytes"] == b"fake-flac-bytes"
     assert not Path(request["source_path"]).exists()
 

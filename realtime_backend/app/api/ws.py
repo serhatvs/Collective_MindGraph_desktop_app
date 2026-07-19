@@ -7,6 +7,7 @@ import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..pipeline.transcript_formatter import build_transcript_response
+from ..pipeline.transcription_glossary import parse_term_input
 
 router = APIRouter()
 
@@ -17,7 +18,14 @@ async def transcribe_stream(websocket: WebSocket) -> None:
     service = websocket.app.state.streaming_service
     language = websocket.query_params.get("language")
     quality_mode = websocket.query_params.get("quality_mode")
-    session = service.create_session(language=language, quality_mode=quality_mode)
+    session_kwargs = {"language": language, "quality_mode": quality_mode}
+    parsed_session_glossary = parse_term_input(websocket.query_params.get("session_glossary"))
+    parsed_hotwords = parse_term_input(websocket.query_params.get("hotwords"))
+    if parsed_session_glossary:
+        session_kwargs["session_glossary_terms"] = parsed_session_glossary
+    if parsed_hotwords:
+        session_kwargs["user_hotwords"] = parsed_hotwords
+    session = service.create_session(**session_kwargs)
     await websocket.send_json(
         {
             "event": "ready",

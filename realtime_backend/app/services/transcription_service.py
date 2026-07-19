@@ -33,6 +33,8 @@ class TranscriptionService:
         conversation_id: str | None = None,
         language: str | None = None,
         quality_mode: str | None = None,
+        session_glossary_terms: list[str] | None = None,
+        user_hotwords: list[str] | None = None,
         source: str = "file",
     ) -> ConversationTranscript:
         transcript_id = conversation_id or new_conversation_id()
@@ -43,6 +45,8 @@ class TranscriptionService:
             source=source,
             language=language,
             quality_mode=quality_mode,
+            session_glossary_terms=session_glossary_terms,
+            user_hotwords=user_hotwords,
         )
         self._store.save(transcript)
         return transcript

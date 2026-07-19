@@ -135,3 +135,21 @@ def test_build_transcript_response_includes_renderings():
     assert response.renderings.raw_text_output == "[00:00.000 - 00:01.000] Speaker_1: hello"
     assert response.renderings.corrected_text_output == "[00:00.000 - 00:01.000] Speaker_1: Hello."
     assert response.speaker_stats[0].speaker == "Speaker_1"
+
+
+def test_build_transcript_response_preserves_selective_retranscription_metadata():
+    transcript = ConversationTranscript(
+        conversation_id="conv_selective",
+        source="test",
+        metadata={
+            "selective_retranscription": {
+                "enabled": True,
+                "number_of_replaced_segments": 1,
+            }
+        },
+    )
+
+    response = build_transcript_response(transcript)
+
+    assert response.metadata["selective_retranscription"]["enabled"] is True
+    assert response.transcript.metadata["selective_retranscription"]["number_of_replaced_segments"] == 1

@@ -63,6 +63,12 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
             {
                 "transcript": {
                     "conversation_id": "conv_123",
+                    "metadata": {
+                        "selective_retranscription": {
+                            "enabled": True,
+                            "number_of_replaced_segments": 1,
+                        }
+                    },
                     "segments": [
                         {"speaker": "Speaker_1", "corrected_text": "Hello there."},
                         {"speaker": "Speaker_2", "corrected_text": "Hi."},
@@ -82,6 +88,8 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
             base_url="http://127.0.0.1:8080",
             language="en",
             transcription_quality_mode="balanced",
+            session_glossary_terms=["MindGraph"],
+            user_hotwords=["ozel terim"],
             request_timeout_seconds=90,
         ),
         request_opener=fake_opener,
@@ -96,6 +104,7 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
     assert result.summary == "Short summary."
     assert result.action_items == [{"title": "Reply politely"}]
     assert result.decisions == [{"decision": "Continue"}]
+    assert result.metadata["selective_retranscription"]["number_of_replaced_segments"] == 1
 
     request, timeout = captured_requests[0]
     assert request.full_url == "http://127.0.0.1:8080/transcribe/file"
@@ -103,6 +112,8 @@ def test_realtime_backend_transcription_service_posts_file_and_extracts_dialogue
     assert b'name="upload"' in request.data
     assert b'name="language"' in request.data
     assert b'name="quality_mode"' in request.data
+    assert b'name="session_glossary"' in request.data
+    assert b'name="hotwords"' in request.data
     assert b"balanced" in request.data
     assert b"sample.wav" in request.data
 
@@ -117,6 +128,22 @@ def test_realtime_backend_config_includes_quality_mode_in_stream_url():
     assert config.websocket_stream_url() == (
         "ws://127.0.0.1:8080/transcribe/stream?language=tr&quality_mode=bad_mic_recovery"
     )
+
+
+def test_realtime_backend_config_includes_glossary_and_hotwords_in_stream_url():
+    from urllib.parse import parse_qs, urlparse
+
+    config = RealtimeBackendTranscriptionConfig(
+        base_url="http://127.0.0.1:8080",
+        language="tr",
+        session_glossary_terms=["MindGraph", "proje terimi"],
+        user_hotwords=["ozel terim"],
+    )
+
+    query = parse_qs(urlparse(config.websocket_stream_url()).query)
+
+    assert json.loads(query["session_glossary"][0]) == ["MindGraph", "proje terimi"]
+    assert json.loads(query["hotwords"][0]) == ["ozel terim"]
 
 
 def test_realtime_backend_transcription_service_reports_connection_failures(tmp_path):

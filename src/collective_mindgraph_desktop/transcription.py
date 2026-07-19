@@ -183,6 +183,8 @@ class RealtimeBackendTranscriptionConfig:
     base_url: str = DEFAULT_REALTIME_BACKEND_URL
     language: str | None = None
     transcription_quality_mode: str | None = None
+    session_glossary_terms: list[str] = field(default_factory=list)
+    user_hotwords: list[str] = field(default_factory=list)
     request_timeout_seconds: int = DEFAULT_REALTIME_TIMEOUT_SECONDS
     stream_live_transcription: bool = True
     stream_flush_interval_ms: int = DEFAULT_STREAM_FLUSH_INTERVAL_MS
@@ -220,6 +222,8 @@ class RealtimeBackendTranscriptionConfig:
                 or ""
             ).strip()
             or None,
+            session_glossary_terms=_parse_term_list(os.getenv("CMG_TRANSCRIPTION_SESSION_GLOSSARY")),
+            user_hotwords=_parse_term_list(os.getenv("CMG_TRANSCRIPTION_HOTWORDS")),
             request_timeout_seconds=timeout_seconds,
             stream_live_transcription=_parse_bool(os.getenv("CMG_TRANSCRIPTION_STREAM_LIVE"), True),
             stream_flush_interval_ms=int(
@@ -250,6 +254,8 @@ class RealtimeBackendTranscriptionConfig:
         base_url = str(payload.get("base_url") or payload.get("backend_url") or base.base_url).strip().rstrip("/")
         language_value = payload.get("language")
         quality_mode_value = payload.get("transcription_quality_mode") or payload.get("quality_mode")
+        session_glossary_value = payload.get("session_glossary_terms") or payload.get("session_glossary")
+        user_hotwords_value = payload.get("user_hotwords") or payload.get("hotwords")
         timeout_value = payload.get("request_timeout_seconds")
         stream_live_value = payload.get("stream_live_transcription")
         stream_flush_interval_value = payload.get("stream_flush_interval_ms")
@@ -270,6 +276,16 @@ class RealtimeBackendTranscriptionConfig:
                 str(quality_mode_value).strip() or None
                 if quality_mode_value is not None
                 else base.transcription_quality_mode
+            ),
+            session_glossary_terms=(
+                _parse_term_list(session_glossary_value)
+                if session_glossary_value is not None
+                else list(base.session_glossary_terms)
+            ),
+            user_hotwords=(
+                _parse_term_list(user_hotwords_value)
+                if user_hotwords_value is not None
+                else list(base.user_hotwords)
             ),
             request_timeout_seconds=(
                 int(timeout_value) if timeout_value is not None else base.request_timeout_seconds
@@ -358,6 +374,10 @@ class RealtimeBackendTranscriptionConfig:
             params["language"] = self.language
         if self.transcription_quality_mode:
             params["quality_mode"] = self.transcription_quality_mode
+        if self.session_glossary_terms:
+            params["session_glossary"] = json.dumps(self.session_glossary_terms, ensure_ascii=False)
+        if self.user_hotwords:
+            params["hotwords"] = json.dumps(self.user_hotwords, ensure_ascii=False)
         query = f"?{urlencode(params)}" if params else ""
         return f"{base}/transcribe/stream{query}"
 
@@ -783,6 +803,13 @@ class RealtimeBackendTranscriptionService:
             append_text_field("language", self._config.language)
         if self._config.transcription_quality_mode:
             append_text_field("quality_mode", self._config.transcription_quality_mode)
+        if self._config.session_glossary_terms:
+            append_text_field(
+                "session_glossary",
+                json.dumps(self._config.session_glossary_terms, ensure_ascii=False),
+            )
+        if self._config.user_hotwords:
+            append_text_field("hotwords", json.dumps(self._config.user_hotwords, ensure_ascii=False))
         chunks.append(f"--{boundary}--\r\n".encode("utf-8"))
         return b"".join(chunks), f"multipart/form-data; boundary={boundary}"
 
@@ -899,6 +926,25 @@ def _parse_bool(value: object, default: bool) -> bool:
     if text in {"0", "false", "no", "off"}:
         return False
     return default
+
+
+def _parse_term_list(value: object) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    text = str(value).strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            decoded = json.loads(text)
+        except json.JSONDecodeError:
+            decoded = None
+        if isinstance(decoded, list):
+            return [str(item).strip() for item in decoded if str(item).strip()]
+    normalized = text.replace("\r\n", "\n").replace(";", "\n").replace(",", "\n")
+    return [item.strip() for item in normalized.split("\n") if item.strip()]
 
 
 def _backend_unreachable_message(base_url: str) -> str:

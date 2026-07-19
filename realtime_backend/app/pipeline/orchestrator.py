@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 import time
-from typing import TYPE_CHECKING, TypeVar
+from typing import Any, TYPE_CHECKING, TypeVar
 
 from ..config import Settings
 from ..models import (
@@ -25,6 +26,7 @@ from ..utils.ids import new_conversation_id
 from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
 from .asr import ASR_STATUS_MOCK_FALLBACK, ASR_STATUS_OK, BaseASR, build_asr, resolve_asr_quality_profile
+from .asr_runtime_config import build_asr_diagnostics
 from .diarization import BaseDiarizer, build_diarizer
 from .llm_postprocess import LLMPostProcessor, build_llm_postprocessor
 from .speaker_mapper import StableSpeakerMapper
@@ -37,6 +39,28 @@ if TYPE_CHECKING:
     from .vad import BaseVAD
 
 _TimelineItem = TypeVar("_TimelineItem", ASRSegment, DiarizationTurn, TranscriptSegment)
+
+
+@dataclass(frozen=True, slots=True)
+class TranscriptionRuntimeStatus:
+    vad_provider: str | None
+    asr_provider_resolved: str | None
+    asr_fallback_provider: str | None
+    asr_status: str | None
+    asr_mock_fallback_used: bool
+    cuda_available_through_torch: bool | None
+    gpu_requested: bool
+    gpu_loaded: bool
+    faster_whisper_cuda_load_status: str | None
+    gpu_fallback_happened: bool
+    gpu_fallback_reason: str | None
+    local_llm_enabled: bool
+    llm_provider_resolved: str | None
+    llm_fallback_provider: str | None
+    _diagnostic_items: tuple[tuple[str, Any], ...] = field(repr=False)
+
+    def diagnostics(self) -> dict[str, Any]:
+        return dict(self._diagnostic_items)
 
 
 class TranscriptionPipeline:
@@ -61,6 +85,27 @@ class TranscriptionPipeline:
         self._diarizer = diarizer or build_diarizer(settings)
         self._llm_postprocessor = llm_postprocessor or build_llm_postprocessor(settings)
         self._summary_service = summary_service or ConversationSummaryService()
+
+    def runtime_status(self) -> TranscriptionRuntimeStatus:
+        diagnostics = build_asr_diagnostics(self._settings, self._asr)
+        diagnostics["LLM provider resolved"] = self._llm_postprocessor.provider_name
+        return TranscriptionRuntimeStatus(
+            vad_provider=getattr(self._vad, "provider_name", None),
+            asr_provider_resolved=getattr(self._asr, "provider_name", None),
+            asr_fallback_provider=getattr(self._asr, "fallback_provider_name", None),
+            asr_status=getattr(self._asr, "asr_status", None),
+            asr_mock_fallback_used=bool(getattr(self._asr, "mock_fallback_used", False)),
+            cuda_available_through_torch=diagnostics["CUDA available through torch"],
+            gpu_requested=bool(getattr(self._asr, "gpu_requested", False)),
+            gpu_loaded=bool(getattr(self._asr, "gpu_loaded", False)),
+            faster_whisper_cuda_load_status=getattr(self._asr, "cuda_load_status", None),
+            gpu_fallback_happened=bool(getattr(self._asr, "gpu_fallback_happened", False)),
+            gpu_fallback_reason=getattr(self._asr, "gpu_fallback_reason", None),
+            local_llm_enabled=bool(diagnostics["Local LLM enabled"]),
+            llm_provider_resolved=self._llm_postprocessor.provider_name,
+            llm_fallback_provider=self._llm_postprocessor.fallback_provider_name,
+            _diagnostic_items=tuple(diagnostics.items()),
+        )
 
     async def process_audio_path(
         self,

@@ -1,5 +1,33 @@
+from app.config import Settings
 from app.models import SpeechRegion, TranscriptSegment
-from app.pipeline.orchestrator import _build_processing_windows, _clip_regions_to_window, _replace_timeline_tail
+from app.pipeline import orchestrator as orchestrator_module
+from app.pipeline.llm_postprocess import LLMPostProcessor, MockLLMProvider
+from app.pipeline.orchestrator import (
+    TranscriptionPipeline,
+    _build_processing_windows,
+    _clip_regions_to_window,
+    _replace_timeline_tail,
+)
+
+
+class _RuntimeVAD:
+    provider_name = "silero"
+
+
+class _RuntimeASR:
+    provider_name = "faster_whisper"
+    fallback_provider_name = "mock"
+    asr_status = "ASR_STATUS=OK"
+    mock_fallback_used = False
+    gpu_requested = True
+    gpu_loaded = True
+    cuda_load_status = "loaded"
+    gpu_fallback_happened = False
+    gpu_fallback_reason = None
+
+
+class _RuntimeDiarizer:
+    provider_name = "fallback"
 
 
 def test_build_processing_windows_groups_regions_into_bounded_spans():
@@ -72,3 +100,32 @@ def test_replace_timeline_tail_replaces_boundary_crossing_segments():
     replaced = _replace_timeline_tail(existing, incoming, from_second=12.0)
 
     assert [item.segment_id for item in replaced] == ["seg_1", "seg_3"]
+
+
+def test_runtime_status_exposes_immutable_provider_snapshot(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        orchestrator_module,
+        "build_asr_diagnostics",
+        lambda *_args, **_kwargs: {
+            "CUDA available through torch": True,
+            "Local LLM enabled": True,
+        },
+    )
+    settings = Settings(data_dir=tmp_path / "data", temp_dir=tmp_path / "temp")
+    pipeline = TranscriptionPipeline(
+        settings,
+        vad=_RuntimeVAD(),
+        asr=_RuntimeASR(),
+        diarizer=_RuntimeDiarizer(),
+        llm_postprocessor=LLMPostProcessor(MockLLMProvider(), batch_size=1),
+    )
+
+    status = pipeline.runtime_status()
+
+    assert status.vad_provider == "silero"
+    assert status.asr_provider_resolved == "faster_whisper"
+    assert status.asr_fallback_provider == "mock"
+    assert status.gpu_requested is True
+    assert status.gpu_loaded is True
+    assert status.llm_provider_resolved == "mock"
+    assert status.diagnostics()["LLM provider resolved"] == "mock"

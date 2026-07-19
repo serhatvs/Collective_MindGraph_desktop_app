@@ -20,7 +20,7 @@ sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
 
 from app.config import Settings  # noqa: E402
 from app.pipeline.asr import ASR_STATUS_MOCK_FALLBACK  # noqa: E402
-from app.pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics  # noqa: E402
+from app.pipeline.asr_runtime_config import format_asr_diagnostics  # noqa: E402
 from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
 from app.utils.audio_process import inspect_audio  # noqa: E402
 from app.utils.logging import configure_logging  # noqa: E402
@@ -111,8 +111,7 @@ async def main_async() -> int:
         print(f"Report written to {output_path}")
         return 1
 
-    asr_provider = pipeline._asr
-    asr_diagnostics = build_asr_diagnostics(settings, asr_provider, llm_provider=pipeline._llm_postprocessor._provider)
+    asr_diagnostics = pipeline.runtime_status().diagnostics()
     nvidia_smi_load = _capture_nvidia_smi()
     if args.observation_seconds > 0:
         print(f"GPU observation window after model load: {args.observation_seconds} seconds")

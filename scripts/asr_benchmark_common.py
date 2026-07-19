@@ -20,7 +20,7 @@ sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
 from app.config import Settings  # noqa: E402
 from app.evaluation.transcription_metrics import evaluate_transcription  # noqa: E402
 from app.models import SpeechRegion  # noqa: E402
-from app.pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics  # noqa: E402
+from app.pipeline.asr_runtime_config import format_asr_diagnostics  # noqa: E402
 from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
 from app.utils.audio_process import inspect_audio  # noqa: E402
 
@@ -107,12 +107,9 @@ async def run_cmg_pipeline(
             run.model_load_time_seconds = time.perf_counter() - start_load
             return run
         run.model_load_time_seconds = time.perf_counter() - start_load
-        run.actual_vad_provider = getattr(pipeline._vad, "provider_name", settings.vad_provider)
-        run.diagnostics = build_asr_diagnostics(
-            settings,
-            pipeline._asr,
-            llm_provider=pipeline._llm_postprocessor._provider,
-        )
+        runtime = pipeline.runtime_status()
+        run.actual_vad_provider = runtime.vad_provider or settings.vad_provider
+        run.diagnostics = runtime.diagnostics()
         if vad_provider == "silero" and run.actual_vad_provider != "silero":
             run.warnings.append("Silero VAD was requested but did not load; ASR continued with fallback VAD.")
 

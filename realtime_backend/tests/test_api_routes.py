@@ -136,11 +136,15 @@ class StubProviderInfo:
         *,
         asr_status: str | None = None,
         mock_fallback_used: bool = False,
+        gpu_requested: bool = False,
+        gpu_loaded: bool = False,
     ) -> None:
         self.provider_name = provider_name
         self.fallback_provider_name = fallback_provider_name
         self.asr_status = asr_status
         self.mock_fallback_used = mock_fallback_used
+        self.gpu_requested = gpu_requested
+        self.gpu_loaded = gpu_loaded
 
 
 class StubTranscriptionService:
@@ -156,9 +160,24 @@ class StubTranscriptionService:
         self.requested_ids: list[str] = []
         self.transcribe_requests: list[dict[str, object]] = []
         self._transcribe_error = transcribe_error
-        self._pipeline = types.SimpleNamespace(
-            _asr=asr_provider or StubProviderInfo(),
-            _llm_postprocessor=types.SimpleNamespace(_provider=llm_provider or StubProviderInfo()),
+        self._asr_provider = asr_provider or StubProviderInfo()
+        self._llm_provider = llm_provider or StubProviderInfo()
+
+    def runtime_status(self):
+        return types.SimpleNamespace(
+            asr_provider_resolved=self._asr_provider.provider_name,
+            asr_fallback_provider=self._asr_provider.fallback_provider_name,
+            asr_status=self._asr_provider.asr_status,
+            asr_mock_fallback_used=self._asr_provider.mock_fallback_used,
+            cuda_available_through_torch=None,
+            gpu_requested=self._asr_provider.gpu_requested,
+            gpu_loaded=self._asr_provider.gpu_loaded,
+            faster_whisper_cuda_load_status=None,
+            gpu_fallback_happened=False,
+            gpu_fallback_reason=None,
+            local_llm_enabled=True,
+            llm_provider_resolved=self._llm_provider.provider_name,
+            llm_fallback_provider=self._llm_provider.fallback_provider_name,
         )
 
     def get_transcript(self, conversation_id: str) -> ConversationTranscript | None:
@@ -419,11 +438,15 @@ def test_health_route_returns_provider_and_fallback_status():
             asr_model_name="large-v3",
             transcription_quality_mode="max_quality",
         ),
-        asr_provider=StubProviderInfo("faster_whisper", "mock", asr_status="ASR_STATUS=OK"),
+        asr_provider=StubProviderInfo(
+            "faster_whisper",
+            "mock",
+            asr_status="ASR_STATUS=OK",
+            gpu_requested=True,
+            gpu_loaded=True,
+        ),
         llm_provider=StubProviderInfo("lmstudio", "mock"),
     )
-    _transcription_service._pipeline._asr.gpu_requested = True
-    _transcription_service._pipeline._asr.gpu_loaded = True
 
     response = client.get("/health")
 

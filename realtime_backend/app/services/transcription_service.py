@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 
 from ..models import ConversationTranscript
-from ..pipeline.orchestrator import TranscriptionPipeline
+from ..pipeline.orchestrator import TranscriptionPipeline, TranscriptionRuntimeStatus
 from ..services.conversation_store import ConversationStore
 from ..utils.ids import new_conversation_id
 
@@ -46,3 +45,6 @@ class TranscriptionService:
 
     def get_transcript(self, conversation_id: str) -> ConversationTranscript | None:
         return self._store.get(conversation_id)
+
+    def runtime_status(self) -> TranscriptionRuntimeStatus:
+        return self._pipeline.runtime_status()

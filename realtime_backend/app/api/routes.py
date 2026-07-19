@@ -19,7 +19,6 @@ from ..models import (
     TranscriptResponse
 )
 from ..pipeline.transcript_formatter import build_file_transcription_response, build_transcript_response
-from ..pipeline.asr_runtime_config import build_asr_diagnostics
 from ..pipeline.transcription_glossary import parse_term_input
 
 router = APIRouter()
@@ -32,18 +31,16 @@ async def list_jobs(request: Request, active_only: bool = False):
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:
     settings = request.app.state.settings
-    asr_provider = request.app.state.transcription_service._pipeline._asr
-    llm_provider = request.app.state.transcription_service._pipeline._llm_postprocessor._provider
-    asr_diagnostics = build_asr_diagnostics(settings, asr_provider, llm_provider=llm_provider)
+    runtime = request.app.state.transcription_service.runtime_status()
     return HealthResponse(
         status="ok",
         app_name=settings.app_name,
         vad_provider=settings.vad_provider,
         asr_provider=settings.asr_provider,
-        asr_provider_resolved=getattr(asr_provider, "provider_name", None),
-        asr_fallback_provider=getattr(asr_provider, "fallback_provider_name", None),
-        asr_status=getattr(asr_provider, "asr_status", None),
-        asr_mock_fallback_used=bool(getattr(asr_provider, "mock_fallback_used", False)),
+        asr_provider_resolved=runtime.asr_provider_resolved,
+        asr_fallback_provider=runtime.asr_fallback_provider,
+        asr_status=runtime.asr_status,
+        asr_mock_fallback_used=runtime.asr_mock_fallback_used,
         asr_model_name=getattr(settings, "asr_model_name", None),
         asr_quality_profile=getattr(settings, "transcription_quality_mode", None),
         asr_runtime_profile=getattr(settings, "asr_runtime_profile", None),
@@ -52,18 +49,18 @@ async def health(request: Request) -> HealthResponse:
         asr_language=getattr(settings, "default_language", None),
         gpu_enabled=getattr(settings, "gpu_enabled", None),
         gpu_required=getattr(settings, "gpu_required", None),
-        cuda_available_through_torch=asr_diagnostics["CUDA available through torch"],
-        gpu_requested=bool(getattr(asr_provider, "gpu_requested", False)),
-        gpu_actually_used_by_asr=bool(getattr(asr_provider, "gpu_loaded", False)),
-        faster_whisper_cuda_load_status=getattr(asr_provider, "cuda_load_status", None),
-        gpu_fallback_happened=bool(getattr(asr_provider, "gpu_fallback_happened", False)),
-        gpu_fallback_reason=getattr(asr_provider, "gpu_fallback_reason", None),
+        cuda_available_through_torch=runtime.cuda_available_through_torch,
+        gpu_requested=runtime.gpu_requested,
+        gpu_actually_used_by_asr=runtime.gpu_loaded,
+        faster_whisper_cuda_load_status=runtime.faster_whisper_cuda_load_status,
+        gpu_fallback_happened=runtime.gpu_fallback_happened,
+        gpu_fallback_reason=runtime.gpu_fallback_reason,
         embedding_device=getattr(settings, "embedding_device", "cpu"),
-        local_llm_enabled=bool(asr_diagnostics["Local LLM enabled"]),
+        local_llm_enabled=runtime.local_llm_enabled,
         diarizer_provider=settings.diarizer_provider,
         llm_provider=settings.llm_provider,
-        llm_provider_resolved=getattr(llm_provider, "provider_name", None),
-        llm_fallback_provider=getattr(llm_provider, "fallback_provider_name", None),
+        llm_provider_resolved=runtime.llm_provider_resolved,
+        llm_fallback_provider=runtime.llm_fallback_provider,
     )
 
 

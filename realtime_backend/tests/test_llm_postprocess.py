@@ -145,4 +145,5 @@ def test_auto_local_llm_provider_falls_back_to_mock_cleanup():
 def test_build_llm_postprocessor_defaults_to_lmstudio():
     processor = llm_module.build_llm_postprocessor(Settings())
 
-    assert processor._provider.__class__.__name__ == "LMStudioLLMProvider"
+    assert processor.provider_name == "lmstudio"
+    assert processor.fallback_provider_name is None

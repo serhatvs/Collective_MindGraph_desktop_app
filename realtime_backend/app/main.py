@@ -24,7 +24,7 @@ from .services.job_manager import JobManager
 from .utils.ids import new_segment_id
 from .utils.logging import configure_logging
 from .database_proxy import DatabaseProxy
-from .pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics
+from .pipeline.asr_runtime_config import format_asr_diagnostics
 
 
 LOGGER = logging.getLogger(__name__)
@@ -56,13 +56,7 @@ def build_app() -> FastAPI:
     pipeline = TranscriptionPipeline(settings=settings)
     LOGGER.info(
         "ASR runtime diagnostics\n%s",
-        format_asr_diagnostics(
-            build_asr_diagnostics(
-                settings,
-                pipeline._asr,
-                llm_provider=pipeline._llm_postprocessor._provider,
-            )
-        ),
+        format_asr_diagnostics(pipeline.runtime_status().diagnostics()),
     )
     quality_service = TranscriptQualityService()
     transcription_service = TranscriptionService(

@@ -176,6 +176,14 @@ class LLMPostProcessor:
         self._batch_size = batch_size
         self._context_segments = max(0, context_segments)
 
+    @property
+    def provider_name(self) -> str:
+        return self._provider.provider_name
+
+    @property
+    def fallback_provider_name(self) -> str | None:
+        return self._provider.fallback_provider_name
+
     async def apply(self, conversation_id: str, language: str | None, segments: list[TranscriptSegment]) -> list[TranscriptSegment]:
         updated_segments = list(segments)
         for batch_start in range(0, len(updated_segments), self._batch_size):

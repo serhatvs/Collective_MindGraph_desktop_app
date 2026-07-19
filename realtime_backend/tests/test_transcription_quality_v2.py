@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import os
+import sys
 import wave
 from pathlib import Path
 
@@ -10,7 +12,7 @@ from app.pipeline.alignment import merge_transcript_segments
 from app.pipeline.asr import _call_faster_whisper_transcribe, resolve_asr_quality_profile
 from app.pipeline.speaker_mapper import StableSpeakerMapper
 from app.pipeline.transcription_quality import estimate_transcription_confidence
-from app.utils.audio_process import analyze_audio_quality, preprocessing_steps
+from app.utils.audio_process import analyze_audio_quality, preprocessing_steps, resolve_ffmpeg_executable
 
 
 def test_bad_mic_recovery_profile_controls_quality_settings():
@@ -59,6 +61,25 @@ def test_audio_quality_score_flags_low_volume(tmp_path: Path):
     assert quiet_quality.audio_quality_label == "Low"
     assert "low volume" in quiet_quality.warnings
     assert quiet_quality.preprocessing_applied is False
+
+
+def test_ffmpeg_resolver_prefers_environment_override(monkeypatch):
+    monkeypatch.setenv("CMG_RT_FFMPEG_PATH", "custom-ffmpeg")
+    monkeypatch.setenv("CMG_FFMPEG_EXE", "ignored-ffmpeg")
+
+    assert resolve_ffmpeg_executable() == "custom-ffmpeg"
+
+
+def test_ffmpeg_resolver_finds_frozen_bundle_binary(monkeypatch, tmp_path: Path):
+    monkeypatch.delenv("CMG_RT_FFMPEG_PATH", raising=False)
+    monkeypatch.delenv("CMG_FFMPEG_EXE", raising=False)
+    executable_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+    bundled_ffmpeg = tmp_path / executable_name
+    bundled_ffmpeg.touch()
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+
+    assert resolve_ffmpeg_executable() == str(bundled_ffmpeg)
 
 
 def test_confidence_percentage_combines_audio_and_asr_metadata():

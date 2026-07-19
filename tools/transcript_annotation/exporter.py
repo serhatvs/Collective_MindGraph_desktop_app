@@ -12,6 +12,8 @@ from typing import Any, Iterable
 import uuid
 import wave
 
+from realtime_backend.app.utils.audio_process import resolve_ffmpeg_executable
+
 from .dataset import AnnotationDataset, atomic_write_json, atomic_write_text, sha256_file
 
 
@@ -187,7 +189,7 @@ def _cut_standard_pcm_wav(source: Path, target: Path, *, start: float, end: floa
 
 
 def _cut_with_ffmpeg(source: Path, target: Path, *, start: float, end: float) -> None:
-    ffmpeg = (os.getenv("CMG_RT_FFMPEG_PATH") or os.getenv("CMG_FFMPEG_EXE") or "ffmpeg").strip()
+    ffmpeg = resolve_ffmpeg_executable()
     temporary = target.with_name(f".{target.stem}.{uuid.uuid4().hex}.tmp.wav")
     command = [
         ffmpeg,

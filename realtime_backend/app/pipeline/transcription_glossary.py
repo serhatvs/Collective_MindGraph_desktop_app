@@ -40,8 +40,8 @@ def resolve_transcription_glossary(
         ("session", _coerce_terms(session_terms)),
     ]
     project_path = getattr(settings, "transcription_project_glossary_path", None)
-    project_terms, project_error = _load_glossary_file(project_path)
-    global_terms, global_error = _load_glossary_file(GLOBAL_GLOSSARY_PATH)
+    project_terms, project_error = load_glossary_file(project_path)
+    global_terms, global_error = load_glossary_file(GLOBAL_GLOSSARY_PATH)
     source_terms.extend(
         [
             ("project", project_terms),
@@ -137,7 +137,9 @@ def parse_term_input(value: str | Iterable[str] | None) -> list[str]:
     return [item.strip() for item in normalized.split("\n") if item.strip()]
 
 
-def _load_glossary_file(path: Path | str | None) -> tuple[list[str], str | None]:
+def load_glossary_file(path: Path | str | None) -> tuple[list[str], str | None]:
+    """Load glossary terms and return a non-fatal diagnostic on failure."""
+
     if path is None:
         return [], None
     resolved = Path(path).expanduser()

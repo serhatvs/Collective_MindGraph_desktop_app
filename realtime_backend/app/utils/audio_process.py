@@ -6,6 +6,7 @@ import logging
 import math
 import os
 import subprocess
+import sys
 import wave
 from array import array
 from collections.abc import Sequence
@@ -65,15 +66,23 @@ class AudioQualityAnalysis:
         }
 
 
-def _resolve_ffmpeg_executable() -> str:
+def resolve_ffmpeg_executable() -> str:
     """Return the ffmpeg executable path.
 
-    Reads CMG_RT_FFMPEG_PATH or CMG_FFMPEG_EXE env vars first (same as
-    media.py), then falls back to 'ffmpeg' on the system PATH.
+    Reads CMG_RT_FFMPEG_PATH or CMG_FFMPEG_EXE first, then checks a frozen
+    application bundle before falling back to ``ffmpeg`` on the system PATH.
     """
     env_value = (os.getenv("CMG_RT_FFMPEG_PATH") or os.getenv("CMG_FFMPEG_EXE") or "").strip()
     if env_value:
         return env_value
+
+    if getattr(sys, "frozen", False):
+        bundle_root = Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent))
+        executable_name = "ffmpeg.exe" if os.name == "nt" else "ffmpeg"
+        candidate = bundle_root / executable_name
+        if candidate.exists():
+            return str(candidate)
+
     return "ffmpeg"
 
 
@@ -90,7 +99,7 @@ def normalize_audio(
     Normalize audio file to standard PCM format using ffmpeg.
     Logs parameters and timing for quality auditing.
     """
-    ffmpeg_exe = _resolve_ffmpeg_executable()
+    ffmpeg_exe = resolve_ffmpeg_executable()
     LOGGER.info(
         "Preprocessing audio: %s -> %s (SR: %d, strength=%s)",
         source_path.name,

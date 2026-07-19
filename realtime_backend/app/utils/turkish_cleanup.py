@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import re
-from pathlib import Path
+
+from ..pipeline.transcription_glossary import GLOBAL_GLOSSARY_PATH, load_glossary_file
 
 # Common Turkish fillers to remove only in aggressive cleanup mode.
 TURKISH_FILLERS = {
@@ -24,17 +24,8 @@ TURKISH_FILLERS = {
 
 
 def load_glossary() -> list[str]:
-    glossary_path = Path(__file__).parent.parent.parent / "config" / "transcription_glossary.tr.json"
-    if not glossary_path.exists():
-        return []
-    try:
-        data = json.loads(glossary_path.read_text(encoding="utf-8"))
-        all_terms = []
-        for category in data.values():
-            all_terms.extend(category)
-        return all_terms
-    except Exception:
-        return []
+    terms, _error = load_glossary_file(GLOBAL_GLOSSARY_PATH)
+    return terms
 
 
 GLOSSARY_TERMS = load_glossary()

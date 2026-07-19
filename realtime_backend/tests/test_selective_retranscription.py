@@ -16,7 +16,13 @@ from app.pipeline.selective_retranscription import (
     find_retranscription_triggers,
 )
 from app.pipeline.transcription_candidate_selector import TranscriptionCandidateSelector
-from app.pipeline.transcription_glossary import parse_term_input, resolve_transcription_glossary
+from app.pipeline.transcription_glossary import (
+    GLOBAL_GLOSSARY_PATH,
+    load_glossary_file,
+    parse_term_input,
+    resolve_transcription_glossary,
+)
+from app.utils.turkish_cleanup import load_glossary
 
 
 def _selector(min_improvement: float = 6.0) -> TranscriptionCandidateSelector:
@@ -206,6 +212,30 @@ def test_glossary_precedence_deduplication_and_limits(tmp_path: Path):
 def test_glossary_input_accepts_json_and_delimited_text():
     assert parse_term_input('["bir", "iki"]') == ["bir", "iki"]
     assert parse_term_input("bir, iki;uc") == ["bir", "iki", "uc"]
+
+
+def test_turkish_cleanup_uses_authoritative_global_glossary_loader():
+    expected, error = load_glossary_file(GLOBAL_GLOSSARY_PATH)
+
+    assert error is None
+    assert load_glossary() == expected
+
+
+def test_glossary_file_loader_flattens_categories_and_reports_invalid_json(tmp_path: Path):
+    glossary_path = tmp_path / "glossary.json"
+    glossary_path.write_text('{"project": ["MindGraph"], "technical": ["FastAPI"]}', encoding="utf-8")
+
+    terms, error = load_glossary_file(glossary_path)
+
+    assert terms == ["MindGraph", "FastAPI"]
+    assert error is None
+
+    glossary_path.write_text("{invalid", encoding="utf-8")
+    terms, error = load_glossary_file(glossary_path)
+
+    assert terms == []
+    assert error is not None
+    assert error.startswith("JSONDecodeError:")
 
 
 def test_faster_whisper_hotwords_are_forwarded_when_supported(tmp_path: Path):

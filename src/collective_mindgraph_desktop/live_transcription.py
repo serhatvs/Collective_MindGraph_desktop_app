@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QTimer, QUrl, QUrlQuery, Signal
+from PySide6.QtCore import QObject, QTimer, QUrl, Signal
 from PySide6.QtWebSockets import QWebSocket
 
 from .transcription import (
@@ -32,7 +32,6 @@ class LiveTranscriptStreamController(QObject):
         self._flush_timer.timeout.connect(self._flush_partial)
 
         self._audio_path: Path | None = None
-        self._config: RealtimeBackendTranscriptionConfig | None = None
         self._service: RealtimeBackendTranscriptionService | None = None
         self._byte_offset = 0
         self._frame_tail = b""
@@ -51,7 +50,6 @@ class LiveTranscriptStreamController(QObject):
             raise ValueError("Live transcript stream is already active.")
 
         self._audio_path = Path(audio_path).expanduser().resolve()
-        self._config = config
         self._service = RealtimeBackendTranscriptionService(config=config)
         self._byte_offset = 0
         self._frame_tail = b""
@@ -69,14 +67,8 @@ class LiveTranscriptStreamController(QObject):
         socket.disconnected.connect(self._handle_disconnected)
         self._socket = socket
 
-        url = QUrl(config.websocket_stream_url())
-        if config.language:
-            query = QUrlQuery()
-            query.addQueryItem("language", config.language)
-            url.setQuery(query)
-
         self.state_changed.emit("Connecting live transcript stream to the local backend.")
-        socket.open(url)
+        socket.open(QUrl(config.websocket_stream_url()))
 
     def finalize(self) -> None:
         if self._socket is None:
@@ -207,4 +199,3 @@ class LiveTranscriptStreamController(QObject):
         if self._socket is not None:
             self._socket.deleteLater()
         self._socket = None
-

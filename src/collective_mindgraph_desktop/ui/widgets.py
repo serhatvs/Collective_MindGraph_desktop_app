@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from dataclasses import replace
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -227,6 +227,7 @@ class TranscriptionSettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Transcript Settings")
         self.resize(560, 520)
+        self._initial_config = config
         self._audio_input_options = list(audio_input_options or [])
 
         layout = QVBoxLayout(self)
@@ -313,13 +314,9 @@ class TranscriptionSettingsDialog(QDialog):
         
         self.embedding_path_edit = QLineEdit(config.embedding_model_path)
         self.embedding_path_edit.setPlaceholderText("/path/to/local/model")
-        
-        self.llm_endpoint_edit = QLineEdit(os.getenv("CMG_RT_LLM_ENDPOINT", "http://127.0.0.1:1234/v1"))
-        self.llm_endpoint_edit.setPlaceholderText("http://127.0.0.1:1234/v1")
 
         form_layout.addRow(QLabel("<b>Optional Local AI</b>"), QLabel(""))
         form_layout.addRow("Backend URL", self.base_url_edit)
-        form_layout.addRow("LLM API Endpoint", self.llm_endpoint_edit)
         form_layout.addRow("", self.embeddings_checkbox)
         form_layout.addRow("Embedding Model Path", self.embedding_path_edit)
         form_layout.addRow("Language", self.language_edit)
@@ -350,7 +347,8 @@ class TranscriptionSettingsDialog(QDialog):
         selected_device_id = self.audio_input_combo.currentData()
         selected_label = self.audio_input_combo.currentText()
         is_default_selection = selected_device_id in (None, "")
-        return RealtimeBackendTranscriptionConfig(
+        return replace(
+            self._initial_config,
             base_url=self.base_url_edit.text().strip().rstrip("/"),
             language=self.language_edit.text().strip() or None,
             request_timeout_seconds=self.timeout_spin.value(),
@@ -368,7 +366,6 @@ class TranscriptionSettingsDialog(QDialog):
             wake_cooldown_seconds=self.wake_cooldown_spin.value(),
             embeddings_enabled=self.embeddings_checkbox.isChecked(),
             embedding_model_path=self.embedding_path_edit.text().strip(),
-            # LLM endpoint is usually stored in env or re-applied to config if we expand it
         )
 
     def _validate_and_accept(self) -> None:

@@ -1,6 +1,9 @@
 import json
 from urllib.error import URLError
+from urllib.parse import parse_qs, urlparse
 
+from collective_mindgraph_desktop import live_transcription as live_transcription_module
+from collective_mindgraph_desktop.live_transcription import LiveTranscriptStreamController
 from collective_mindgraph_desktop.transcription import (
     BackendHealthStatus,
     RealtimeBackendTranscriptionConfig,
@@ -131,8 +134,6 @@ def test_realtime_backend_config_includes_quality_mode_in_stream_url():
 
 
 def test_realtime_backend_config_includes_glossary_and_hotwords_in_stream_url():
-    from urllib.parse import parse_qs, urlparse
-
     config = RealtimeBackendTranscriptionConfig(
         base_url="http://127.0.0.1:8080",
         language="tr",
@@ -142,6 +143,45 @@ def test_realtime_backend_config_includes_glossary_and_hotwords_in_stream_url():
 
     query = parse_qs(urlparse(config.websocket_stream_url()).query)
 
+    assert json.loads(query["session_glossary"][0]) == ["MindGraph", "proje terimi"]
+    assert json.loads(query["hotwords"][0]) == ["ozel terim"]
+
+
+def test_live_stream_controller_preserves_full_config_query(monkeypatch, qapp, tmp_path):
+    class FakeSignal:
+        def connect(self, _callback):
+            pass
+
+    class FakeWebSocket:
+        def __init__(self):
+            self.connected = FakeSignal()
+            self.textMessageReceived = FakeSignal()
+            self.errorOccurred = FakeSignal()
+            self.disconnected = FakeSignal()
+            self.opened_url = ""
+
+        def open(self, url):
+            self.opened_url = url.toString()
+
+    socket = FakeWebSocket()
+    monkeypatch.setattr(live_transcription_module, "QWebSocket", lambda: socket)
+    config = RealtimeBackendTranscriptionConfig(
+        base_url="http://127.0.0.1:8080",
+        language="tr",
+        transcription_quality_mode="bad_mic_recovery",
+        session_glossary_terms=["MindGraph", "proje terimi"],
+        user_hotwords=["ozel terim"],
+    )
+    controller = LiveTranscriptStreamController()
+
+    controller.start(tmp_path / "recording.wav", config)
+
+    parsed_url = urlparse(socket.opened_url)
+    query = parse_qs(parsed_url.query)
+    assert parsed_url.scheme == "ws"
+    assert parsed_url.path == "/transcribe/stream"
+    assert query["language"] == ["tr"]
+    assert query["quality_mode"] == ["bad_mic_recovery"]
     assert json.loads(query["session_glossary"][0]) == ["MindGraph", "proje terimi"]
     assert json.loads(query["hotwords"][0]) == ["ozel terim"]
 

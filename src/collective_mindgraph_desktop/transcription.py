@@ -269,6 +269,11 @@ class RealtimeBackendTranscriptionConfig:
         wake_phrase_value = payload.get("wake_phrase")
         shutdown_phrase_value = payload.get("shutdown_phrase")
         wake_cooldown_value = payload.get("wake_cooldown_seconds")
+        embeddings_enabled_value = payload.get("embeddings_enabled")
+        embedding_provider_value = payload.get("embedding_provider")
+        embedding_model_path_value = payload.get("embedding_model_path")
+        embedding_dimension_value = payload.get("embedding_dimension")
+        allow_remote_model_download_value = payload.get("allow_remote_model_download")
         return cls(
             base_url=base_url or base.base_url,
             language=str(language_value).strip() or None if language_value is not None else base.language,
@@ -349,6 +354,31 @@ class RealtimeBackendTranscriptionConfig:
                 float(wake_cooldown_value)
                 if wake_cooldown_value is not None
                 else base.wake_cooldown_seconds
+            ),
+            embeddings_enabled=(
+                _parse_bool(embeddings_enabled_value, base.embeddings_enabled)
+                if embeddings_enabled_value is not None
+                else base.embeddings_enabled
+            ),
+            embedding_provider=(
+                str(embedding_provider_value).strip() or base.embedding_provider
+                if embedding_provider_value is not None
+                else base.embedding_provider
+            ),
+            embedding_model_path=(
+                str(embedding_model_path_value).strip()
+                if embedding_model_path_value is not None
+                else base.embedding_model_path
+            ),
+            embedding_dimension=(
+                int(embedding_dimension_value)
+                if embedding_dimension_value is not None
+                else base.embedding_dimension
+            ),
+            allow_remote_model_download=(
+                _parse_bool(allow_remote_model_download_value, base.allow_remote_model_download)
+                if allow_remote_model_download_value is not None
+                else base.allow_remote_model_download
             ),
         )
 

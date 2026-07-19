@@ -16,24 +16,12 @@ from pprint import pprint
 sys.path.append(str(Path(__file__).parent.parent.resolve()))
 
 from app.config import get_settings
+from app.evaluation.transcription_metrics import edit_distance_with_operations, evaluate_transcription
 from app.pipeline.orchestrator import TranscriptionPipeline
 from app.utils.logging import configure_logging
 
 def levenshtein_distance(s1, s2):
-    if len(s1) < len(s2):
-        return levenshtein_distance(s2, s1)
-    if len(s2) == 0:
-        return len(s1)
-    previous_row = range(len(s2) + 1)
-    for i, c1 in enumerate(s1):
-        current_row = [i + 1]
-        for j, c2 in enumerate(s2):
-            insertions = previous_row[j + 1] + 1
-            deletions = current_row[j] + 1
-            substitutions = previous_row[j] + (c1 != c2)
-            current_row.append(min(insertions, deletions, substitutions))
-        previous_row = current_row
-    return previous_row[-1]
+    return edit_distance_with_operations(list(s1), list(s2))[0]
 
 def calculate_overlap_metrics(expected: str, actual: str):
     def tokenize(t):
@@ -52,15 +40,9 @@ def calculate_overlap_metrics(expected: str, actual: str):
     missing = expected_set - actual_set
     overlap_score = len(matched) / len(expected_set)
     
-    # CER Approximation
-    exp_norm = expected.lower().strip()
-    act_norm = actual.lower().strip()
-    char_dist = levenshtein_distance(exp_norm, act_norm)
-    cer = char_dist / len(exp_norm) if exp_norm else 0.0
-    
-    # WER Approximation
-    word_dist = levenshtein_distance(expected_tokens, actual_tokens)
-    wer = word_dist / len(expected_tokens) if expected_tokens else 0.0
+    evaluation = evaluate_transcription(expected, actual)
+    cer = evaluation.normalized.cer if evaluation and evaluation.normalized.cer is not None else 0.0
+    wer = evaluation.normalized.wer if evaluation and evaluation.normalized.wer is not None else 0.0
     
     return sorted(list(matched)), sorted(list(missing)), overlap_score, cer, wer
 

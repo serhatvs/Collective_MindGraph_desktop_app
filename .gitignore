@@ -25,3 +25,4 @@ realtime_backend/tests/fixtures/audio/common_voice_tr/*
 !realtime_backend/tests/fixtures/audio/common_voice_tr/.gitkeep
 *.sqlite3
 benchmark_results.json
+datasets/transcription/

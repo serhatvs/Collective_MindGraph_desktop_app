@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 import os
@@ -19,6 +18,10 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
 
 from app.config import Settings  # noqa: E402
+from app.evaluation.transcription_metrics import (  # noqa: E402
+    character_error_rate as _shared_character_error_rate,
+    word_error_rate as _shared_word_error_rate,
+)
 from app.models import SpeechRegion  # noqa: E402
 from app.pipeline.asr_runtime_config import build_asr_diagnostics, format_asr_diagnostics  # noqa: E402
 from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
@@ -185,19 +188,13 @@ def asr_environment(*, profile: str, model: str, language: str, require_gpu: boo
 
 
 def word_error_rate(reference: str, hypothesis: str) -> float:
-    reference_words = _normalize_words(reference)
-    hypothesis_words = _normalize_words(hypothesis)
-    if not reference_words:
-        return 0.0 if not hypothesis_words else 1.0
-    return _levenshtein(reference_words, hypothesis_words) / len(reference_words)
+    result = _shared_word_error_rate(reference, hypothesis)
+    return result if result is not None else (0.0 if not hypothesis.strip() else 1.0)
 
 
 def character_error_rate(reference: str, hypothesis: str) -> float:
-    reference_chars = list(_normalize_text(reference))
-    hypothesis_chars = list(_normalize_text(hypothesis))
-    if not reference_chars:
-        return 0.0 if not hypothesis_chars else 1.0
-    return _levenshtein(reference_chars, hypothesis_chars) / len(reference_chars)
+    result = _shared_character_error_rate(reference, hypothesis)
+    return result if result is not None else (0.0 if not hypothesis.strip() else 1.0)
 
 
 def should_score_accuracy(reference_path: Path | None) -> bool:
@@ -242,27 +239,3 @@ def format_run_summary(run: PipelineRun) -> str:
 
 def diagnostics_block(run: PipelineRun) -> str:
     return format_asr_diagnostics(run.diagnostics) if run.diagnostics else "[diagnostics unavailable]"
-
-
-def _normalize_text(text: str) -> str:
-    return " ".join(text.casefold().split())
-
-
-def _normalize_words(text: str) -> list[str]:
-    normalized = _normalize_text(text)
-    return normalized.split() if normalized else []
-
-
-def _levenshtein(left: Sequence[str], right: Sequence[str]) -> int:
-    if len(left) < len(right):
-        left, right = right, left
-    previous = list(range(len(right) + 1))
-    for row_index, left_item in enumerate(left, start=1):
-        current = [row_index]
-        for column_index, right_item in enumerate(right, start=1):
-            insertion = current[column_index - 1] + 1
-            deletion = previous[column_index] + 1
-            substitution = previous[column_index - 1] + (left_item != right_item)
-            current.append(min(insertion, deletion, substitution))
-        previous = current
-    return previous[-1]

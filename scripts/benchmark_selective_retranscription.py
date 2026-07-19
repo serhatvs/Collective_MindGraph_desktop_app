@@ -19,9 +19,12 @@ for import_path in (str(ROOT), str(BACKEND_ROOT)):
         sys.path.insert(0, import_path)
 
 from app.config import Settings  # noqa: E402
+from app.evaluation.transcription_metrics import (  # noqa: E402
+    compare_to_reference,
+    evaluate_domain_terms,
+)
 from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
 from app.pipeline.transcription_glossary import resolve_transcription_glossary  # noqa: E402
-from run_project_turkish_transcription_benchmark import compare_to_reference  # noqa: E402
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
@@ -232,13 +235,8 @@ def resolve_domain_terms(glossary_path: Path | None) -> list[str]:
 
 
 def calculate_domain_term_accuracy(reference: str, hypothesis: str, terms: list[str]) -> float | None:
-    reference_folded = reference.casefold()
-    hypothesis_folded = hypothesis.casefold()
-    expected_terms = [term for term in terms if term.casefold() in reference_folded]
-    if not expected_terms:
-        return None
-    matched = sum(1 for term in expected_terms if term.casefold() in hypothesis_folded)
-    return matched / len(expected_terms)
+    result = evaluate_domain_terms(reference, hypothesis, terms)
+    return result.accuracy if result else None
 
 
 def build_report(runs: list[BenchmarkRun]) -> str:

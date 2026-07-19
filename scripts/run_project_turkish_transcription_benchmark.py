@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
-import re
 import subprocess
 import sys
 import wave
@@ -22,6 +21,13 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
+
+from app.evaluation.transcription_metrics import (  # noqa: E402
+    NormalizationPolicy,
+    compare_to_reference as _shared_compare_to_reference,
+    edit_distance_with_operations,
+    normalize_text as _shared_normalize_text,
+)
 
 MOCK_FALLBACK_STATUS = "ASR_STATUS=MOCK_FALLBACK"
 TURKISH_CHARS = ["\u00e7", "\u011f", "\u0131", "\u0130", "\u00f6", "\u015f", "\u00fc"]
@@ -345,83 +351,20 @@ def build_error_result(
 
 
 def compare_to_reference(reference: str | None, candidate: str) -> dict[str, Any] | None:
-    if not reference:
-        return None
-    ref_words = tokenize_words(reference)
-    cand_words = tokenize_words(candidate)
-    word_distance, word_ops = edit_distance_with_ops(ref_words, cand_words)
-
-    ref_chars = list(normalize_for_metric(reference))
-    cand_chars = list(normalize_for_metric(candidate))
-    char_distance, _char_ops = edit_distance_with_ops(ref_chars, cand_chars)
-
-    return {
-        "wer": word_distance / len(ref_words) if ref_words else None,
-        "cer": char_distance / len(ref_chars) if ref_chars else None,
-        "notable_substitutions": word_ops["substitutions"][:15],
-        "notable_deletions": word_ops["deletions"][:15],
-        "notable_insertions": word_ops["insertions"][:15],
-    }
+    return _shared_compare_to_reference(reference, candidate)
 
 
 def tokenize_words(text: str) -> list[str]:
-    return re.findall(r"[\w'-]+", normalize_for_metric(text), flags=re.UNICODE)
+    normalized = normalize_for_metric(text)
+    return normalized.split() if normalized else []
 
 
 def normalize_for_metric(text: str) -> str:
-    return " ".join(text.casefold().strip().split())
+    return _shared_normalize_text(text, NormalizationPolicy())
 
 
 def edit_distance_with_ops(reference: list[str], candidate: list[str]) -> tuple[int, dict[str, list[Any]]]:
-    rows = len(reference) + 1
-    cols = len(candidate) + 1
-    cost = [[0] * cols for _ in range(rows)]
-    back = [[""] * cols for _ in range(rows)]
-
-    for i in range(1, rows):
-        cost[i][0] = i
-        back[i][0] = "delete"
-    for j in range(1, cols):
-        cost[0][j] = j
-        back[0][j] = "insert"
-
-    for i in range(1, rows):
-        for j in range(1, cols):
-            if reference[i - 1] == candidate[j - 1]:
-                cost[i][j] = cost[i - 1][j - 1]
-                back[i][j] = "equal"
-                continue
-            choices = [
-                (cost[i - 1][j - 1] + 1, "substitute"),
-                (cost[i - 1][j] + 1, "delete"),
-                (cost[i][j - 1] + 1, "insert"),
-            ]
-            cost[i][j], back[i][j] = min(choices, key=lambda item: item[0])
-
-    ops: dict[str, list[Any]] = {"substitutions": [], "deletions": [], "insertions": []}
-    i = len(reference)
-    j = len(candidate)
-    while i > 0 or j > 0:
-        action = back[i][j]
-        if action == "equal":
-            i -= 1
-            j -= 1
-        elif action == "substitute":
-            ops["substitutions"].append({"reference": reference[i - 1], "actual": candidate[j - 1]})
-            i -= 1
-            j -= 1
-        elif action == "delete":
-            ops["deletions"].append(reference[i - 1])
-            i -= 1
-        elif action == "insert":
-            ops["insertions"].append(candidate[j - 1])
-            j -= 1
-        else:
-            break
-
-    for items in ops.values():
-        items.reverse()
-    return cost[-1][-1], ops
+    return edit_distance_with_operations(reference, candidate)
 
 
 def check_turkish_characters(raw_text: str, cleaned_text: str) -> dict[str, dict[str, bool]]:

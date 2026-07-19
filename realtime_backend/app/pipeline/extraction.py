@@ -1,7 +1,5 @@
-import json
 import asyncio
-import os
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any
 from ..config import Settings
 from .local_llm_provider import LocalLLMEndpointProvider
 from ..models import ConversationTranscript, TaskItem, DecisionItem, TopicSegment
@@ -17,7 +15,6 @@ class AIExtractionService:
     """
 
     def __init__(self, settings: Settings):
-        self.settings = settings
         # Initialize local LLM provider
         self.llm_provider = LocalLLMEndpointProvider(
             base_url=settings.llm_endpoint or "http://127.0.0.1:1234/v1",

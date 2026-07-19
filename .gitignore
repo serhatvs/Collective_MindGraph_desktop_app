@@ -5,12 +5,16 @@ __pycache__/
 .ruff_cache/
 .idea/
 .venv/
+/.venv-win/
 venv/
 .env
 realtime_backend/run_logs/
 realtime_backend/realtime_backend_data/
 realtime_backend/realtime_backend_temp/
+/realtime_backend_temp/
+/realtime_backend_data/
 wake_phrase_models/
+/models/
 recordings/
 video/
 dist/
@@ -26,3 +30,5 @@ realtime_backend/tests/fixtures/audio/common_voice_tr/*
 *.sqlite3
 benchmark_results.json
 datasets/transcription/
+/transcription_settings.json
+/ui_dump*.txt

@@ -6,7 +6,7 @@ Set-Location $RepoRoot
 
 $env:PYTHONPATH = "src;."
 
-$PreferredPython = "D:\Workspace\Collective-MindGraph-2\.venv-win\Scripts\python.exe"
+$PreferredPython = Join-Path $RepoRoot ".venv-win\Scripts\python.exe"
 
 if (Test-Path $PreferredPython) {
     $PythonExe = $PreferredPython

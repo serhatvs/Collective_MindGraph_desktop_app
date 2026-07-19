@@ -24,7 +24,6 @@ from ..widgets import EmptyStateWidget
 class ReviewQueuePage(QWidget):
     node_approved = Signal(str) # node_id
     node_rejected = Signal(str, str) # node_id, reason
-    node_edited = Signal(str, str) # node_id, new_text
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -54,10 +53,7 @@ class ReviewQueuePage(QWidget):
         layout.addWidget(self.empty_state, 1)
         self.table.hide()
         
-        self._all_nodes = []
-
     def update_pending_data(self, nodes: list[dict]) -> None:
-        self._all_nodes = nodes
         self.table.setRowCount(0)
         
         # Filter for pending

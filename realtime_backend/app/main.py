@@ -13,7 +13,6 @@ from .pipeline.orchestrator import TranscriptionPipeline
 from .services.conversation_store import ConversationStore
 from .services.media import FFmpegAudioNormalizer
 from .services.quality import TranscriptQualityService
-from .services.query import KeywordMemoryQueryService
 from .services.hybrid_memory_query_service import HybridMemoryQueryService
 from .services.graph_reasoning import GraphReasoningService
 from .services.graph_repository import ProductionGraphRepository
@@ -67,10 +66,8 @@ def build_app() -> FastAPI:
     )
     quality_service = TranscriptQualityService()
     transcription_service = TranscriptionService(
-        settings=settings,
         pipeline=pipeline,
         store=store,
-        normalizer=normalizer,
     )
     streaming_service = StreamingTranscriptionService(
         settings=settings,

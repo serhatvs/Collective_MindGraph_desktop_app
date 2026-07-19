@@ -80,6 +80,9 @@ class StreamingTranscriptionService:
     def get_session(self, conversation_id: str) -> StreamSession | None:
         return self._sessions.get(conversation_id)
 
+    def discard_session(self, conversation_id: str) -> None:
+        self._sessions.pop(conversation_id, None)
+
     async def append_audio(self, conversation_id: str, pcm_chunk: bytes) -> ConversationTranscript | None:
         session = self._sessions[conversation_id]
         async with session.lock:
@@ -120,39 +123,42 @@ class StreamingTranscriptionService:
         start_byte = self._offset_to_byte_index(session, window_start)
         window_pcm = bytes(session.pcm_buffer[start_byte:])
         wav_path = self._settings.temp_dir / f"{session.conversation_id}_{int(buffer_end * 1000)}.wav"
-        await asyncio.to_thread(
-            self._normalizer.pcm_to_wav,
-            window_pcm,
-            wav_path,
-            self._settings.sample_width_bytes,
-        )
-        partial = await self._pipeline.process_audio_path(
-            wav_path,
-            conversation_id=session.conversation_id,
-            source="stream",
-            language=session.language,
-            quality_mode=session.quality_mode,
-            prior_segments=session.transcript.segments,
-            speaker_mapper=session.speaker_mapper,
-            chunk_offset=window_start,
-            include_summary=False,
-            debug=False,
-            session_glossary_terms=session.session_glossary_terms,
-            user_hotwords=session.user_hotwords,
-        )
-        session.transcript.segments = self._replace_tail(
-            session.transcript.segments,
-            partial.segments,
-            window_start,
-        )
-        session.transcript.updated_at = datetime.now(tz=UTC)
-        session.transcript.metadata = dict(partial.metadata)
-        session.transcript.diagnostics = partial.diagnostics
-        self._store.save(session.transcript)
-        session.committed_seconds = buffer_end
-        if not finalize:
-            self._compact_buffer(session, buffer_end)
-        return session.transcript
+        try:
+            await asyncio.to_thread(
+                self._normalizer.pcm_to_wav,
+                window_pcm,
+                wav_path,
+                self._settings.sample_width_bytes,
+            )
+            partial = await self._pipeline.process_audio_path(
+                wav_path,
+                conversation_id=session.conversation_id,
+                source="stream",
+                language=session.language,
+                quality_mode=session.quality_mode,
+                prior_segments=session.transcript.segments,
+                speaker_mapper=session.speaker_mapper,
+                chunk_offset=window_start,
+                include_summary=False,
+                debug=False,
+                session_glossary_terms=session.session_glossary_terms,
+                user_hotwords=session.user_hotwords,
+            )
+            session.transcript.segments = self._replace_tail(
+                session.transcript.segments,
+                partial.segments,
+                window_start,
+            )
+            session.transcript.updated_at = datetime.now(tz=UTC)
+            session.transcript.metadata = dict(partial.metadata)
+            session.transcript.diagnostics = partial.diagnostics
+            self._store.save(session.transcript)
+            session.committed_seconds = buffer_end
+            if not finalize:
+                self._compact_buffer(session, buffer_end)
+            return session.transcript
+        finally:
+            wav_path.unlink(missing_ok=True)
 
     @staticmethod
     def _replace_tail(

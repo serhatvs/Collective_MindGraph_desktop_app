@@ -6,7 +6,7 @@ import json
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from ..pipeline.transcript_formatter import build_transcript_response
+from ..pipeline.transcript_formatter import build_streaming_transcript_event
 from ..pipeline.transcription_glossary import parse_term_input
 
 router = APIRouter()
@@ -26,44 +26,28 @@ async def transcribe_stream(websocket: WebSocket) -> None:
     if parsed_hotwords:
         session_kwargs["user_hotwords"] = parsed_hotwords
     session = service.create_session(**session_kwargs)
-    await websocket.send_json(
-        {
-            "event": "ready",
-            "conversation_id": session.conversation_id,
-            "audio_format": {
-                "encoding": "pcm_s16le",
-                "sample_rate": websocket.app.state.settings.sample_rate,
-                "channels": websocket.app.state.settings.channels,
-            },
-            "streaming": {
-                "partial_window_seconds": websocket.app.state.settings.stream_partial_window_seconds,
-                "overlap_seconds": websocket.app.state.settings.stream_overlap_seconds,
-            },
-        }
-    )
-
     try:
+        await websocket.send_json(
+            {
+                "event": "ready",
+                "conversation_id": session.conversation_id,
+                "audio_format": {
+                    "encoding": "pcm_s16le",
+                    "sample_rate": websocket.app.state.settings.sample_rate,
+                    "channels": websocket.app.state.settings.channels,
+                },
+                "streaming": {
+                    "partial_window_seconds": websocket.app.state.settings.stream_partial_window_seconds,
+                    "overlap_seconds": websocket.app.state.settings.stream_overlap_seconds,
+                },
+            }
+        )
         while True:
             message = await websocket.receive()
             if "bytes" in message and message["bytes"] is not None:
                 partial = await service.append_audio(session.conversation_id, message["bytes"])
                 if partial is not None:
-                    response = build_transcript_response(partial)
-                    await websocket.send_json(
-                        {
-                            "event": "partial_transcript",
-                            "conversation_id": partial.conversation_id,
-                            "segments": [segment.model_dump() for segment in partial.segments],
-                            "text_output": response.renderings.corrected_text_output,
-                            "raw_text_output": response.renderings.raw_text_output,
-                            "corrected_text_output": response.renderings.corrected_text_output,
-                            "speaker_stats": [item.model_dump() for item in response.speaker_stats],
-                            "asr_status": partial.metadata.get("asr_status"),
-                            "warnings": list(partial.metadata.get("warnings", [])),
-                            "metadata": dict(partial.metadata),
-                            "is_final": False,
-                        }
-                    )
+                    await websocket.send_json(build_streaming_transcript_event(partial, is_final=False))
                 continue
 
             if "text" not in message or message["text"] is None:
@@ -73,49 +57,16 @@ async def transcribe_stream(websocket: WebSocket) -> None:
             event = payload.get("event")
             if event == "flush":
                 partial = await service.flush_partial(session.conversation_id)
-                response = build_transcript_response(partial)
-                await websocket.send_json(
-                    {
-                        "event": "partial_transcript",
-                        "conversation_id": partial.conversation_id,
-                        "segments": [segment.model_dump() for segment in partial.segments],
-                        "text_output": response.renderings.corrected_text_output,
-                        "raw_text_output": response.renderings.raw_text_output,
-                        "corrected_text_output": response.renderings.corrected_text_output,
-                        "speaker_stats": [item.model_dump() for item in response.speaker_stats],
-                        "asr_status": partial.metadata.get("asr_status"),
-                        "warnings": list(partial.metadata.get("warnings", [])),
-                        "metadata": dict(partial.metadata),
-                        "is_final": False,
-                    }
-                )
+                await websocket.send_json(build_streaming_transcript_event(partial, is_final=False))
                 continue
             if event == "finalize":
                 partial = await service.finalize(session.conversation_id)
-                response = build_transcript_response(partial)
-                await websocket.send_json(
-                    {
-                        "event": "final_transcript",
-                        "conversation_id": partial.conversation_id,
-                        "segments": [segment.model_dump() for segment in partial.segments],
-                        "summary": partial.summary,
-                        "topics": [topic.model_dump() for topic in partial.topics],
-                        "action_items": [item.model_dump() for item in partial.action_items],
-                        "decisions": [item.model_dump() for item in partial.decisions],
-                        "people": partial.people,
-                        "text_output": response.renderings.corrected_text_output,
-                        "raw_text_output": response.renderings.raw_text_output,
-                        "corrected_text_output": response.renderings.corrected_text_output,
-                        "speaker_stats": [item.model_dump() for item in response.speaker_stats],
-                        "asr_status": partial.metadata.get("asr_status"),
-                        "warnings": list(partial.metadata.get("warnings", [])),
-                        "metadata": dict(partial.metadata),
-                        "is_final": True,
-                    }
-                )
-                continue
+                await websocket.send_json(build_streaming_transcript_event(partial, is_final=True))
+                return
             if event == "close":
                 await websocket.close()
                 return
     except WebSocketDisconnect:
         return
+    finally:
+        service.discard_session(session.conversation_id)

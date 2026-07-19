@@ -18,7 +18,7 @@ from ..models import (
     SummaryResponse, 
     TranscriptResponse
 )
-from ..pipeline.transcript_formatter import build_transcript_response
+from ..pipeline.transcript_formatter import build_file_transcription_response, build_transcript_response
 from ..pipeline.asr_runtime_config import build_asr_diagnostics
 from ..pipeline.transcription_glossary import parse_term_input
 
@@ -98,17 +98,7 @@ async def transcribe_file(
         transcript = await service.transcribe_file(source_path, **service_kwargs)
     finally:
         source_path.unlink(missing_ok=True)
-    response = build_transcript_response(transcript)
-    return FileTranscriptionResponse(
-        transcript=transcript,
-        text_output=response.renderings.corrected_text_output,
-        raw_text_output=response.renderings.raw_text_output,
-        corrected_text_output=response.renderings.corrected_text_output,
-        speaker_stats=response.speaker_stats,
-        asr_status=transcript.metadata.get("asr_status"),
-        warnings=list(transcript.metadata.get("warnings", [])),
-        metadata=dict(transcript.metadata),
-    )
+    return build_file_transcription_response(transcript)
 
 
 @router.get("/transcript/{conversation_id}", response_model=TranscriptResponse)

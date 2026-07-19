@@ -1,37 +1,62 @@
-#!/bin/bash
-# Check if the system is ready for the local demo
+#!/usr/bin/env bash
+# Check whether the local development demo has its required executables.
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT" || exit 1
+
+status=0
+python_runtime=""
+
 echo "--- Collective MindGraph Demo Readiness Check ---"
-echo ""
+echo
 
-# Python check
-python3 --version || { echo "❌ python3 missing"; exit 1; }
-
-# ffmpeg check
-ffmpeg -version > /dev/null 2>&1 || { echo "❌ ffmpeg missing. Please install ffmpeg."; }
-echo "✅ ffmpeg found."
-
-# Dependencies check
-if [ -d "realtime_backend/.venv" ]; then
-    echo "✅ Backend venv found."
+if command -v python3 >/dev/null 2>&1; then
+    python3 --version
+    python_runtime="$(command -v python3)"
 else
-    echo "❌ Backend venv missing. Run install instructions first."
+    echo "[MISSING] python3"
+    status=1
 fi
 
-# Model check (heuristic)
-echo "✅ Local ASR config: faster-whisper (offline-safe)."
+ffmpeg_override="${CMG_RT_FFMPEG_PATH:-${CMG_FFMPEG_EXE:-}}"
+if [ -n "$ffmpeg_override" ] && [ -x "$ffmpeg_override" ]; then
+    echo "[OK] ffmpeg override: $ffmpeg_override"
+elif command -v ffmpeg >/dev/null 2>&1; then
+    echo "[OK] ffmpeg found on PATH."
+else
+    echo "[MISSING] ffmpeg (install it or set CMG_RT_FFMPEG_PATH)."
+    status=1
+fi
 
-# Cloud provider check
-echo "✅ Cloud providers: REMOVED (AWS/Deepgram logic gone)."
+if [ -x "realtime_backend/.venv/bin/python" ]; then
+    echo "[OK] Backend virtual environment found."
+    python_runtime="$REPO_ROOT/realtime_backend/.venv/bin/python"
+else
+    echo "[INFO] Backend virtual environment not found; checking system Python."
+fi
 
-# Diarization check
-echo "⚠️ Diarization: NOT ENABLED (Planned for future roadmap)."
+if [ -n "$python_runtime" ] && "$python_runtime" -c "import fastapi, faster_whisper, PySide6" >/dev/null 2>&1; then
+    echo "[OK] Core backend, ASR, and desktop dependencies are importable."
+else
+    echo "[MISSING] Core Python dependencies; run the documented dependency installer."
+    status=1
+fi
 
-# Registry check
+echo "[INFO] Local ASR: faster-whisper; remote model downloads are disabled by default."
+echo "[INFO] Cloud providers: removed."
+echo "[INFO] Diarization: roadmap only; disabled by default."
+
 if [ -f "transcription_settings.json" ]; then
-    echo "✅ Desktop settings found."
+    echo "[INFO] Local desktop settings found (ignored by Git)."
 fi
 
-echo ""
-echo "🚀 If no errors above, you are ready to run the demo!"
+echo
+if [ "$status" -ne 0 ]; then
+    echo "Readiness check failed. Resolve the missing requirements above."
+    exit "$status"
+fi
+
+echo "Readiness check passed."
 echo "1. Run ./scripts/dev_backend.sh"
 echo "2. Run ./scripts/dev_desktop.sh"

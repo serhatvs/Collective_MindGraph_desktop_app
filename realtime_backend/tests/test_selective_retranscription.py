@@ -7,15 +7,23 @@ from pathlib import Path
 import pytest
 
 from app.config import Settings
-from app.models import ASRSegment, TranscriptionDiagnostics, WordTimestamp
-from app.pipeline.asr import _call_faster_whisper_transcribe, resolve_asr_quality_profile
+from app.models import ASRSegment, SpeechRegion, TranscriptionDiagnostics, WordTimestamp
+from app.pipeline.asr import (
+    _call_faster_whisper_transcribe,
+    offset_asr_segments,
+    resolve_asr_quality_profile,
+    transcribe_with_glossary_compatibility,
+)
 from app.pipeline.orchestrator import TranscriptionPipeline
 from app.pipeline.selective_retranscription import (
     SegmentRetranscriptionTrigger,
     build_retranscription_regions,
     find_retranscription_triggers,
 )
-from app.pipeline.transcription_candidate_selector import TranscriptionCandidateSelector
+from app.pipeline.transcription_candidate_selector import (
+    TranscriptionCandidateSelector,
+    mean_word_probability,
+)
 from app.pipeline.transcription_glossary import (
     GLOBAL_GLOSSARY_PATH,
     load_glossary_file,
@@ -59,6 +67,105 @@ def _segment(
         text_length=len(text),
         metadata={"word_confidence": word_probability},
     )
+
+
+def test_glossary_compatible_asr_call_preserves_regions_and_supports_legacy_provider(tmp_path: Path):
+    glossary = resolve_transcription_glossary(Settings(), session_terms=["MindGraph"])
+    regions = [SpeechRegion(start=0.25, end=0.75)]
+
+    class GlossaryProvider:
+        def __init__(self) -> None:
+            self.received = None
+
+        def transcribe(self, audio_path, language, received_regions, quality_mode, *, glossary=None):
+            self.received = (audio_path, language, received_regions, quality_mode, glossary)
+            return []
+
+    current = GlossaryProvider()
+    audio_path = tmp_path / "meeting.wav"
+
+    assert transcribe_with_glossary_compatibility(
+        current,
+        audio_path,
+        "tr",
+        regions,
+        "max_quality",
+        glossary,
+    ) == []
+    assert current.received == (audio_path, "tr", regions, "max_quality", glossary)
+
+    class LegacyProvider:
+        def __init__(self) -> None:
+            self.received = None
+
+        def transcribe(self, audio_path, language, received_regions, quality_mode):
+            self.received = (audio_path, language, received_regions, quality_mode)
+            return []
+
+    legacy = LegacyProvider()
+
+    assert transcribe_with_glossary_compatibility(
+        legacy,
+        audio_path,
+        "tr",
+        None,
+        "selective_recovery",
+        glossary,
+    ) == []
+    assert legacy.received == (audio_path, "tr", None, "selective_recovery")
+
+
+def test_glossary_compatible_asr_call_does_not_mask_unrelated_type_error(tmp_path: Path):
+    glossary = resolve_transcription_glossary(Settings(), session_terms=["MindGraph"])
+
+    class BrokenProvider:
+        def transcribe(self, *_args, **_kwargs):
+            raise TypeError("provider conversion failed")
+
+    with pytest.raises(TypeError, match="provider conversion failed"):
+        transcribe_with_glossary_compatibility(
+            BrokenProvider(),
+            tmp_path / "meeting.wav",
+            "tr",
+            None,
+            "max_quality",
+            glossary,
+        )
+
+
+def test_asr_segment_offset_shifts_words_and_keeps_metadata_independent():
+    original = ASRSegment(
+        start=1.0,
+        end=2.0,
+        text="ornek",
+        words=[
+            WordTimestamp(start=1.1, end=1.4, word="ornek", probability=0.8),
+            WordTimestamp(start=None, end=None, word="?", probability=None),
+        ],
+        metadata={"nested": {"labels": ["first-pass"]}},
+    )
+
+    shifted = offset_asr_segments([original], 3.5, deep=True)[0]
+
+    assert (shifted.start, shifted.end) == (4.5, 5.5)
+    assert (shifted.words[0].start, shifted.words[0].end) == pytest.approx((4.6, 4.9))
+    assert (shifted.words[1].start, shifted.words[1].end) == (None, None)
+    shifted.metadata["nested"]["labels"].append("second-pass")
+    assert original.metadata == {"nested": {"labels": ["first-pass"]}}
+
+
+def test_mean_word_probability_uses_words_before_metadata_fallback():
+    words = _segment(0.0, 1.0, "bir iki", avg_logprob=-0.2, word_probability=0.8)
+    words.metadata["word_confidence"] = 0.1
+    metadata_only = ASRSegment(
+        start=0.0,
+        end=1.0,
+        text="bir",
+        metadata={"word_confidence": "0.65"},
+    )
+
+    assert mean_word_probability(words) == pytest.approx(0.8)
+    assert mean_word_probability(metadata_only) == pytest.approx(0.65)
 
 
 def test_selective_recovery_profile_is_stronger_and_configurable():

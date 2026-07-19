@@ -77,7 +77,7 @@ class TranscriptionCandidateSelector:
     def score(self, candidate: ASRSegment, *, language: str | None) -> CandidateScore:
         text = candidate.text.strip()
         duration = max(0.0, candidate.end - candidate.start)
-        word_probability = _mean_word_probability(candidate)
+        word_probability = mean_word_probability(candidate)
         logprob_score = _logprob_score(candidate.avg_logprob)
         word_probability_score = _probability_score(word_probability, candidate.confidence)
         no_speech_score = _no_speech_score(candidate.no_speech_prob)
@@ -184,7 +184,7 @@ class TranscriptionCandidateSelector:
         return score, warnings
 
 
-def _mean_word_probability(candidate: ASRSegment) -> float | None:
+def mean_word_probability(candidate: ASRSegment) -> float | None:
     values = [word.probability for word in candidate.words if word.probability is not None]
     if not values:
         value = candidate.metadata.get("word_confidence")

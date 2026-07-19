@@ -145,6 +145,61 @@ class BaseASR(ABC):
         raise NotImplementedError
 
 
+def transcribe_with_glossary_compatibility(
+    provider: BaseASR,
+    audio_path: Path,
+    language: str | None,
+    regions: list[SpeechRegion] | None,
+    quality_mode: str,
+    glossary: ResolvedGlossary,
+) -> list[ASRSegment]:
+    """Call an ASR provider while retaining support for pre-glossary providers."""
+
+    try:
+        return provider.transcribe(
+            audio_path,
+            language,
+            regions,
+            quality_mode,
+            glossary=glossary,
+        )
+    except TypeError as exc:
+        if "glossary" not in str(exc):
+            raise
+        return provider.transcribe(audio_path, language, regions, quality_mode)
+
+
+def offset_asr_segments(
+    items: list[ASRSegment],
+    offset_seconds: float,
+    *,
+    deep: bool = False,
+) -> list[ASRSegment]:
+    """Return ASR segments shifted on the timeline."""
+
+    if not offset_seconds:
+        return list(items)
+    return [
+        item.model_copy(
+            update={
+                "start": item.start + offset_seconds,
+                "end": item.end + offset_seconds,
+                "words": [
+                    word.model_copy(
+                        update={
+                            "start": (word.start + offset_seconds) if word.start is not None else None,
+                            "end": (word.end + offset_seconds) if word.end is not None else None,
+                        }
+                    )
+                    for word in item.words
+                ],
+            },
+            deep=deep,
+        )
+        for item in items
+    ]
+
+
 class FasterWhisperASR(BaseASR):
     provider_name = "faster_whisper"
 

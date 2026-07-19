@@ -25,14 +25,22 @@ from ..utils.audio_process import analyze_audio_quality, inspect_audio, normaliz
 from ..utils.ids import new_conversation_id
 from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
-from .asr import ASR_STATUS_MOCK_FALLBACK, ASR_STATUS_OK, BaseASR, build_asr, resolve_asr_quality_profile
+from .asr import (
+    ASR_STATUS_MOCK_FALLBACK,
+    ASR_STATUS_OK,
+    BaseASR,
+    build_asr,
+    offset_asr_segments,
+    resolve_asr_quality_profile,
+    transcribe_with_glossary_compatibility,
+)
 from .asr_runtime_config import build_asr_diagnostics
 from .diarization import BaseDiarizer, build_diarizer
 from .llm_postprocess import LLMPostProcessor, build_llm_postprocessor
 from .speaker_mapper import StableSpeakerMapper
 from .selective_retranscription import SelectiveRetranscriptionEngine
 from .transcription_candidate_selector import TranscriptionCandidateSelector
-from .transcription_glossary import ResolvedGlossary, resolve_transcription_glossary
+from .transcription_glossary import resolve_transcription_glossary
 from .transcription_quality import estimate_transcription_confidence
 
 if TYPE_CHECKING:
@@ -225,7 +233,7 @@ class TranscriptionPipeline:
                 try:
                     first_pass_started = time.perf_counter()
                     window_asr_segments = await asyncio.to_thread(
-                        _call_asr_provider,
+                        transcribe_with_glossary_compatibility,
                         self._asr,
                         window_path,
                         resolved_language,
@@ -237,7 +245,7 @@ class TranscriptionPipeline:
                         time.perf_counter() - first_pass_started
                     )
                     absolute_offset = chunk_offset + window.start
-                    absolute_first_pass = _offset_asr_segments(window_asr_segments, absolute_offset)
+                    absolute_first_pass = offset_asr_segments(window_asr_segments, absolute_offset)
                     first_pass_segments = _replace_timeline_tail(
                         first_pass_segments,
                         absolute_first_pass,
@@ -287,7 +295,7 @@ class TranscriptionPipeline:
                 merged_segments = _replace_timeline_tail(merged_segments, merged_window_segments, absolute_offset)
                 asr_segments = _replace_timeline_tail(
                     asr_segments,
-                    _offset_asr_segments(window_asr_segments, absolute_offset),
+                    offset_asr_segments(window_asr_segments, absolute_offset),
                     absolute_offset,
                 )
                 diarization_turns = _replace_timeline_tail(
@@ -632,29 +640,6 @@ def _replace_timeline_tail(
     return preserved + incoming
 
 
-def _offset_asr_segments(items: list[ASRSegment], offset_seconds: float) -> list[ASRSegment]:
-    if not offset_seconds:
-        return list(items)
-    return [
-        item.model_copy(
-            update={
-                "start": item.start + offset_seconds,
-                "end": item.end + offset_seconds,
-                "words": [
-                    word.model_copy(
-                        update={
-                            "start": (word.start + offset_seconds) if word.start is not None else None,
-                            "end": (word.end + offset_seconds) if word.end is not None else None,
-                        }
-                    )
-                    for word in item.words
-                ],
-            }
-        )
-        for item in items
-    ]
-
-
 def _offset_diarization_turns(items: list[DiarizationTurn], offset_seconds: float) -> list[DiarizationTurn]:
     if not offset_seconds:
         return list(items)
@@ -695,28 +680,6 @@ def _unique_strings(items: list[str]) -> list[str]:
         seen.add(item)
         result.append(item)
     return result
-
-
-def _call_asr_provider(
-    provider: BaseASR,
-    audio_path: Path,
-    language: str | None,
-    regions: list[SpeechRegion] | None,
-    quality_mode: str,
-    glossary: ResolvedGlossary,
-) -> list[ASRSegment]:
-    try:
-        return provider.transcribe(
-            audio_path,
-            language,
-            regions,
-            quality_mode,
-            glossary=glossary,
-        )
-    except TypeError as exc:
-        if "glossary" not in str(exc):
-            raise
-        return provider.transcribe(audio_path, language, regions, quality_mode)
 
 
 def _initial_selective_metadata(settings: Settings) -> dict[str, object]:

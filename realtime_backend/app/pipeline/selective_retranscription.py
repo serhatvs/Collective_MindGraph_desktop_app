@@ -9,8 +9,12 @@ from typing import Any
 
 from ..models import ASRSegment
 from ..utils.audio import extract_wav_region
-from .asr import resolve_asr_quality_profile
-from .transcription_candidate_selector import TranscriptionCandidateSelector
+from .asr import (
+    offset_asr_segments,
+    resolve_asr_quality_profile,
+    transcribe_with_glossary_compatibility,
+)
+from .transcription_candidate_selector import TranscriptionCandidateSelector, mean_word_probability
 from .transcription_glossary import ResolvedGlossary
 
 
@@ -127,10 +131,11 @@ class SelectiveRetranscriptionEngine:
                     region.end,
                     self._settings.temp_dir,
                 )
-                second_pass_segments = _call_asr_provider(
+                second_pass_segments = transcribe_with_glossary_compatibility(
                     self._asr,
                     region_path,
                     language,
+                    None,
                     recovery_profile.name,
                     self._glossary,
                 )
@@ -159,7 +164,7 @@ class SelectiveRetranscriptionEngine:
                     region_path.unlink(missing_ok=True)
 
             second_pass_segments = _clamp_asr_segments_to_region(
-                _offset_asr_segments(second_pass_segments, region.start),
+                offset_asr_segments(second_pass_segments, region.start, deep=True),
                 region,
             )
             first_candidate = _combine_asr_candidates(
@@ -260,7 +265,7 @@ def find_retranscription_triggers(
             settings.selective_retranscription_compression_ratio_threshold
         ):
             reasons.append("compression_ratio_above_threshold")
-        word_probability = _mean_word_probability(segment)
+        word_probability = mean_word_probability(segment)
         if word_probability is not None and word_probability < float(
             settings.selective_retranscription_word_probability_threshold
         ):
@@ -369,13 +374,6 @@ def _regions_can_merge(
     return gap <= merge_gap_seconds and combined_duration <= max_region_duration
 
 
-def _mean_word_probability(segment: ASRSegment) -> float | None:
-    values = [word.probability for word in segment.words if word.probability is not None]
-    if values:
-        return sum(float(value) for value in values) / len(values)
-    return _optional_float(segment.metadata.get("word_confidence"))
-
-
 def _optional_float(value: object) -> float | None:
     if value is None:
         return None
@@ -383,51 +381,6 @@ def _optional_float(value: object) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
-
-
-def _call_asr_provider(
-    provider: Any,
-    audio_path: Path,
-    language: str | None,
-    quality_mode: str,
-    glossary: ResolvedGlossary,
-) -> list[ASRSegment]:
-    try:
-        return provider.transcribe(
-            audio_path,
-            language,
-            None,
-            quality_mode,
-            glossary=glossary,
-        )
-    except TypeError as exc:
-        if "glossary" not in str(exc):
-            raise
-        return provider.transcribe(audio_path, language, None, quality_mode)
-
-
-def _offset_asr_segments(items: list[ASRSegment], offset_seconds: float) -> list[ASRSegment]:
-    if not offset_seconds:
-        return list(items)
-    return [
-        item.model_copy(
-            update={
-                "start": item.start + offset_seconds,
-                "end": item.end + offset_seconds,
-                "words": [
-                    word.model_copy(
-                        update={
-                            "start": (word.start + offset_seconds) if word.start is not None else None,
-                            "end": (word.end + offset_seconds) if word.end is not None else None,
-                        }
-                    )
-                    for word in item.words
-                ],
-            },
-            deep=True,
-        )
-        for item in items
-    ]
 
 
 def _combine_asr_candidates(

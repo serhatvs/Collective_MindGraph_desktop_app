@@ -304,22 +304,35 @@ def write_experiment_outputs(
     dataset: AnnotationDataset,
     configurations: list[dict[str, Any]],
     results: list[dict[str, Any]],
+    *,
+    planned_recording_ids: Iterable[str] | None = None,
 ) -> None:
     output = output_directory.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
+    planned_ids = (
+        sorted({str(recording_id) for recording_id in planned_recording_ids})
+        if planned_recording_ids is not None
+        else None
+    )
     payload = {
         "schema_version": EXPERIMENT_RESULTS_SCHEMA_VERSION,
         "dataset_name": dataset.manifest["dataset_name"],
         "dataset_path": str(dataset.root),
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "configurations": configurations,
+        "planned_recording_ids": planned_ids,
         "results": results,
     }
     atomic_write_json(output / "experiment_results.json", payload)
     _write_results_csv(output / "experiment_results.csv", results)
     atomic_write_text(
         output / "TRANSCRIPTION_EXPERIMENT_REPORT.md",
-        build_experiment_report(dataset, configurations, results),
+        build_experiment_report(
+            dataset,
+            configurations,
+            results,
+            planned_recording_ids=planned_ids,
+        ),
     )
 
 
@@ -327,9 +340,15 @@ def build_experiment_report(
     dataset: AnnotationDataset,
     configurations: list[dict[str, Any]],
     results: list[dict[str, Any]],
+    *,
+    planned_recording_ids: Iterable[str] | None = None,
 ) -> str:
     aggregates = aggregate_experiment_results(results)
-    best = choose_best_configuration(aggregates)
+    best = choose_best_configuration(
+        aggregates,
+        expected_configuration_keys=[configuration_key(item) for item in configurations],
+        expected_recording_ids=planned_recording_ids,
+    )
     condition_counts: dict[str, int] = {}
     for recording in dataset.recordings:
         for tag in recording.get("recording_condition_tags", []):
@@ -412,7 +431,7 @@ def build_experiment_report(
         )
     elif any(item.get("wer") is not None for item in aggregates):
         lines.append(
-            "No best configuration is declared because failures or unequal recording coverage make the configurations incomparable."
+            "No best configuration is declared because failures or unequal recording coverage, including an incomplete planned experiment matrix, make the configurations incomparable."
         )
     else:
         lines.append("No best configuration is declared because no valid human-reference metrics were available.")
@@ -504,12 +523,30 @@ def aggregate_experiment_results(results: list[dict[str, Any]]) -> list[dict[str
     return aggregates
 
 
-def choose_best_configuration(aggregates: list[dict[str, Any]]) -> dict[str, Any] | None:
+def choose_best_configuration(
+    aggregates: list[dict[str, Any]],
+    *,
+    expected_configuration_keys: Iterable[str] | None = None,
+    expected_recording_ids: Iterable[str] | None = None,
+) -> dict[str, Any] | None:
     candidates = [item for item in aggregates if item.get("wer") is not None]
     if not candidates:
         return None
+    if expected_configuration_keys is not None:
+        expected_keys = {str(value) for value in expected_configuration_keys}
+        observed_keys = {str(item.get("configuration_key") or "") for item in aggregates}
+        if not expected_keys or observed_keys != expected_keys:
+            return None
     if len(candidates) != len(aggregates) or any(item.get("failure_count") for item in aggregates):
         return None
+    if expected_recording_ids is not None:
+        expected_recordings = tuple(sorted({str(value) for value in expected_recording_ids}))
+        if not expected_recordings or any(
+            tuple(str(value) for value in item.get("attempted_recording_ids") or ())
+            != expected_recordings
+            for item in aggregates
+        ):
+            return None
     attempted_coverage = {
         tuple(str(value) for value in item.get("attempted_recording_ids") or ())
         for item in aggregates

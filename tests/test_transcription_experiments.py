@@ -14,6 +14,7 @@ from tools.transcript_annotation.experiments import (
     build_experiment_configurations,
     choose_best_configuration,
     completed_experiment_ids,
+    configuration_key,
     condition_regressions,
     experiment_identifier,
     filter_recordings,
@@ -129,12 +130,20 @@ def test_output_generation_resume_and_best_configuration_use_reference_metrics(t
     strong = _result(dataset.recordings[0]["recording_id"], configurations[1], wer=0.2, cer=0.15, domain=0.7, seconds=4.0)
     output = tmp_path / "reports"
 
-    write_experiment_outputs(output, dataset, configurations, [balanced, strong])
+    write_experiment_outputs(
+        output,
+        dataset,
+        configurations,
+        [balanced, strong],
+        planned_recording_ids=[dataset.recordings[0]["recording_id"]],
+    )
     loaded = load_existing_results(output / "experiment_results.json")
+    payload = json.loads((output / "experiment_results.json").read_text(encoding="utf-8"))
     aggregates = aggregate_experiment_results(loaded)
     best = choose_best_configuration(aggregates)
 
     assert {item["experiment_id"] for item in loaded} == {balanced["experiment_id"], strong["experiment_id"]}
+    assert payload["planned_recording_ids"] == [dataset.recordings[0]["recording_id"]]
     assert best["configuration_key"].startswith("full_max_quality")
     assert (output / "experiment_results.csv").is_file()
     report = (output / "TRANSCRIPTION_EXPERIMENT_REPORT.md").read_text(encoding="utf-8")
@@ -196,6 +205,31 @@ def test_best_configuration_requires_identical_reference_coverage():
     ]
 
     assert choose_best_configuration(aggregate_experiment_results(results)) is None
+
+
+def test_report_never_ranks_an_incomplete_planned_matrix(tmp_path: Path):
+    dataset = _dataset_with_two_recordings(tmp_path)
+    configurations = build_experiment_configurations(["balanced", "max_quality"])
+    first_id = dataset.recordings[0]["recording_id"]
+    second_id = dataset.recordings[1]["recording_id"]
+    partial = _result(first_id, configurations[0], wer=0.0, cer=0.0, domain=1.0, seconds=0.5)
+    aggregates = aggregate_experiment_results([partial])
+
+    best = choose_best_configuration(
+        aggregates,
+        expected_configuration_keys=[configuration_key(item) for item in configurations],
+        expected_recording_ids=[first_id, second_id],
+    )
+    report = build_experiment_report(
+        dataset,
+        configurations,
+        [partial],
+        planned_recording_ids=[first_id, second_id],
+    )
+
+    assert best is None
+    assert "ranks first" not in report
+    assert "incomplete planned experiment matrix" in report
 
 
 def test_experiment_identifier_is_stable_for_resume():

@@ -66,6 +66,7 @@ async def main() -> int:
     )
     if not recordings:
         raise SystemExit("No non-excluded recordings matched the requested filters.")
+    planned_recording_ids = [str(recording["recording_id"]) for recording in recordings]
     glossary_file = args.glossary_file.expanduser().resolve() if args.glossary_file else None
     glossary_terms, glossary_metadata = load_experiment_glossary(dataset, glossary_file)
     results_path = output / "experiment_results.json"
@@ -87,9 +88,21 @@ async def main() -> int:
                 glossary_metadata=glossary_metadata,
             )
             results.append(result)
-            write_experiment_outputs(output, dataset, configurations, results)
+            write_experiment_outputs(
+                output,
+                dataset,
+                configurations,
+                results,
+                planned_recording_ids=planned_recording_ids,
+            )
 
-    write_experiment_outputs(output, dataset, configurations, results)
+    write_experiment_outputs(
+        output,
+        dataset,
+        configurations,
+        results,
+        planned_recording_ids=planned_recording_ids,
+    )
     failures = [item for item in results if item.get("error")]
     print(f"Wrote {len(results)} experiment result(s) to {output}")
     return 2 if failures else 0

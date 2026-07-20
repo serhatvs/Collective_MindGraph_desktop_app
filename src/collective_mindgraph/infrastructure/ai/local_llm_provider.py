@@ -1,5 +1,6 @@
 """Local LLM Provider implementation for strictly local endpoints (LM Studio, Ollama)."""
 
+import ipaddress
 import json
 import urllib.request
 import urllib.parse
@@ -25,7 +26,13 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
     def _is_local_endpoint(self, url: str) -> bool:
         parsed = urllib.parse.urlparse(url)
         host = parsed.hostname or ""
-        return host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.startswith("192.168.") or host.startswith("10.")
+        if host.casefold() == "localhost":
+            return True
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            return False
+        return address.is_loopback or address.is_private or address.is_link_local or address.is_unspecified
 
     @property
     def provider_name(self) -> str:

@@ -2,10 +2,10 @@
 
 import json
 import urllib.request
-import urllib.parse
 from urllib.error import URLError, HTTPError
 from typing import Dict, Any
 
+from ..utils.offline_safety import is_local_url
 from .ai_provider import LocalLLMProvider
 
 class LocalLLMEndpointProvider(LocalLLMProvider):
@@ -25,9 +25,7 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
             raise ValueError(f"Provider strictly requires a local endpoint. Received: {base_url}")
 
     def _is_local_endpoint(self, url: str) -> bool:
-        parsed = urllib.parse.urlparse(url)
-        host = parsed.hostname or ""
-        return host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.startswith("192.168.") or host.startswith("10.")
+        return is_local_url(url)
 
     @property
     def provider_name(self) -> str:

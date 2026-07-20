@@ -2,6 +2,9 @@ import pytest
 import json
 from unittest.mock import patch, MagicMock
 from collective_mindgraph.infrastructure.ai.local_llm_provider import LocalLLMEndpointProvider
+from realtime_backend.app.pipeline.local_llm_provider import (
+    LocalLLMEndpointProvider as BackendLocalLLMEndpointProvider,
+)
 
 def test_localhost_accepted():
     provider = LocalLLMEndpointProvider(base_url="http://127.0.0.1:1234/v1")
@@ -10,6 +13,39 @@ def test_localhost_accepted():
 def test_public_endpoint_rejected():
     with pytest.raises(ValueError, match="strictly requires a local endpoint"):
         LocalLLMEndpointProvider(base_url="https://api.openai.com/v1")
+
+
+@pytest.mark.parametrize(
+    "provider_type",
+    [LocalLLMEndpointProvider, BackendLocalLLMEndpointProvider],
+)
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "https://10.evil.example/v1",
+        "https://192.168.evil.example/v1",
+    ],
+)
+def test_deceptive_public_hostnames_are_rejected(provider_type, endpoint):
+    with pytest.raises(ValueError, match="strictly requires a local endpoint"):
+        provider_type(base_url=endpoint)
+
+
+@pytest.mark.parametrize(
+    "provider_type",
+    [LocalLLMEndpointProvider, BackendLocalLLMEndpointProvider],
+)
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        "http://172.16.0.2:1234/v1",
+        "http://[::1]:1234/v1",
+    ],
+)
+def test_private_and_ipv6_loopback_endpoints_are_accepted(provider_type, endpoint):
+    provider = provider_type(base_url=endpoint)
+
+    assert provider._is_local_endpoint(endpoint) is True
 
 @patch("urllib.request.urlopen")
 def test_is_available(mock_urlopen):

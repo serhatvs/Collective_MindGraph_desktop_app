@@ -11,11 +11,15 @@ def test_is_local_url():
     assert is_local_url("http://127.0.0.1:8080") is True
     assert is_local_url("http://192.168.1.50:11434") is True
     assert is_local_url("http://10.0.0.1") is True
+    assert is_local_url("http://172.16.0.2") is True
+    assert is_local_url("http://[::1]:1234") is True
     assert is_local_url("http://0.0.0.0") is True
     
     assert is_local_url("https://api.openai.com/v1") is False
     assert is_local_url("https://huggingface.co") is False
     assert is_local_url("http://google.com") is False
+    assert is_local_url("https://10.evil.example/v1") is False
+    assert is_local_url("https://192.168.evil.example/v1") is False
 
 def test_validate_local_endpoint():
     # Should pass

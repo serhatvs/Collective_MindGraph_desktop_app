@@ -1,3 +1,4 @@
+import wave
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -61,7 +62,15 @@ async def test_orchestrator_calls_normalization(
 
     pipeline = TranscriptionPipeline(settings, vad=vad, asr=asr, diarizer=diarizer)
 
-    mock_normalize.return_value = True
+    def normalize_to_valid_wav(_source, target, sample_rate, *_args, **_kwargs):
+        with wave.open(str(target), "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(sample_rate)
+            handle.writeframes(b"\x00\x00")
+        return True
+
+    mock_normalize.side_effect = normalize_to_valid_wav
     mock_duration.return_value = 10.0
     mock_build_windows.return_value = []
 

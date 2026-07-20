@@ -8,6 +8,7 @@ from app.pipeline.orchestrator import (
     _clip_regions_to_window,
     _replace_timeline_tail,
 )
+from app.utils.audio import create_temporary_wav_path
 
 
 class _RuntimeVAD:
@@ -129,3 +130,15 @@ def test_runtime_status_exposes_immutable_provider_snapshot(tmp_path, monkeypatc
     assert status.gpu_loaded is True
     assert status.llm_provider_resolved == "mock"
     assert status.diagnostics()["LLM provider resolved"] == "mock"
+
+
+def test_pipeline_normalization_paths_are_unique_and_contained(tmp_path):
+    first = create_temporary_wav_path(tmp_path, prefix="pipeline_norm_")
+    second = create_temporary_wav_path(tmp_path, prefix="pipeline_norm_")
+    try:
+        assert first != second
+        assert first.parent == tmp_path
+        assert second.parent == tmp_path
+    finally:
+        first.unlink(missing_ok=True)
+        second.unlink(missing_ok=True)

@@ -360,6 +360,43 @@ def test_transcribe_file_route_requires_upload_field():
     assert transcription_service.transcribe_requests == []
 
 
+@pytest.mark.parametrize("conversation_id", ["../escape", r"..\escape", r"C:\Temp\escape"])
+def test_transcribe_file_route_rejects_unsafe_conversation_id(tmp_path, conversation_id):
+    report = QualityReport(
+        conversation_id="unused",
+        segment_count=0,
+        speaker_count=0,
+        unresolved_segments=0,
+        overlap_ratio=0.0,
+        avg_asr_confidence=None,
+        avg_speaker_confidence=None,
+        word_timing_coverage=0.0,
+        corrected_change_ratio=0.0,
+        topic_count=0,
+        action_item_count=0,
+        decision_count=0,
+        question_count=0,
+        summary_present=False,
+        warnings=[],
+    )
+    client, transcription_service, _quality_service = build_client(
+        None,
+        report,
+        settings=types.SimpleNamespace(temp_dir=tmp_path),
+    )
+
+    response = client.post(
+        "/transcribe/file",
+        files={"upload": ("sample.wav", b"fake-wav-bytes", "audio/wav")},
+        data={"conversation_id": conversation_id},
+    )
+
+    assert response.status_code == 422
+    assert "conversation_id" in response.json()["detail"]
+    assert transcription_service.transcribe_requests == []
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_transcribe_file_route_cleans_up_temp_file_when_transcription_raises(tmp_path):
     report = QualityReport(
         conversation_id="unused",

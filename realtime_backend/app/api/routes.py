@@ -20,6 +20,7 @@ from ..models import (
 )
 from ..pipeline.transcript_formatter import build_file_transcription_response, build_transcript_response
 from ..pipeline.transcription_glossary import parse_term_input
+from ..utils.ids import validate_conversation_id
 
 router = APIRouter()
 
@@ -76,12 +77,13 @@ async def transcribe_file(
 ) -> FileTranscriptionResponse:
     service = request.app.state.transcription_service
     settings = request.app.state.settings
+    validated_conversation_id = _validate_optional_conversation_id(conversation_id)
     suffix = Path(upload.filename or "audio.bin").suffix or ".bin"
     source_path = settings.temp_dir / f"upload_{request.app.state.id_factory()}{suffix}"
     source_path.write_bytes(await upload.read())
     try:
         service_kwargs = {
-            "conversation_id": conversation_id,
+            "conversation_id": validated_conversation_id,
             "language": language,
             "quality_mode": quality_mode,
             "source": "upload",
@@ -100,7 +102,9 @@ async def transcribe_file(
 
 @router.get("/transcript/{conversation_id}", response_model=TranscriptResponse)
 async def get_transcript(request: Request, conversation_id: str) -> TranscriptResponse:
-    transcript = request.app.state.transcription_service.get_transcript(conversation_id)
+    transcript = request.app.state.transcription_service.get_transcript(
+        _validate_required_conversation_id(conversation_id)
+    )
     if transcript is None:
         raise HTTPException(status_code=404, detail="Transcript not found.")
     return build_transcript_response(transcript)
@@ -108,7 +112,9 @@ async def get_transcript(request: Request, conversation_id: str) -> TranscriptRe
 
 @router.get("/summary/{conversation_id}", response_model=SummaryResponse)
 async def get_summary(request: Request, conversation_id: str) -> SummaryResponse:
-    transcript = request.app.state.transcription_service.get_transcript(conversation_id)
+    transcript = request.app.state.transcription_service.get_transcript(
+        _validate_required_conversation_id(conversation_id)
+    )
     if transcript is None:
         raise HTTPException(status_code=404, detail="Transcript not found.")
     return SummaryResponse(
@@ -122,10 +128,25 @@ async def get_summary(request: Request, conversation_id: str) -> SummaryResponse
 
 @router.get("/quality/{conversation_id}", response_model=QualityReport)
 async def get_quality(request: Request, conversation_id: str) -> QualityReport:
-    transcript = request.app.state.transcription_service.get_transcript(conversation_id)
+    transcript = request.app.state.transcription_service.get_transcript(
+        _validate_required_conversation_id(conversation_id)
+    )
     if transcript is None:
         raise HTTPException(status_code=404, detail="Transcript not found.")
     return request.app.state.quality_service.build_report(transcript)
+
+
+def _validate_optional_conversation_id(conversation_id: str | None) -> str | None:
+    if not conversation_id:
+        return None
+    return _validate_required_conversation_id(conversation_id)
+
+
+def _validate_required_conversation_id(conversation_id: str) -> str:
+    try:
+        return validate_conversation_id(conversation_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/reason", response_model=ReasoningResponse)

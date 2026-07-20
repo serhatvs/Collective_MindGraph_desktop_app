@@ -7,7 +7,7 @@ from pathlib import Path
 from ..models import ConversationTranscript
 from ..pipeline.orchestrator import TranscriptionPipeline, TranscriptionRuntimeStatus
 from ..services.conversation_store import ConversationStore
-from ..utils.ids import new_conversation_id
+from ..utils.ids import new_conversation_id, validate_conversation_id
 
 
 class TranscriptionService:
@@ -30,7 +30,7 @@ class TranscriptionService:
         user_hotwords: list[str] | None = None,
         source: str = "file",
     ) -> ConversationTranscript:
-        transcript_id = conversation_id or new_conversation_id()
+        transcript_id = validate_conversation_id(conversation_id) if conversation_id else new_conversation_id()
         transcript = await self._pipeline.process_audio_path(
             source_path,
             conversation_id=transcript_id,

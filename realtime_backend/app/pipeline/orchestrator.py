@@ -20,9 +20,9 @@ from ..models import (
     TranscriptionDiagnostics,
 )
 from ..services.summary import ConversationSummaryService
-from ..utils.audio import extract_wav_region, wav_duration_seconds
+from ..utils.audio import create_temporary_wav_path, extract_wav_region, wav_duration_seconds
 from ..utils.audio_process import analyze_audio_quality, inspect_audio, normalize_audio, preprocessing_steps
-from ..utils.ids import new_conversation_id
+from ..utils.ids import new_conversation_id, validate_conversation_id
 from ..utils.turkish_cleanup import clean_turkish_transcript
 from .alignment import merge_transcript_segments
 from .asr import (
@@ -132,7 +132,9 @@ class TranscriptionPipeline:
         user_hotwords: list[str] | None = None,
     ) -> ConversationTranscript:
         start_process = datetime.now(tz=UTC)
-        resolved_conversation_id = conversation_id or new_conversation_id()
+        resolved_conversation_id = (
+            validate_conversation_id(conversation_id) if conversation_id else new_conversation_id()
+        )
         resolved_language = language or self._settings.default_language
         resolved_profile = resolve_asr_quality_profile(self._settings, quality_mode)
         resolved_quality = resolved_profile.name
@@ -160,7 +162,10 @@ class TranscriptionPipeline:
 
         # 1. Audio Preprocessing
         input_inspection = await asyncio.to_thread(inspect_audio, audio_path)
-        normalized_path = self._settings.temp_dir / f"{resolved_conversation_id}_pipeline_norm.wav"
+        normalized_path = create_temporary_wav_path(
+            self._settings.temp_dir,
+            prefix="pipeline_norm_",
+        )
         trim_silence = resolved_profile.name == "bad_mic_recovery" and self._settings.asr_safe_silence_trim
         noise_reduction = resolved_profile.name == "bad_mic_recovery" and self._settings.asr_bad_mic_noise_reduction
         preprocessing_step_names = preprocessing_steps(
@@ -168,15 +173,19 @@ class TranscriptionPipeline:
             trim_silence=trim_silence,
             noise_reduction=noise_reduction,
         )
-        normalize_success = await asyncio.to_thread(
-            normalize_audio,
-            audio_path,
-            normalized_path,
-            self._settings.sample_rate,
-            resolved_profile.preprocessing_strength,
-            trim_silence=trim_silence,
-            noise_reduction=noise_reduction,
-        )
+        try:
+            normalize_success = await asyncio.to_thread(
+                normalize_audio,
+                audio_path,
+                normalized_path,
+                self._settings.sample_rate,
+                resolved_profile.preprocessing_strength,
+                trim_silence=trim_silence,
+                noise_reduction=noise_reduction,
+            )
+        except Exception:
+            normalized_path.unlink(missing_ok=True)
+            raise
         working_path = normalized_path if normalize_success else audio_path
         preprocessing_status = (
             f"ffmpeg_{resolved_profile.preprocessing_strength}"
@@ -556,8 +565,7 @@ class TranscriptionPipeline:
             transcript.updated_at = datetime.now(tz=UTC)
             return transcript
         finally:
-            if normalize_success:
-                normalized_path.unlink(missing_ok=True)
+            normalized_path.unlink(missing_ok=True)
 
 def _build_processing_windows(
     total_duration: float,

@@ -1,3 +1,5 @@
+import pytest
+
 from app.models import ConversationTranscript, TranscriptSegment
 from app.services.conversation_store import ConversationStore
 
@@ -56,3 +58,23 @@ def test_conversation_store_loads_old_format_gracefully(tmp_path):
     assert loaded.diagnostics is None
     assert loaded.segments[0].raw_text == "hello old"
     assert loaded.segments[0].corrected_text == ""
+
+
+@pytest.mark.parametrize(
+    "conversation_id",
+    [
+        "../escape",
+        r"..\escape",
+        r"C:\Temp\escape",
+        "nested/escape",
+        ".",
+        "x" * 129,
+    ],
+)
+def test_conversation_store_rejects_unsafe_paths(tmp_path, conversation_id):
+    store = ConversationStore(tmp_path / "transcripts")
+
+    with pytest.raises(ValueError, match="conversation_id"):
+        store.path_for(conversation_id)
+
+    assert list((tmp_path / "transcripts").iterdir()) == []

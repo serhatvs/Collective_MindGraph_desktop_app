@@ -19,7 +19,7 @@
 
 ## Documentation Package
 - `PROJECT_STATUS.md`: Executive summary and implementation matrix.
-- `HANDOFF.md`: Technical architecture and developer guide.
+- [`ARCHITECTURE.md`](../dev/ARCHITECTURE.md): Maintained technical architecture guide.
 - `DEMO_FLOW.md`: Step-by-step product walkthrough.
 - `PRESENTATION_PACKAGE_TR.md`: Turkish scripts and slide outlines.
 - `TECHNICAL_OVERVIEW_FOR_PATENT.md`: Conceptual summary for formal filing.

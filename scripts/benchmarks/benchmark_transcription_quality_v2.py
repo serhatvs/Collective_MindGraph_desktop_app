@@ -26,7 +26,14 @@ from app.pipeline.transcript_formatter import format_transcript  # noqa: E402
 
 
 PROFILES = ("fast", "balanced", "max_quality", "bad_mic_recovery")
-DEFAULT_OUTPUT = ROOT / "docs" / "dev" / "TRANSCRIPTION_QUALITY_V2_REPORT.md"
+DEFAULT_OUTPUT = (
+    ROOT
+    / "docs"
+    / "reports"
+    / "2026-07-09"
+    / "transcription-benchmarks"
+    / "TRANSCRIPTION_QUALITY_V2_REPORT.md"
+)
 
 
 def parse_args() -> argparse.Namespace:

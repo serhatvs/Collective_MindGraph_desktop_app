@@ -28,7 +28,14 @@ from app.pipeline.transcription_glossary import resolve_transcription_glossary  
 
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
-DEFAULT_OUTPUT = ROOT / "docs" / "dev" / "SELECTIVE_RETRANSCRIPTION_REPORT.md"
+DEFAULT_OUTPUT = (
+    ROOT
+    / "docs"
+    / "reports"
+    / "2026-07-19"
+    / "transcription-benchmarks"
+    / "SELECTIVE_RETRANSCRIPTION_REPORT.md"
+)
 
 
 @dataclass(slots=True)

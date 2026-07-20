@@ -57,6 +57,7 @@ PYTHONPATH=src:. python3 -m pytest
 ```
 
 ## Documentation
+- **[Documentation Index](docs/README.md)**: Ownership and lifecycle map for maintained docs, reports, and archives.
 - **[Product Status](docs/product/STATUS.md)**: Capability matrix and current implementation details.
 - **[Roadmap](docs/product/ROADMAP.md)**: Future development phases.
 - **[Demo Guide](docs/demo/DEMO_FLOW.md)**: Instructions for running the technical demonstration loop.

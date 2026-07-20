@@ -86,7 +86,7 @@ python scripts/benchmarks/benchmark_transcription_quality_v2.py C:\path\audio1.w
 The script writes:
 
 ```text
-docs/dev/TRANSCRIPTION_QUALITY_V2_REPORT.md
+docs/reports/2026-07-09/transcription-benchmarks/TRANSCRIPTION_QUALITY_V2_REPORT.md
 ```
 
 ## Recommended Next Experiments

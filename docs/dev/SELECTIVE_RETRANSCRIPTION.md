@@ -101,19 +101,19 @@ Disable the feature by leaving `selective_retranscription_enabled=False` or sett
 One audio file without a reference:
 
 ```powershell
-python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meeting.wav --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/dev/SELECTIVE_RETRANSCRIPTION_REPORT.md
+python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meeting.wav --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/reports/2026-07-19/transcription-benchmarks/SELECTIVE_RETRANSCRIPTION_REPORT.md
 ```
 
 One audio file with a human reference and project glossary:
 
 ```powershell
-python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meeting.wav --reference C:\audio\meeting.txt --glossary-file C:\audio\project_glossary.json --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/dev/SELECTIVE_RETRANSCRIPTION_REPORT.md
+python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meeting.wav --reference C:\audio\meeting.txt --glossary-file C:\audio\project_glossary.json --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/reports/2026-07-19/transcription-benchmarks/SELECTIVE_RETRANSCRIPTION_REPORT.md
 ```
 
 A directory with same-stem references in a separate directory:
 
 ```powershell
-python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meetings --reference C:\audio\references --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/dev/SELECTIVE_RETRANSCRIPTION_REPORT.md
+python scripts/benchmarks/benchmark_selective_retranscription.py C:\audio\meetings --reference C:\audio\references --first-pass-profile balanced --second-pass-profile selective_recovery --output docs/reports/2026-07-19/transcription-benchmarks/SELECTIVE_RETRANSCRIPTION_REPORT.md
 ```
 
 The benchmark compares first pass only, a full-recording strong pass, and selective retranscription. With references it reports WER, CER, term accuracy, edit operations, time, real-time factor, retranscribed-region count, and retranscribed-audio percentage. Without references it omits reference metrics and reports only estimates, candidate scores, warnings, timing, and selected text.

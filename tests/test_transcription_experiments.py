@@ -199,6 +199,8 @@ def test_best_configuration_requires_failure_free_identical_recording_coverage(t
     report = build_experiment_report(dataset, configurations, results)
     assert "No best configuration is declared" in report
     assert "failures or unequal recording coverage" in report
+    assert "Condition-level rankings are suppressed" in report
+    assert "Delta From Best Condition WER" not in report
 
 
 def test_best_configuration_requires_identical_reference_coverage():

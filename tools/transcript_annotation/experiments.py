@@ -454,7 +454,7 @@ def build_experiment_report(
         lines.append("No best configuration is declared because no valid human-reference metrics were available.")
 
     lines.extend(["", "## Regressions by Condition", ""])
-    regressions = condition_regressions(results)
+    regressions = condition_regressions(results) if best is not None else []
     if regressions:
         lines.extend(
             [
@@ -465,6 +465,10 @@ def build_experiment_report(
         lines.extend(
             f"| `{item['condition']}` | `{item['configuration_key']}` | {_metric(item['wer'])} | {_metric(item['wer_delta'])} |"
             for item in regressions
+        )
+    elif best is None:
+        lines.append(
+            "Condition-level rankings are suppressed because the planned experiment matrix is incomplete or incomparable."
         )
     else:
         lines.append("No condition-level regressions can be calculated without tagged, reviewed references.")

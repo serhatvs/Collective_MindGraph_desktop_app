@@ -307,11 +307,14 @@ class AnnotationWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Cannot Open Dataset", str(exc))
             return
-        self._set_dataset(dataset)
+        if not self._set_dataset(dataset):
+            return
         if dataset.load_warnings:
             QMessageBox.warning(self, "Dataset Warnings", "\n".join(dataset.load_warnings[:20]))
 
-    def _set_dataset(self, dataset: AnnotationDataset) -> None:
+    def _set_dataset(self, dataset: AnnotationDataset) -> bool:
+        if not self._flush_pending_segment_edit():
+            return False
         self._autosave.stop()
         self.dataset = dataset
         self.current_recording_id = None
@@ -320,6 +323,7 @@ class AnnotationWindow(QMainWindow):
         self._set_dataset_controls_enabled(True)
         self.refresh_recording_list()
         self.statusBar().showMessage("Dataset opened. Human edits autosave atomically.")
+        return True
 
     def add_audio_dialog(self) -> None:
         if not self.dataset:
@@ -406,10 +410,14 @@ class AnnotationWindow(QMainWindow):
             f"Segments reviewed: {stats.get('segments_by_status', {}).get('reviewed', 0)}/{stats.get('segment_count', 0)}"
         )
 
-    def _on_recording_selected(self, current: QListWidgetItem | None, _previous: QListWidgetItem | None) -> None:
+    def _on_recording_selected(self, current: QListWidgetItem | None, previous: QListWidgetItem | None) -> None:
         if not self.dataset or current is None:
             return
-        self._autosave.stop()
+        if not self._flush_pending_segment_edit():
+            if previous is not None:
+                with QSignalBlocker(self.recording_list):
+                    self.recording_list.setCurrentItem(previous)
+            return
         self.current_recording_id = str(current.data(Qt.ItemDataRole.UserRole))
         recording = self.dataset.get_recording(self.current_recording_id)
         self.current_segment_id = None
@@ -457,7 +465,13 @@ class AnnotationWindow(QMainWindow):
             return
         row = selected_rows[0].row()
         segment_id = str(self.segment_table.item(row, 0).data(Qt.ItemDataRole.UserRole))
-        self._autosave.stop()
+        previous_segment_id = self.current_segment_id
+        if not self._flush_pending_segment_edit():
+            previous_row = self._segment_row(previous_segment_id)
+            if previous_row >= 0:
+                with QSignalBlocker(self.segment_table):
+                    self.segment_table.selectRow(previous_row)
+            return
         self.current_segment_id = segment_id
         segment = self.dataset.get_segment(self.current_recording_id, segment_id)
         recording = self.dataset.get_recording(self.current_recording_id)
@@ -500,18 +514,27 @@ class AnnotationWindow(QMainWindow):
         if not self._loading_editor and self.current_segment_id:
             self._autosave.start()
 
-    def save_current_segment(self) -> None:
+    def _flush_pending_segment_edit(self) -> bool:
+        if not self._autosave.isActive():
+            return True
+        self._autosave.stop()
+        return self.save_current_segment()
+
+    def save_current_segment(self) -> bool:
         if self._loading_editor or not self.dataset or not self.current_recording_id or not self.current_segment_id:
-            return
+            return False
+        self._autosave.stop()
+        recording_id = self.current_recording_id
+        segment_id = self.current_segment_id
         status = self.segment_status.currentText()
         reference = self.reference_text.toPlainText()
         if status == "reviewed" and not reference.strip():
             self.statusBar().showMessage("A reviewed segment must have non-empty human reference text.")
-            return
+            return False
         try:
             warnings = self.dataset.update_segment(
-                self.current_recording_id,
-                self.current_segment_id,
+                recording_id,
+                segment_id,
                 reference_text=reference,
                 reviewed_start=self.reviewed_start.value(),
                 reviewed_end=self.reviewed_end.value(),
@@ -522,12 +545,12 @@ class AnnotationWindow(QMainWindow):
             )
         except DatasetIntegrityError as exc:
             self.statusBar().showMessage(str(exc))
-            return
+            return False
         self.boundary_warning.setText("; ".join(warnings) or "None")
         self.statusBar().showMessage("Segment autosaved atomically; original ASR fields were not changed.")
-        recording = self.dataset.get_recording(self.current_recording_id)
-        segment = self.dataset.get_segment(self.current_recording_id, self.current_segment_id)
-        row = self.segment_table.currentRow()
+        recording = self.dataset.get_recording(recording_id)
+        segment = self.dataset.get_segment(recording_id, segment_id)
+        row = self._segment_row(segment_id)
         if row >= 0:
             values = (
                 str(row + 1),
@@ -545,7 +568,7 @@ class AnnotationWindow(QMainWindow):
         reviewed = sum(item.get("annotation_status") == "reviewed" for item in recording.get("segments", []))
         for index in range(self.recording_list.count()):
             item = self.recording_list.item(index)
-            if str(item.data(Qt.ItemDataRole.UserRole)) == self.current_recording_id:
+            if str(item.data(Qt.ItemDataRole.UserRole)) == recording_id:
                 item.setText(
                     f"[{recording.get('annotation_status', 'pending')}] {recording.get('source_name')}  "
                     f"({reviewed}/{len(recording.get('segments', []))})"
@@ -555,6 +578,16 @@ class AnnotationWindow(QMainWindow):
         self.progress_label.setText(
             f"Segments reviewed: {stats.get('segments_by_status', {}).get('reviewed', 0)}/{stats.get('segment_count', 0)}"
         )
+        return True
+
+    def _segment_row(self, segment_id: str | None) -> int:
+        if not segment_id:
+            return -1
+        for row in range(self.segment_table.rowCount()):
+            item = self.segment_table.item(row, 0)
+            if item is not None and str(item.data(Qt.ItemDataRole.UserRole)) == segment_id:
+                return row
+        return -1
 
     def set_current_status(self, status: str) -> None:
         if not self.current_segment_id:

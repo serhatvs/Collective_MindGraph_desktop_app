@@ -1,3 +1,9 @@
+import asyncio
+from pathlib import Path
+import threading
+
+import pytest
+
 from app.config import Settings
 from app.models import SpeechRegion, TranscriptSegment
 from app.pipeline import orchestrator as orchestrator_module
@@ -142,3 +148,65 @@ def test_pipeline_normalization_paths_are_unique_and_contained(tmp_path):
     finally:
         first.unlink(missing_ok=True)
         second.unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+async def test_pipeline_cancellation_waits_for_normalization_and_cleans_temp(tmp_path, monkeypatch):
+    started = threading.Event()
+    release = threading.Event()
+
+    def blocking_normalize(_source, _target, *_args, **_kwargs):
+        started.set()
+        assert release.wait(timeout=5.0)
+        return False
+
+    monkeypatch.setattr(orchestrator_module, "normalize_audio", blocking_normalize)
+    settings = Settings(data_dir=tmp_path / "data", temp_dir=tmp_path / "temp")
+    pipeline = TranscriptionPipeline(
+        settings,
+        vad=_RuntimeVAD(),
+        asr=_RuntimeASR(),
+        diarizer=_RuntimeDiarizer(),
+        llm_postprocessor=LLMPostProcessor(MockLLMProvider(), batch_size=1),
+    )
+    audio_path = tmp_path / "input.wav"
+    audio_path.write_bytes(b"not a wav")
+
+    task = asyncio.create_task(pipeline.process_audio_path(audio_path, source="test"))
+    assert await asyncio.to_thread(started.wait, 2.0)
+    task.cancel()
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert list(settings.temp_dir.glob("pipeline_norm_*.wav")) == []
+
+
+@pytest.mark.asyncio
+async def test_region_extraction_cancellation_cleans_completed_temp(tmp_path, monkeypatch):
+    started = threading.Event()
+    release = threading.Event()
+    region_path = tmp_path / "region.wav"
+
+    def blocking_extract(*_args, **_kwargs) -> Path:
+        started.set()
+        assert release.wait(timeout=5.0)
+        region_path.write_bytes(b"region")
+        return region_path
+
+    monkeypatch.setattr(orchestrator_module, "extract_wav_region", blocking_extract)
+    task = asyncio.create_task(
+        orchestrator_module._extract_wav_region_owned(
+            tmp_path / "source.wav",
+            0.0,
+            1.0,
+            tmp_path,
+        )
+    )
+    assert await asyncio.to_thread(started.wait, 2.0)
+    task.cancel()
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert region_path.exists() is False

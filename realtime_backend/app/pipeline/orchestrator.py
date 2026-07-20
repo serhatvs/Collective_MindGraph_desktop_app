@@ -173,8 +173,8 @@ class TranscriptionPipeline:
             trim_silence=trim_silence,
             noise_reduction=noise_reduction,
         )
-        try:
-            normalize_success = await asyncio.to_thread(
+        normalization_task = asyncio.create_task(
+            asyncio.to_thread(
                 normalize_audio,
                 audio_path,
                 normalized_path,
@@ -183,7 +183,14 @@ class TranscriptionPipeline:
                 trim_silence=trim_silence,
                 noise_reduction=noise_reduction,
             )
-        except Exception:
+        )
+        try:
+            normalize_success = await asyncio.shield(normalization_task)
+        except BaseException:
+            try:
+                await normalization_task
+            except BaseException:
+                pass
             normalized_path.unlink(missing_ok=True)
             raise
         working_path = normalized_path if normalize_success else audio_path
@@ -230,8 +237,7 @@ class TranscriptionPipeline:
                 window_path = working_path
                 cleanup_window = False
                 if not _is_full_audio_window(window, total_duration):
-                    window_path = await asyncio.to_thread(
-                        extract_wav_region,
+                    window_path = await _extract_wav_region_owned(
                         working_path,
                         window.start,
                         window.end,
@@ -664,6 +670,33 @@ def _offset_diarization_turns(items: list[DiarizationTurn], offset_seconds: floa
 
 def _is_full_audio_window(window: SpeechRegion, total_duration: float) -> bool:
     return window.start <= 0.0 and window.end >= total_duration
+
+
+async def _extract_wav_region_owned(
+    source_path: Path,
+    start_seconds: float,
+    end_seconds: float,
+    target_dir: Path,
+) -> Path:
+    extraction_task = asyncio.create_task(
+        asyncio.to_thread(
+            extract_wav_region,
+            source_path,
+            start_seconds,
+            end_seconds,
+            target_dir,
+        )
+    )
+    try:
+        return await asyncio.shield(extraction_task)
+    except BaseException:
+        try:
+            abandoned_path = await extraction_task
+        except BaseException:
+            pass
+        else:
+            abandoned_path.unlink(missing_ok=True)
+        raise
 
 
 def _audio_inspection_metadata(inspection: object | None) -> dict[str, object] | None:

@@ -25,6 +25,8 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
 
     def _is_local_endpoint(self, url: str) -> bool:
         parsed = urllib.parse.urlparse(url)
+        if parsed.scheme.casefold() not in {"http", "https"}:
+            return False
         host = parsed.hostname or ""
         if host.casefold() == "localhost":
             return True

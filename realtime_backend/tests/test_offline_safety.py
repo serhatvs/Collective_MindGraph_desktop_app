@@ -20,6 +20,8 @@ def test_is_local_url():
     assert is_local_url("http://google.com") is False
     assert is_local_url("https://10.evil.example/v1") is False
     assert is_local_url("https://192.168.evil.example/v1") is False
+    assert is_local_url("file://localhost/model") is False
+    assert is_local_url("ftp://127.0.0.1/model") is False
 
 def test_validate_local_endpoint():
     # Should pass

@@ -28,6 +28,8 @@ def is_local_url(url: str) -> bool:
     """Check if a URL points to a local or private network address."""
     try:
         parsed = urlparse(url)
+        if parsed.scheme.casefold() not in {"http", "https"}:
+            return False
         hostname = parsed.hostname
         if not hostname:
             return False

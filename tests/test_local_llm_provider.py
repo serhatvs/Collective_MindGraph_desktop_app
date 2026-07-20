@@ -24,9 +24,11 @@ def test_public_endpoint_rejected():
     [
         "https://10.evil.example/v1",
         "https://192.168.evil.example/v1",
+        "file://localhost/model",
+        "ftp://127.0.0.1/model",
     ],
 )
-def test_deceptive_public_hostnames_are_rejected(provider_type, endpoint):
+def test_non_http_or_nonlocal_endpoints_are_rejected(provider_type, endpoint):
     with pytest.raises(ValueError, match="strictly requires a local endpoint"):
         provider_type(base_url=endpoint)
 

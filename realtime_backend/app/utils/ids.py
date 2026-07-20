@@ -6,6 +6,8 @@ from uuid import uuid4
 
 
 _MAX_CONVERSATION_ID_LENGTH = 128
+_MAX_FILENAME_UTF16_UNITS = 255
+_CONVERSATION_FILENAME_SUFFIX = ".json"
 _WINDOWS_RESERVED_NAMES = {
     "AUX",
     "CON",
@@ -34,6 +36,11 @@ def validate_conversation_id(value: str) -> str:
         raise ValueError(
             "conversation_id may contain only letters, numbers, hyphens, underscores, and periods."
         )
+    filename_units = len(
+        f"{candidate}{_CONVERSATION_FILENAME_SUFFIX}".encode("utf-16-le")
+    ) // 2
+    if filename_units > _MAX_FILENAME_UTF16_UNITS:
+        raise ValueError("conversation_id is too long for a portable Windows filename.")
     if candidate.split(".", 1)[0].upper() in _WINDOWS_RESERVED_NAMES:
         raise ValueError("conversation_id uses a reserved Windows filename.")
     return candidate

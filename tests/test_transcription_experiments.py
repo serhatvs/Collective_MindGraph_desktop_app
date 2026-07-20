@@ -10,6 +10,7 @@ import pytest
 from tools.transcript_annotation.dataset import AnnotationDataset
 from tools.transcript_annotation.experiments import (
     aggregate_experiment_results,
+    build_experiment_report,
     build_experiment_configurations,
     choose_best_configuration,
     completed_experiment_ids,
@@ -155,6 +156,46 @@ def test_no_best_configuration_without_human_reference_metrics():
     }
 
     assert choose_best_configuration(aggregate_experiment_results([result])) is None
+
+
+def test_best_configuration_requires_failure_free_identical_recording_coverage(tmp_path: Path):
+    dataset = _dataset_with_two_recordings(tmp_path)
+    configurations = build_experiment_configurations(["balanced", "max_quality"])
+    first_id = dataset.recordings[0]["recording_id"]
+    second_id = dataset.recordings[1]["recording_id"]
+    incomplete = _result(first_id, configurations[0], wer=0.0, cer=0.0, domain=1.0, seconds=0.5)
+    failed = {
+        **_result(second_id, configurations[0], wer=1.0, cer=1.0, domain=0.0, seconds=0.1),
+        "reference_metrics": None,
+        "domain_term_metrics": None,
+        "error": "RuntimeError: model failed",
+    }
+    complete = [
+        _result(first_id, configurations[1], wer=0.1, cer=0.1, domain=0.9, seconds=2.0),
+        _result(second_id, configurations[1], wer=0.1, cer=0.1, domain=0.9, seconds=2.0),
+    ]
+    results = [incomplete, failed, *complete]
+    aggregates = aggregate_experiment_results(results)
+
+    assert choose_best_configuration(aggregates) is None
+    assert all(
+        item["attempted_recording_ids"] == sorted([first_id, second_id])
+        for item in aggregates
+    )
+    report = build_experiment_report(dataset, configurations, results)
+    assert "No best configuration is declared" in report
+    assert "failures or unequal recording coverage" in report
+
+
+def test_best_configuration_requires_identical_reference_coverage():
+    configurations = build_experiment_configurations(["balanced", "max_quality"])
+    results = [
+        _result("recording_1", configurations[0], wer=0.0, cer=0.0, domain=1.0, seconds=0.5),
+        _result("recording_1", configurations[1], wer=0.1, cer=0.1, domain=0.9, seconds=2.0),
+        _result("recording_2", configurations[1], wer=0.1, cer=0.1, domain=0.9, seconds=2.0),
+    ]
+
+    assert choose_best_configuration(aggregate_experiment_results(results)) is None
 
 
 def test_experiment_identifier_is_stable_for_resume():

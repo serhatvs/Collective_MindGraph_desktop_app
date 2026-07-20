@@ -410,6 +410,10 @@ def build_experiment_report(
             f"WER=`{_metric(best.get('wer'))}`, CER=`{_metric(best.get('cer'))}`, "
             f"domain-term accuracy=`{_metric(best.get('domain_term_accuracy'))}`, average time=`{_metric(best.get('processing_time_seconds'))}` seconds."
         )
+    elif any(item.get("wer") is not None for item in aggregates):
+        lines.append(
+            "No best configuration is declared because failures or unequal recording coverage make the configurations incomparable."
+        )
     else:
         lines.append("No best configuration is declared because no valid human-reference metrics were available.")
 
@@ -454,10 +458,14 @@ def aggregate_experiment_results(results: list[dict[str, Any]]) -> list[dict[str
         groups.setdefault(key, []).append(result)
     aggregates: list[dict[str, Any]] = []
     for key, items in sorted(groups.items()):
-        metric_items = [
-            (item.get("reference_metrics") or {}).get("normalized")
+        referenced_results = [
+            item
             for item in items
             if not item.get("error") and (item.get("reference_metrics") or {}).get("normalized")
+        ]
+        metric_items = [
+            (item.get("reference_metrics") or {}).get("normalized")
+            for item in referenced_results
         ]
         word_count = sum(int(item.get("reference_word_count") or 0) for item in metric_items)
         character_count = sum(int(item.get("reference_character_count") or 0) for item in metric_items)
@@ -468,10 +476,23 @@ def aggregate_experiment_results(results: list[dict[str, Any]]) -> list[dict[str
         domain_correct = sum(int(item.get("correctly_recognized_occurrences") or 0) for item in domain_items)
         valid_times = [float(item["processing_time_seconds"]) for item in items if not item.get("error")]
         valid_rtfs = [float(item["real_time_factor"]) for item in items if not item.get("error") and item.get("real_time_factor") is not None]
+        attempted_recording_ids = sorted(
+            {str(item["recording_id"]) for item in items if item.get("recording_id")}
+        )
+        referenced_recording_ids = sorted(
+            {
+                str(item["recording_id"])
+                for item in referenced_results
+                if item.get("recording_id")
+            }
+        )
         aggregates.append(
             {
                 "configuration_key": key,
-                "referenced_recordings": len(metric_items),
+                "result_count": len(items),
+                "attempted_recording_ids": attempted_recording_ids,
+                "referenced_recording_ids": referenced_recording_ids,
+                "referenced_recordings": len(referenced_recording_ids),
                 "wer": word_distance / word_count if word_count else None,
                 "cer": character_distance / character_count if character_count else None,
                 "domain_term_accuracy": domain_correct / domain_total if domain_total else None,
@@ -486,6 +507,18 @@ def aggregate_experiment_results(results: list[dict[str, Any]]) -> list[dict[str
 def choose_best_configuration(aggregates: list[dict[str, Any]]) -> dict[str, Any] | None:
     candidates = [item for item in aggregates if item.get("wer") is not None]
     if not candidates:
+        return None
+    if len(candidates) != len(aggregates) or any(item.get("failure_count") for item in aggregates):
+        return None
+    attempted_coverage = {
+        tuple(str(value) for value in item.get("attempted_recording_ids") or ())
+        for item in aggregates
+    }
+    referenced_coverage = {
+        tuple(str(value) for value in item.get("referenced_recording_ids") or ())
+        for item in aggregates
+    }
+    if len(attempted_coverage) != 1 or len(referenced_coverage) != 1:
         return None
     return min(
         candidates,

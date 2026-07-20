@@ -18,7 +18,10 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
     def __init__(self, base_url: str = "http://127.0.0.1:1234/v1", timeout: int = 30, allow_remote: bool = False):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
-        
+
+        parsed = urllib.parse.urlparse(self.base_url)
+        if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+            raise ValueError(f"Provider endpoint must use HTTP or HTTPS. Received: {base_url}")
         # Security: Prevent cloud endpoint usage unless explicitly allowed
         if not allow_remote and not self._is_local_endpoint(self.base_url):
             raise ValueError(f"Provider strictly requires a local endpoint. Received: {base_url}")

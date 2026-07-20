@@ -34,6 +34,8 @@ def test_validate_local_endpoint():
         
     # Should pass with override
     validate_local_endpoint("https://api.openai.com/v1", "OpenAI", allow_remote=True)
+    with pytest.raises(ValueError, match="HTTP or HTTPS"):
+        validate_local_endpoint("file://localhost/model", "test", allow_remote=True)
 
 def test_validate_local_model_path(tmp_path):
     local_file = tmp_path / "model.bin"

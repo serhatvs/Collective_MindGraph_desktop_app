@@ -69,7 +69,7 @@ def test_conversation_store_loads_old_format_gracefully(tmp_path):
         "nested/escape",
         ".",
         "x" * 129,
-        "𐐀" * 126,
+        "𐐀" * 65,
     ],
 )
 def test_conversation_store_rejects_unsafe_paths(tmp_path, conversation_id):
@@ -83,6 +83,10 @@ def test_conversation_store_rejects_unsafe_paths(tmp_path, conversation_id):
 
 def test_conversation_store_accepts_unicode_id_with_safe_utf16_length(tmp_path):
     store = ConversationStore(tmp_path / "transcripts")
-    conversation_id = "𐐀" * 125
+    conversation_id = "𐐀" * 64
 
-    assert store.path_for(conversation_id).name == f"{conversation_id}.json"
+    path = store.path_for(conversation_id)
+    path.write_text("{}", encoding="utf-8")
+
+    assert path.name == f"{conversation_id}.json"
+    assert path.is_file()

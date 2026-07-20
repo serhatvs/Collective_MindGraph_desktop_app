@@ -5,7 +5,7 @@ import urllib.request
 from urllib.error import URLError, HTTPError
 from typing import Dict, Any
 
-from ..utils.offline_safety import is_local_url
+from ..utils.offline_safety import is_http_url, is_local_url
 from .ai_provider import LocalLLMProvider
 
 class LocalLLMEndpointProvider(LocalLLMProvider):
@@ -21,8 +21,11 @@ class LocalLLMEndpointProvider(LocalLLMProvider):
         self.timeout = timeout
         
         # Security: Prevent cloud endpoint usage unless explicitly allowed
-        if self.base_url != "disabled" and not allow_remote and not self._is_local_endpoint(self.base_url):
-            raise ValueError(f"Provider strictly requires a local endpoint. Received: {base_url}")
+        if self.base_url != "disabled":
+            if not is_http_url(self.base_url):
+                raise ValueError(f"Provider endpoint must use HTTP or HTTPS. Received: {base_url}")
+            if not allow_remote and not self._is_local_endpoint(self.base_url):
+                raise ValueError(f"Provider strictly requires a local endpoint. Received: {base_url}")
 
     def _is_local_endpoint(self, url: str) -> bool:
         return is_local_url(url)

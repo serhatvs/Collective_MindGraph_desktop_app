@@ -24,6 +24,15 @@ PRIVATE_NETWORKS = [
 LOCAL_HOSTNAMES = {"localhost", "0.0.0.0", "::1", "127.0.0.1"}
 
 
+def is_http_url(url: str) -> bool:
+    """Return whether an endpoint has an HTTP(S) scheme and hostname."""
+    try:
+        parsed = urlparse(url)
+        return parsed.scheme.casefold() in {"http", "https"} and bool(parsed.hostname)
+    except (TypeError, ValueError):
+        return False
+
+
 def is_local_url(url: str) -> bool:
     """Check if a URL points to a local or private network address."""
     try:
@@ -53,6 +62,8 @@ def is_local_url(url: str) -> bool:
 
 def validate_local_endpoint(url: str, provider_name: str, allow_remote: bool = False) -> None:
     """Raise ValueError if the URL is not local and remote access is not allowed."""
+    if not is_http_url(url):
+        raise ValueError(f"The {provider_name} endpoint must use HTTP or HTTPS: '{url}'.")
     if allow_remote:
         return
 

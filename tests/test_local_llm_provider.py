@@ -29,8 +29,21 @@ def test_public_endpoint_rejected():
     ],
 )
 def test_non_http_or_nonlocal_endpoints_are_rejected(provider_type, endpoint):
-    with pytest.raises(ValueError, match="strictly requires a local endpoint"):
+    with pytest.raises(ValueError, match="strictly requires a local endpoint|HTTP or HTTPS"):
         provider_type(base_url=endpoint)
+
+
+@pytest.mark.parametrize(
+    "provider_type",
+    [LocalLLMEndpointProvider, BackendLocalLLMEndpointProvider],
+)
+@pytest.mark.parametrize(
+    "endpoint",
+    ["file://localhost/model", "ftp://127.0.0.1/model", "http:///missing-host"],
+)
+def test_allow_remote_still_requires_http(provider_type, endpoint):
+    with pytest.raises(ValueError, match="HTTP or HTTPS"):
+        provider_type(base_url=endpoint, allow_remote=True)
 
 
 @pytest.mark.parametrize(

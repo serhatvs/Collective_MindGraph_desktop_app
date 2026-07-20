@@ -238,7 +238,7 @@ Intended vision:
 
 - Code quality risk: duplicate modules exist under `src/collective_mindgraph/` and `realtime_backend/app/services/`, creating drift.
 - Boundary risk: backend transcribes and stores JSON, while desktop creates much of the V2 graph. The API/backend layer is not the only source of memory graph truth.
-- Dead/legacy risk: `docs/archive/` and `tests/README.md` describe older Docker/MQTT/OpenAI-era architecture. This can confuse claims and onboarding.
+- Historical architecture remains under `docs/archive/`; it is not current setup guidance.
 - Mock/stub risk: ASR can fall back to mock, embeddings default to mock in several paths, graph expansion is no-op in backend hybrid query, and `_rebuild_snapshots` in `MainWindow` is pass.
 - UI/backend mismatch: `AskMemoryPanel._handle_finished` reads fields like `evidence_coverage_score`, `mode_used`, `answer_validation_status`, `rejected_terms`, and `used_sources`, but desktop `MemoryAskResponse` in `src/collective_mindgraph_desktop/transcription.py` does not define them.
 - Fragile tests: many tests use mocks or optional skips. Real ASR/embedding/LLM tests depend on environment variables and local models.

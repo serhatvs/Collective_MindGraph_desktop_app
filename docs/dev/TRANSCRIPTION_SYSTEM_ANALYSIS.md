@@ -46,7 +46,7 @@ Estimated readiness for real-world Turkish conversations: partial. The architect
 - WebSocket stream endpoint: `realtime_backend/app/api/ws.py`, `transcribe_stream`.
 - Desktop file worker: `src/collective_mindgraph_desktop/ui/workers.py`, `BackendTranscriptionWorker`.
 - Desktop microphone recorder: `src/collective_mindgraph_desktop/audio_capture.py`, `AudioCaptureController`.
-- Configuration source: `realtime_backend/app/config.py`, `src/collective_mindgraph_desktop/transcription.py`, and `transcription_settings.json`.
+- Configuration source: `realtime_backend/app/config.py`, `src/collective_mindgraph_desktop/transcription.py`, and the ignored local runtime file `transcription_settings.json`.
 - Dependencies: FastAPI, PySide6 multimedia, HTTP multipart, WebSocket, local filesystem.
 - Failure points: backend URL mismatch, missing file, malformed upload, no microphone, recorder errors, stream format mismatch.
 - Quality impact: input format and microphone selection strongly affect STT. Desktop recorder targets WAV, mono, 16 kHz, which is good. WebSocket expects PCM signed 16-bit little-endian, 16 kHz, mono.
@@ -268,7 +268,7 @@ Default Turkish configuration is strong:
 - `Settings.default_language` defaults to `tr`.
 - File API accepts `language` form override.
 - WebSocket accepts `?language=tr`.
-- Desktop `transcription_settings.json` contains `"language": "tr"`.
+- The local desktop `transcription_settings.json` may override language and device choices; it is runtime state and is not tracked.
 - Benchmark scripts pass `language="tr"`.
 
 Conclusion: the active code is designed to force Turkish rather than rely on auto-detection. Confidence: High.
@@ -735,7 +735,7 @@ Confidence: Medium-High.
 - `realtime_backend/tests/fixtures/expected/turkish_meeting_sample.expected.txt`
 - `realtime_backend/tests/fixtures/audio/common_voice_tr/*.wav`
 - `benchmark_results.json`
-- `transcription_settings.json`
+- `transcription_settings.json` (ignored local runtime state)
 - `src/collective_mindgraph_desktop/audio_capture.py`
 - `src/collective_mindgraph_desktop/ui/workers.py`
 - `src/collective_mindgraph_desktop/transcription.py`

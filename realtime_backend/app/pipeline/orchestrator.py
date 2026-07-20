@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 import time
-from typing import Any, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
 from ..config import Settings
 from ..models import (
@@ -161,7 +161,7 @@ class TranscriptionPipeline:
         selective_metadata = _initial_selective_metadata(self._settings)
 
         # 1. Audio Preprocessing
-        input_inspection = await asyncio.to_thread(inspect_audio, audio_path)
+        input_inspection = await _to_thread_cancellation_safe(inspect_audio, audio_path)
         normalized_path = create_temporary_wav_path(
             self._settings.temp_dir,
             prefix="pipeline_norm_",
@@ -173,8 +173,8 @@ class TranscriptionPipeline:
             trim_silence=trim_silence,
             noise_reduction=noise_reduction,
         )
-        normalization_task = asyncio.create_task(
-            asyncio.to_thread(
+        try:
+            normalize_success = await _to_thread_cancellation_safe(
                 normalize_audio,
                 audio_path,
                 normalized_path,
@@ -183,14 +183,7 @@ class TranscriptionPipeline:
                 trim_silence=trim_silence,
                 noise_reduction=noise_reduction,
             )
-        )
-        try:
-            normalize_success = await asyncio.shield(normalization_task)
         except BaseException:
-            try:
-                await normalization_task
-            except BaseException:
-                pass
             normalized_path.unlink(missing_ok=True)
             raise
         working_path = normalized_path if normalize_success else audio_path
@@ -203,10 +196,10 @@ class TranscriptionPipeline:
             warnings.append("ffmpeg normalization failed; original file used for transcription.")
 
         try:
-            output_inspection = await asyncio.to_thread(inspect_audio, working_path)
+            output_inspection = await _to_thread_cancellation_safe(inspect_audio, working_path)
             if output_inspection is None:
                 warnings.append("Audio inspection unavailable for the file passed to VAD/ASR.")
-            audio_quality_analysis = await asyncio.to_thread(
+            audio_quality_analysis = await _to_thread_cancellation_safe(
                 analyze_audio_quality,
                 working_path,
                 preprocessing_applied=normalize_success,
@@ -219,8 +212,8 @@ class TranscriptionPipeline:
             else:
                 warnings.extend(str(item) for item in audio_quality_metadata.get("warnings", []) if item)
 
-            total_duration = await asyncio.to_thread(wav_duration_seconds, working_path)
-            vad_regions = await asyncio.to_thread(self._vad.detect, working_path)
+            total_duration = await _to_thread_cancellation_safe(wav_duration_seconds, working_path)
+            vad_regions = await _to_thread_cancellation_safe(self._vad.detect, working_path)
             processing_windows = _build_processing_windows(
                 total_duration=total_duration,
                 regions=vad_regions,
@@ -247,7 +240,7 @@ class TranscriptionPipeline:
 
                 try:
                     first_pass_started = time.perf_counter()
-                    window_asr_segments = await asyncio.to_thread(
+                    window_asr_segments = await _to_thread_cancellation_safe(
                         transcribe_with_glossary_compatibility,
                         self._asr,
                         window_path,
@@ -280,7 +273,7 @@ class TranscriptionPipeline:
                             self._settings.selective_retranscription_max_regions
                             - int(selective_metadata["number_of_second_pass_regions"]),
                         )
-                        window_asr_segments, window_selective_metadata = await asyncio.to_thread(
+                        window_asr_segments, window_selective_metadata = await _to_thread_cancellation_safe(
                             selective_engine.run,
                             window_path=window_path,
                             first_pass_segments=window_asr_segments,
@@ -291,7 +284,7 @@ class TranscriptionPipeline:
                             max_regions=remaining_selective_regions,
                         )
                         _merge_selective_metadata(selective_metadata, window_selective_metadata)
-                    window_diarization_turns = await asyncio.to_thread(
+                    window_diarization_turns = await _to_thread_cancellation_safe(
                         self._diarizer.diarize,
                         window_path,
                         local_regions or None,
@@ -678,24 +671,41 @@ async def _extract_wav_region_owned(
     end_seconds: float,
     target_dir: Path,
 ) -> Path:
-    extraction_task = asyncio.create_task(
-        asyncio.to_thread(
-            extract_wav_region,
-            source_path,
-            start_seconds,
-            end_seconds,
-            target_dir,
-        )
+    return await _to_thread_cancellation_safe(
+        extract_wav_region,
+        source_path,
+        start_seconds,
+        end_seconds,
+        target_dir,
+        cancelled_result_cleanup=lambda path: path.unlink(missing_ok=True),
     )
+
+
+async def _to_thread_cancellation_safe(
+    function: Callable[..., Any],
+    /,
+    *args: Any,
+    cancelled_result_cleanup: Callable[[Any], None] | None = None,
+    **kwargs: Any,
+) -> Any:
+    worker_task = asyncio.create_task(asyncio.to_thread(function, *args, **kwargs))
     try:
-        return await asyncio.shield(extraction_task)
-    except BaseException:
-        try:
-            abandoned_path = await extraction_task
-        except BaseException:
-            pass
-        else:
-            abandoned_path.unlink(missing_ok=True)
+        return await asyncio.shield(worker_task)
+    except asyncio.CancelledError:
+        while not worker_task.done():
+            try:
+                await asyncio.shield(worker_task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if cancelled_result_cleanup is not None and not worker_task.cancelled():
+            try:
+                abandoned_result = worker_task.result()
+            except BaseException:
+                pass
+            else:
+                cancelled_result_cleanup(abandoned_result)
         raise
 
 

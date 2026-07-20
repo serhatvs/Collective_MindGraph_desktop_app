@@ -175,6 +175,8 @@ async def test_pipeline_cancellation_waits_for_normalization_and_cleans_temp(tmp
     task = asyncio.create_task(pipeline.process_audio_path(audio_path, source="test"))
     assert await asyncio.to_thread(started.wait, 2.0)
     task.cancel()
+    await asyncio.sleep(0)
+    task.cancel()
     release.set()
 
     with pytest.raises(asyncio.CancelledError):
@@ -205,8 +207,44 @@ async def test_region_extraction_cancellation_cleans_completed_temp(tmp_path, mo
     )
     assert await asyncio.to_thread(started.wait, 2.0)
     task.cancel()
+    await asyncio.sleep(0)
+    task.cancel()
     release.set()
 
     with pytest.raises(asyncio.CancelledError):
         await task
     assert region_path.exists() is False
+
+
+@pytest.mark.asyncio
+async def test_cancellation_safe_thread_waits_for_file_consumer(tmp_path):
+    started = threading.Event()
+    release = threading.Event()
+    owned_path = tmp_path / "owned.wav"
+    owned_path.write_bytes(b"owned")
+
+    def blocking_consumer(path: Path) -> None:
+        with path.open("rb"):
+            started.set()
+            assert release.wait(timeout=5.0)
+
+    async def run_owner() -> None:
+        try:
+            await orchestrator_module._to_thread_cancellation_safe(
+                blocking_consumer,
+                owned_path,
+            )
+        finally:
+            owned_path.unlink(missing_ok=True)
+
+    task = asyncio.create_task(run_owner())
+    assert await asyncio.to_thread(started.wait, 2.0)
+    task.cancel()
+    await asyncio.sleep(0)
+    task.cancel()
+    await asyncio.sleep(0)
+    release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert owned_path.exists() is False

@@ -8,7 +8,7 @@ It does not claim that production packaging, an installer, signing, or release a
 
 ## Current Packaging Status
 
-- PyInstaller scaffold/spec exists: `CollectiveMindGraph.spec` and `scripts\build_windows_exe.ps1`.
+- PyInstaller scaffold/spec exists: `CollectiveMindGraph.spec` and `scripts\packaging\build_windows_exe.ps1`.
 - No production installer is verified.
 - No signing flow is verified.
 - No release checklist was verified before this document.

@@ -2,7 +2,7 @@
 # Check whether the local development demo has its required executables.
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_ROOT" || exit 1
 
 status=0
@@ -58,5 +58,5 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo "Readiness check passed."
-echo "1. Run ./scripts/dev_backend.sh"
-echo "2. Run ./scripts/dev_desktop.sh"
+echo "1. Run ./scripts/launch/dev_backend.sh"
+echo "2. Run ./scripts/launch/dev_desktop.sh"

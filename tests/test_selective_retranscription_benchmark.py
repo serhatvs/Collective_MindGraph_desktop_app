@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts" / "benchmarks"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from benchmark_selective_retranscription import (  # noqa: E402

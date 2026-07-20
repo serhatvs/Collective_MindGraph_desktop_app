@@ -4,7 +4,7 @@ REM install_friend_alpha_deps.bat - Collective MindGraph friend alpha setup.
 REM Double-click this file or run it from any working directory before launching the app.
 
 set "SCRIPT_DIR=%~dp0"
-set "REPO_ROOT=%SCRIPT_DIR%.."
+set "REPO_ROOT=%SCRIPT_DIR%..\.."
 
 echo.
 echo  Collective MindGraph - Friend Alpha Setup
@@ -45,5 +45,5 @@ if not "%CMG_EXIT%"=="0" (
 )
 
 echo.
-echo  [CMG] Setup complete. You can now run scripts\launch_cmg.bat.
+echo  [CMG] Setup complete. You can now run scripts\launch\launch_cmg.bat.
 exit /b 0

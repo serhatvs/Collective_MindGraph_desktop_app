@@ -36,12 +36,12 @@
 ## Demo Commands
 ```bash
 # 1. Verify Readiness
-./scripts/check_demo_readiness.sh
+./scripts/setup/check_demo_readiness.sh
 
 # 2. Seed Data
 PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
 
 # 3. Launch Demo
-./scripts/dev_backend.sh
-./scripts/dev_desktop.sh
+./scripts/launch/dev_backend.sh
+./scripts/launch/dev_desktop.sh
 ```

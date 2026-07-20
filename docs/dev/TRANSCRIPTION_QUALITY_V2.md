@@ -80,7 +80,7 @@ $env:CMG_RT_TRANSCRIPTION_QUALITY_MODE='bad_mic_recovery'
 
 ```powershell
 $env:PYTHONPATH='src;.'
-python scripts/benchmark_transcription_quality_v2.py C:\path\audio1.wav C:\path\audio2.wav --profiles fast balanced max_quality bad_mic_recovery
+python scripts/benchmarks/benchmark_transcription_quality_v2.py C:\path\audio1.wav C:\path\audio2.wav --profiles fast balanced max_quality bad_mic_recovery
 ```
 
 The script writes:

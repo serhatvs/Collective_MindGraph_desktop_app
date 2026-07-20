@@ -23,16 +23,16 @@ There are no accounts and no cloud transcription APIs in this alpha.
 Run the friend-alpha dependency installer first:
 
 ```powershell
-python scripts/install_friend_alpha_deps.py
+python scripts/setup/install_friend_alpha_deps.py
 ```
 
 On Windows you can also double-click:
 
 ```text
-scripts\install_friend_alpha_deps.bat
+scripts\setup\install_friend_alpha_deps.bat
 ```
 
-Then launch the app with `scripts\launch_cmg.bat`. Confirm the launcher prints:
+Then launch the app with `scripts\launch\launch_cmg.bat`. Confirm the launcher prints:
 
 ```text
 faster_whisper    : available
@@ -45,8 +45,8 @@ If the launcher says mock/fallback or says `faster_whisper` is missing, real tra
 Run this developer preflight first:
 
 ```powershell
-python scripts/install_friend_alpha_deps.py
-python scripts/launch_cmg.py
+python scripts/setup/install_friend_alpha_deps.py
+python scripts/launch/launch_cmg.py
 ```
 
 Confirm all of these before handing the app to friends:
@@ -80,7 +80,7 @@ then Faster-Whisper is missing or could not load. The app may still open and the
 The backend dependency install path for real ASR is:
 
 ```powershell
-python scripts/install_friend_alpha_deps.py
+python scripts/setup/install_friend_alpha_deps.py
 ```
 
 For GPU setups, follow `realtime_backend/README.md` first, because PyTorch/CUDA installs may need a specific command before installing backend requirements.
@@ -94,13 +94,13 @@ On a fresh checkout, real transcription may fall back to mock mode if ASR depend
 From the repo root:
 
 ```powershell
-python scripts/launch_cmg.py
+python scripts/launch/launch_cmg.py
 ```
 
 On Windows you can also double-click:
 
 ```text
-scripts\launch_cmg.bat
+scripts\launch\launch_cmg.bat
 ```
 
 Expected: the main window opens with a session explorer sidebar on the left.
@@ -192,14 +192,14 @@ Use `.github/ISSUE_TEMPLATE/alpha_bug_report.md` for structured bug reports.
 | Transcription quality varies | Results depend on audio quality, noise, microphone, and local ASR setup. |
 | Turkish-first | Turkish is the primary alpha target. Other languages are not validated. |
 | No packaged installer yet | Launch currently requires Python and repo dependencies installed with the setup script. |
-| Fresh checkout setup | Real transcription may fall back to mock mode if ASR dependencies are not installed. Run `scripts\install_friend_alpha_deps.bat` or `python scripts/install_friend_alpha_deps.py` before testing. |
+| Fresh checkout setup | Real transcription may fall back to mock mode if ASR dependencies are not installed. Run `scripts\setup\install_friend_alpha_deps.bat` or `python scripts/setup/install_friend_alpha_deps.py` before testing. |
 | Alpha UI | Some screens may still have rough labels or empty states. |
 
 ## Quick Reference
 
 ```text
-Setup:       python scripts/install_friend_alpha_deps.py
-Launch:      python scripts/launch_cmg.py
+Setup:       python scripts/setup/install_friend_alpha_deps.py
+Launch:      python scripts/launch/launch_cmg.py
 Transcribe:  Sidebar -> Transcribe Local File -> select audio
 Transcript:  Knowledge Audit
 Notes:       Extracted Notes

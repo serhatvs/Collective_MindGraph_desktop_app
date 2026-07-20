@@ -51,7 +51,7 @@ Main technical gaps:
 | Export/import | Implemented, with reliability risk | `src/collective_mindgraph_desktop/services.py`, `src/collective_mindgraph_desktop/ui/main_window.py` | JSON export/import includes sessions, transcripts, legacy graph nodes, transcript analyses, and V2 graph data. Collision handling and full roundtrip reliability need more validation. |
 | Jobs / diagnostics | Partially implemented | `realtime_backend/app/services/job_manager.py`, `src/collective_mindgraph_desktop/ui/jobs.py`, `src/collective_mindgraph_desktop/ui/pages/diagnostics_page.py` | Backend has persistent jobs table and `/jobs`. Desktop has in-memory registry. Diagnostics UI reports status, but some status text is static or inferred. |
 | Offline/local-first safeguards | Implemented, with dependency caveats | `realtime_backend/app/utils/offline_safety.py`, `realtime_backend/app/config.py`, `realtime_backend/app/pipeline/local_llm_provider.py` | URL/model path validation blocks public cloud endpoints unless explicitly allowed. Hugging Face/pyannote dependencies still create setup and licensing risks. |
-| Production installer/packaging | Partially implemented | `CollectiveMindGraph.spec`, `scripts/build_windows_exe.ps1` | PyInstaller build artifacts exist, but no proof of a production installer or validated packaged runtime is present. |
+| Production installer/packaging | Partially implemented | `CollectiveMindGraph.spec`, `scripts/packaging/build_windows_exe.ps1` | PyInstaller build artifacts exist, but no proof of a production installer or validated packaged runtime is present. |
 
 ## 3. Roadmap / Not Implemented
 

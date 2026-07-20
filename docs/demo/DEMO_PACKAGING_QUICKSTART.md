@@ -85,7 +85,7 @@ Recommended helper:
 
 ```powershell
 cd D:\Workspace\cmg-main-test
-.\scripts\dev_desktop.ps1
+.\scripts\launch\dev_desktop.ps1
 ```
 
 Manual launch for debugging:
@@ -251,7 +251,7 @@ Related checklist: [Packaging Smoke Checklist](PACKAGING_SMOKE_CHECKLIST.md).
 Verified packaging scaffold:
 
 - `CollectiveMindGraph.spec`
-- `scripts\build_windows_exe.ps1`
+- `scripts\packaging\build_windows_exe.ps1`
 - `pyproject.toml` build optional dependency for PyInstaller
 
 Current verified package state:

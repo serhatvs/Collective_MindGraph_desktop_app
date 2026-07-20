@@ -4,7 +4,7 @@ REM launch_cmg.bat - Collective MindGraph Windows launcher
 REM Double-click this file or run it from any working directory to start the app.
 
 set "SCRIPT_DIR=%~dp0"
-set "REPO_ROOT=%SCRIPT_DIR%.."
+set "REPO_ROOT=%SCRIPT_DIR%..\.."
 
 echo.
 echo  Collective MindGraph - Alpha Launcher

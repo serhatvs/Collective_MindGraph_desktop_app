@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))

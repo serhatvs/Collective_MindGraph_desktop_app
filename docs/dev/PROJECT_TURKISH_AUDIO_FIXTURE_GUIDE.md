@@ -144,7 +144,7 @@ Cleaned transcript is useful for readability, but it should not hide ASR mistake
 Example:
 
 ```powershell
-python scripts/run_project_turkish_transcription_benchmark.py `
+python scripts/benchmarks/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --reference realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
   --audio-kind real_meeting_room `

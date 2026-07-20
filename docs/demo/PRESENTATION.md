@@ -13,9 +13,9 @@ Bu senaryo, Collective MindGraph projesini bir öğretmene, TTO yetkilisine veya
 
 ## Demo Adımları
 
-1.  **Hazırlık**: "Sistemi çalıştırmadan önce çevresel gereksinimlerin (ffmpeg, yerel modeller) tam olduğunu kontrol ediyoruz." (`./scripts/check_demo_readiness.sh`)
+1.  **Hazırlık**: "Sistemi çalıştırmadan önce çevresel gereksinimlerin (ffmpeg, yerel modeller) tam olduğunu kontrol ediyoruz." (`./scripts/setup/check_demo_readiness.sh`)
 2.  **Veri Hazırlama**: "Ses kaydı gerektirmeyen, teknik bir Türkçe toplantı metnini sisteme örnek veri olarak yüklüyoruz." (`PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py`)
-3.  **Servislerin Başlatılması**: "Arka planda ses işleme servisimiz olan FastAPI'yi 8080 portunda başlatıyoruz. Ardından, asıl kullanıcı arayüzümüz olan yerel masaüstü uygulamamızı açıyoruz." (`./scripts/dev_backend.sh` ve `./scripts/dev_desktop.sh`)
+3.  **Servislerin Başlatılması**: "Arka planda ses işleme servisimiz olan FastAPI'yi 8080 portunda başlatıyoruz. Ardından, asıl kullanıcı arayüzümüz olan yerel masaüstü uygulamamızı açıyoruz." (`./scripts/launch/dev_backend.sh` ve `./scripts/launch/dev_desktop.sh`)
 4.  **Oturum İnceleme**: "Oturum Listesi'nden az önce eklediğimiz 'demo_technical_turkish' oturumunu açıyoruz."
 5.  **Temiz Metin (Cleaned Transcript)**: "Sistemin dolgu kelimeleri temizleyip teknik terimleri nasıl düzelttiğini gösteriyoruz."
 6.  **Görev ve Kararlar**: "Heuristik yöntemlerle ayıklanan 'FastAPI testi' veya 'SQLite kaydı' gibi yapısal verileri sağ panelde gösteriyoruz."
@@ -131,9 +131,9 @@ Collective MindGraph, kurumsal hafızayı yerelde ve güvenli bir şekilde inşa
 These notes guide you through presenting the current local-first software MVP. 
 
 ## Preparation
-1.  **Check Readiness**: Run `./scripts/check_demo_readiness.sh`.
+1.  **Check Readiness**: Run `./scripts/setup/check_demo_readiness.sh`.
 2.  **Seed Data**: Run `PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py`.
-3.  **Start Services**: Launch `./scripts/dev_backend.sh` and `./scripts/dev_desktop.sh`.
+3.  **Start Services**: Launch `./scripts/launch/dev_backend.sh` and `./scripts/launch/dev_desktop.sh`.
 
 ---
 
@@ -281,9 +281,9 @@ This script is designed for presenting Collective MindGraph to professors, revie
 
 ## Demo Steps
 
-1.  **Readiness**: "First, we verify that the local environment and models are correctly configured." (`./scripts/check_demo_readiness.sh`)
+1.  **Readiness**: "First, we verify that the local environment and models are correctly configured." (`./scripts/setup/check_demo_readiness.sh`)
 2.  **Seeding Data**: "We seed the system with a technical Turkish meeting sample to demonstrate the extraction logic without requiring live audio." (`PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py`)
-3.  **Launch**: "We start the local backend service on port 8080 and launch the native PySide6 desktop UI, which is our primary user interface." (`./scripts/dev_backend.sh` and `./scripts/dev_desktop.sh`)
+3.  **Launch**: "We start the local backend service on port 8080 and launch the native PySide6 desktop UI, which is our primary user interface." (`./scripts/launch/dev_backend.sh` and `./scripts/launch/dev_desktop.sh`)
 4.  **Session Review**: "We open the 'demo_technical_turkish' session from the explorer."
 5.  **Cleaned Transcript**: "Note how the system handles technical casing and filters out filler words for better readability."
 6.  **Structured Insights**: "Observe the automatically extracted Tasks and Decisions in the side panel, such as 'FastAPI testing' or 'SQLite storage decisions'."

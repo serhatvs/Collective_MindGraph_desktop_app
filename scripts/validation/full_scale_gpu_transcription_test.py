@@ -13,7 +13,7 @@ import time
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
@@ -298,7 +298,7 @@ def _build_report(
             "set CMG_ASR_LANGUAGE=tr",
             "set CMG_EMBEDDING_DEVICE=cpu",
             "set PYTHONPATH=%CD%\\src;%CD%",
-            "python scripts\\check_asr_gpu.py",
+            "python scripts\\validation\\check_asr_gpu.py",
             "```",
             "",
             "Terminal 2:",
@@ -313,7 +313,7 @@ def _build_report(
             "",
             "```cmd",
             "set CMG_ASR_MODEL=large-v3",
-            "python scripts\\full_scale_gpu_transcription_test.py --profile gpu_asr --audio recordings\\test.wav",
+            "python scripts\\validation\\full_scale_gpu_transcription_test.py --profile gpu_asr --audio recordings\\test.wav",
             "```",
             "",
             "## Pass/Fail Boundary",

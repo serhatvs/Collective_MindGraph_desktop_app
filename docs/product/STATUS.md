@@ -245,16 +245,16 @@ The system processes information through the following stages:
 To start the integrated system locally:
 ```bash
 # 1. Verify environment
-./scripts/check_demo_readiness.sh
+./scripts/setup/check_demo_readiness.sh
 
 # 2. Seed data (No audio required)
 PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
 
 # 3. Start Backend
-./scripts/dev_backend.sh
+./scripts/launch/dev_backend.sh
 
 # 4. Start Desktop App
-./scripts/dev_desktop.sh
+./scripts/launch/dev_desktop.sh
 ```
 
 ## Demo Search Queries

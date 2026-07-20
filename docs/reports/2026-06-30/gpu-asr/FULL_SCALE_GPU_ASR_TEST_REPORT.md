@@ -30,7 +30,7 @@ This report validates only the Collective MindGraph ASR/transcription path. It d
 
 ## GPU Smoke Test
 
-- Command used: `scripts/check_asr_gpu.py --observation-seconds 30` with `CMG_RUNTIME_PROFILE=gpu_asr`, `CMG_REQUIRE_GPU=1`, `CMG_ASR_MODEL=small`, `CMG_ASR_DEVICE=cuda`, and `CMG_ASR_COMPUTE_TYPE=float16`.
+- Command used: `scripts/validation/check_asr_gpu.py --observation-seconds 30` with `CMG_RUNTIME_PROFILE=gpu_asr`, `CMG_REQUIRE_GPU=1`, `CMG_ASR_MODEL=small`, `CMG_ASR_DEVICE=cuda`, and `CMG_ASR_COMPUTE_TYPE=float16`.
 - Result: smoke test exited successfully.
 - CMG ASR backend resolved to `faster_whisper`.
 - Faster-Whisper CUDA load status: `loaded_on_cuda`.
@@ -158,7 +158,7 @@ set CMG_ASR_MODEL=small
 set CMG_ASR_LANGUAGE=tr
 set CMG_EMBEDDING_DEVICE=cpu
 set PYTHONPATH=%CD%\src;%CD%
-python scripts\check_asr_gpu.py
+python scripts\validation\check_asr_gpu.py
 ```
 
 Terminal 2:
@@ -173,7 +173,7 @@ Large-v3 full-scale mode after the small model GPU smoke test passes:
 
 ```cmd
 set CMG_ASR_MODEL=large-v3
-python scripts\full_scale_gpu_transcription_test.py --profile gpu_asr --audio recordings\test.wav
+python scripts\validation\full_scale_gpu_transcription_test.py --profile gpu_asr --audio recordings\test.wav
 ```
 
 ## Pass/Fail Boundary

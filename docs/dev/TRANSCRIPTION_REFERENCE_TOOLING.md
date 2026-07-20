@@ -24,13 +24,13 @@ python -m pip install -r realtime_backend/requirements.txt
 Launch the standalone annotation application:
 
 ```powershell
-python scripts/launch_transcript_annotation.py
+python scripts/launch/launch_transcript_annotation.py
 ```
 
 Open an existing dataset directly:
 
 ```powershell
-python scripts/launch_transcript_annotation.py --dataset datasets/transcription/bad_mic_pilot
+python scripts/launch/launch_transcript_annotation.py --dataset datasets/transcription/bad_mic_pilot
 ```
 
 PySide6 Qt Multimedia provides local playback. Initial transcription requires the selected Faster-Whisper model to exist locally; model downloads are disabled. Mock ASR is rejected and the recording is not added if real local ASR cannot run.
@@ -141,25 +141,25 @@ Domain-term accuracy counts occurrences in the human reference and checks the co
 Balanced only:
 
 ```powershell
-python scripts/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles balanced --output datasets/transcription/bad_mic_pilot/reports
+python scripts/datasets/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles balanced --output datasets/transcription/bad_mic_pilot/reports
 ```
 
 Full strong pass:
 
 ```powershell
-python scripts/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles max_quality --model-override max_quality=large-v3 --output datasets/transcription/bad_mic_pilot/reports
+python scripts/datasets/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles max_quality --model-override max_quality=large-v3 --output datasets/transcription/bad_mic_pilot/reports
 ```
 
 Selective recovery only:
 
 ```powershell
-python scripts/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --only-selective --model-override selective_recovery=large-v3 --output datasets/transcription/bad_mic_pilot/reports
+python scripts/datasets/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --only-selective --model-override selective_recovery=large-v3 --output datasets/transcription/bad_mic_pilot/reports
 ```
 
 All three modes, filtered to bad microphones, resuming completed runs:
 
 ```powershell
-python scripts/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles balanced max_quality --include-selective --condition bad_mic --model-override max_quality=large-v3 --model-override selective_recovery=large-v3 --output datasets/transcription/bad_mic_pilot/reports --resume
+python scripts/datasets/run_transcription_experiments.py --dataset datasets/transcription/bad_mic_pilot --profiles balanced max_quality --include-selective --condition bad_mic --model-override max_quality=large-v3 --model-override selective_recovery=large-v3 --output datasets/transcription/bad_mic_pilot/reports --resume
 ```
 
 Additional filters include repeatable `--recording-id`, repeatable `--condition`, and `--max-recordings`. Model overrides use `PROFILE=MODEL`.
@@ -177,15 +177,15 @@ When references exist, the best configuration is ranked by WER, CER, domain-term
 Export all formats:
 
 ```powershell
-python scripts/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats csv jsonl hf --output datasets/transcription/bad_mic_pilot/exports/reviewed
+python scripts/datasets/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats csv jsonl hf --output datasets/transcription/bad_mic_pilot/exports/reviewed
 ```
 
 Individual formats:
 
 ```powershell
-python scripts/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats csv
-python scripts/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats jsonl
-python scripts/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats hf
+python scripts/datasets/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats csv
+python scripts/datasets/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats jsonl
+python scripts/datasets/export_transcription_dataset.py --dataset datasets/transcription/bad_mic_pilot --formats hf
 ```
 
 Only reviewed, non-empty, non-excluded segments with valid boundaries are exported. Clips are derived from source audio as mono 16 kHz PCM WAV without aggressive denoising. CSV uses the requested `audio`, `sentence`, recording/meeting/segment identifiers, boundaries, conditions, and `speaker_id`; speaker defaults to `unknown` and is never inferred. JSONL preserves additional source metadata and hashes. The Hugging Face AudioFolder directory contains `audio/*.wav` plus `metadata.csv`. `export_validation.json` records exported/skipped counts, warnings, and format details.

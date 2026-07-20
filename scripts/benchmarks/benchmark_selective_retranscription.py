@@ -12,7 +12,7 @@ import time
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BACKEND_ROOT = ROOT / "realtime_backend"
 for import_path in (str(ROOT), str(BACKEND_ROOT)):
     if import_path not in sys.path:

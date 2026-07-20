@@ -20,10 +20,10 @@ Collective MindGraph is currently optimized for a **stable, 100% offline experie
 ### 📋 How to run the Demo (No LLM Required):
 ```bash
 # 1. Start the backend (defaults to heuristic fallback)
-./scripts/dev_backend.sh
+./scripts/launch/dev_backend.sh
 
 # 2. Start the Desktop UI
-./scripts/dev_desktop.sh
+./scripts/launch/dev_desktop.sh
 
 # 3. Use 'Global Search' and 'Ask Your Memory' (Evidence-only mode)
 ```

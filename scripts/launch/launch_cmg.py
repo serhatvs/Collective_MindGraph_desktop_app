@@ -3,7 +3,7 @@
 launch_cmg.py - Collective MindGraph desktop launcher.
 
 Usage:
-    python scripts/launch_cmg.py
+    python scripts/launch/launch_cmg.py
 
 Sets PYTHONPATH to include src/ and the repo root, checks whether the real
 local ASR dependency is importable, then launches the desktop app via:
@@ -33,7 +33,7 @@ def _check_faster_whisper_available() -> tuple[bool, str | None]:
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
     src_dir = repo_root / "src"
 
     if not src_dir.is_dir():

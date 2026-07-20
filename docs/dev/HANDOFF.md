@@ -41,9 +41,9 @@ Follow the steps in [DEMO_FLOW.md](../demo/DEMO_FLOW.md) for a guided walkthroug
   5. `llm_postprocess.py`: Cleanup and structured extraction.
 
 ## Important Scripts
-- `scripts/dev_backend.sh`: Start the backend.
-- `scripts/dev_desktop.sh`: Start the desktop app.
-- `scripts/check_demo_readiness.sh`: Verify environment.
+- `scripts/launch/dev_backend.sh`: Start the backend.
+- `scripts/launch/dev_desktop.sh`: Start the desktop app.
+- `scripts/setup/check_demo_readiness.sh`: Verify environment.
 - `realtime_backend/scripts/seed_demo_session.py`: Seed data without audio.
 - `realtime_backend/scripts/benchmark_common_voice_tr.py`: Run ASR benchmark.
 

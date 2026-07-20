@@ -29,7 +29,7 @@ def _faster_whisper_available() -> tuple[bool, str | None]:
 
 
 def main() -> int:
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
     requirements_path = repo_root / "realtime_backend" / "requirements.txt"
     pyproject_path = repo_root / "pyproject.toml"
 
@@ -78,7 +78,7 @@ def main() -> int:
         return 1
 
     print("\n[CMG] Friend alpha dependencies are ready.")
-    print("[CMG] Next: python scripts\\launch_cmg.py")
+    print("[CMG] Next: python scripts\\launch\\launch_cmg.py")
     return 0
 
 

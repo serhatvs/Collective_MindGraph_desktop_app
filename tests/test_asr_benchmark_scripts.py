@@ -5,7 +5,7 @@ import sys
 from types import SimpleNamespace
 
 
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts" / "benchmarks"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from asr_benchmark_common import provider_status, should_score_accuracy  # noqa: E402

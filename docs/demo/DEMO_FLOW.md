@@ -5,7 +5,7 @@ Follow these steps to demonstrate the end-to-end Collective MindGraph technical 
 ## Step 1: Environment Readiness
 Run the health check to ensure local dependencies (ffmpeg, Faster-Whisper) are correctly configured.
 ```bash
-./scripts/check_demo_readiness.sh
+./scripts/setup/check_demo_readiness.sh
 ```
 
 ## Step 2: Seed Demo Data
@@ -17,13 +17,13 @@ PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
 ## Step 3: Start the Backend
 Open a terminal and start the transcription service. It will default to CPU/int8/Turkish for maximum local compatibility.
 ```bash
-./scripts/dev_backend.sh
+./scripts/launch/dev_backend.sh
 ```
 
 ## Step 4: Start the Desktop App
 Open another terminal and launch the UI.
 ```bash
-./scripts/dev_desktop.sh
+./scripts/launch/dev_desktop.sh
 ```
 
 ## Step 5: Guided UI Walkthrough
@@ -52,7 +52,7 @@ Observe the modern 3-area layout:
 **Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
 
 ## Troubleshooting: Desktop App Window Not Appearing
-The **native PySide6 desktop app** is the only user-facing frontend. If the window does not appear after running `./scripts/dev_desktop.sh`:
+The **native PySide6 desktop app** is the only user-facing frontend. If the window does not appear after running `./scripts/launch/dev_desktop.sh`:
 
 1.  **Check Display Environment**:
     ```bash
@@ -69,7 +69,7 @@ The **native PySide6 desktop app** is the only user-facing frontend. If the wind
 3.  **Debug Qt Plugins**:
     If there are platform errors, run with plugin debugging:
     ```bash
-    QT_DEBUG_PLUGINS=1 ./scripts/dev_desktop.sh
+    QT_DEBUG_PLUGINS=1 ./scripts/launch/dev_desktop.sh
     ```
 
 4.  **Confirm New UI**:

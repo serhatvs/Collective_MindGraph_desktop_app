@@ -11,7 +11,7 @@ Scope: real Turkish transcription benchmarking only. This report does not evalua
 The project now has a local benchmark runner for real Turkish audio:
 
 ```text
-scripts/run_project_turkish_transcription_benchmark.py
+scripts/benchmarks/run_project_turkish_transcription_benchmark.py
 ```
 
 The benchmark has not been run because no project Turkish meeting-room audio file was available in the expected fixture location and no `--audio` path was provided. No accuracy, meeting-room readiness, or model superiority claim should be made from this report.
@@ -37,7 +37,7 @@ Requested report file:
 
 Requested scripts:
 
-- `scripts/run_project_turkish_transcription_benchmark.py`: created by this pass.
+- `scripts/benchmarks/run_project_turkish_transcription_benchmark.py`: created by this pass.
 - `scripts/benchmark_transcription_quality.py`: not found.
 
 Existing related scripts:
@@ -83,7 +83,7 @@ Minimum acceptable benchmark fixture:
 With real meeting-room audio and a reference transcript:
 
 ```powershell
-python scripts/run_project_turkish_transcription_benchmark.py `
+python scripts/benchmarks/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --reference realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
   --audio-kind real_meeting_room `
@@ -93,7 +93,7 @@ python scripts/run_project_turkish_transcription_benchmark.py `
 Without a reference transcript:
 
 ```powershell
-python scripts/run_project_turkish_transcription_benchmark.py `
+python scripts/benchmarks/run_project_turkish_transcription_benchmark.py `
   --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
   --audio-kind real_meeting_room `
   --output docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
@@ -217,8 +217,8 @@ When run, the benchmark writes simple VAD boundary notes, but those notes are on
 Commands run:
 
 ```text
-python -m py_compile scripts/run_project_turkish_transcription_benchmark.py
-python scripts/run_project_turkish_transcription_benchmark.py --help
+python -m py_compile scripts/benchmarks/run_project_turkish_transcription_benchmark.py
+python scripts/benchmarks/run_project_turkish_transcription_benchmark.py --help
 ```
 
 Result:

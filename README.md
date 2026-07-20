@@ -32,13 +32,13 @@ Collective MindGraph is stable in **fallback-first production memory mode**. Thi
 ### 1. Run the Backend
 The backend service handles audio processing, transcription, and memory extraction.
 ```bash
-./scripts/dev_backend.sh
+./scripts/launch/dev_backend.sh
 ```
 
 ### 2. Run the Desktop App
 The native PySide6 application is the primary interface for managing sessions and searching memory.
 ```bash
-./scripts/dev_desktop.sh
+./scripts/launch/dev_desktop.sh
 ```
 
 ## Main Workflows

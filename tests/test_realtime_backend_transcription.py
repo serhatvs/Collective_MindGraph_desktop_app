@@ -186,6 +186,25 @@ def test_live_stream_controller_preserves_full_config_query(monkeypatch, qapp, t
     assert json.loads(query["hotwords"][0]) == ["ozel terim"]
 
 
+def test_live_stream_disconnect_after_partial_and_finalize_reports_failure(qapp):
+    class FakeSocket:
+        def deleteLater(self):
+            pass
+
+    controller = LiveTranscriptStreamController()
+    failures: list[str] = []
+    controller.failed.connect(failures.append)
+    controller._socket = FakeSocket()
+    controller._pending_finalize = True
+    controller._finalize_sent = True
+    controller._had_partial = True
+
+    controller._handle_disconnected()
+
+    assert failures == ["Live transcript stream disconnected before the final transcript arrived."]
+    assert controller.is_active is False
+
+
 def test_realtime_backend_transcription_service_reports_connection_failures(tmp_path):
     audio_path = tmp_path / "sample.wav"
     audio_path.write_bytes(b"RIFF....WAVEfmt ")

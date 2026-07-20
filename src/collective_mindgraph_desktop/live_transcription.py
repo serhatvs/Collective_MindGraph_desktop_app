@@ -39,7 +39,6 @@ class LiveTranscriptStreamController(QObject):
         self._pending_finalize = False
         self._finalize_sent = False
         self._cancelled = False
-        self._had_partial = False
 
     @property
     def is_active(self) -> bool:
@@ -57,7 +56,6 @@ class LiveTranscriptStreamController(QObject):
         self._pending_finalize = False
         self._finalize_sent = False
         self._cancelled = False
-        self._had_partial = False
         self._flush_timer.setInterval(max(250, config.stream_flush_interval_ms))
 
         socket = QWebSocket()
@@ -111,7 +109,6 @@ class LiveTranscriptStreamController(QObject):
             if self._service is None or self._audio_path is None:
                 return
             update = self._service.stream_update_from_payload(message, self._audio_path)
-            self._had_partial = True
             self.partial_received.emit(update)
             return
         if event == "final_transcript":
@@ -132,13 +129,9 @@ class LiveTranscriptStreamController(QObject):
         self.cancel()
 
     def _handle_disconnected(self) -> None:
-        had_pending_finalize = self._pending_finalize or self._finalize_sent
         self._stop_timers()
         self._cleanup_socket()
         if self._cancelled:
-            return
-        if had_pending_finalize and self._had_partial:
-            self.state_changed.emit("Live transcript stream closed after finalization.")
             return
         self.failed.emit("Live transcript stream disconnected before the final transcript arrived.")
 

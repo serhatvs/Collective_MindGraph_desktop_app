@@ -8,7 +8,7 @@
 
 ## Current State
 
-- Active maintenance branch: `refactor/engineering-cleanup`, created from `feature/transcription-reference-tooling` at `291637e966ed08fca1d1f394012b1e64c42fb590`.
+- Active maintenance branch: `refactor/engineering-cleanup`, created from `feature/transcription-reference-tooling` at `291637e966ed08fca1d1f394012b1e64c42fb590` and published with upstream tracking at `origin/refactor/engineering-cleanup`.
 - The cleanup and follow-up hardening preserve the transcription, memory, persistence, API, WebSocket, and desktop boundaries. No cloud services, models, UI features, or product redesign were added.
 - The latest hardening work enforces HTTP(S)-only local LLM endpoint boundaries, contains portable conversation identifiers and generated WAV paths, waits for threaded audio owners on cancellation, rejects incomplete live finalization, preserves dirty annotation edits, and only ranks complete comparable experiment matrices.
 - Repository organization is responsibility- and lifecycle-based: root scripts are split into `launch`, `benchmarks`, `datasets`, `validation`, `setup`, and `packaging`; generated reports are dated under `docs/reports/`; handoffs and superseded plans are dated under `docs/archive/handovers/`.

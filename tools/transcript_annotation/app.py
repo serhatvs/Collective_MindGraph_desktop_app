@@ -75,6 +75,7 @@ class AnnotationWindow(QMainWindow):
         self.current_recording_id: str | None = None
         self.current_segment_id: str | None = None
         self._loading_editor = False
+        self._segment_edit_dirty = False
         self._segment_stop_ms: int | None = None
         self._pending_audio: list[Path] = []
         self._pending_profile = "balanced"
@@ -316,6 +317,7 @@ class AnnotationWindow(QMainWindow):
         if not self._flush_pending_segment_edit():
             return False
         self._autosave.stop()
+        self._segment_edit_dirty = False
         self.dataset = dataset
         self.current_recording_id = None
         self.current_segment_id = None
@@ -509,13 +511,15 @@ class AnnotationWindow(QMainWindow):
             self._segment_stop_ms = int(float(segment["reviewed_end"]) * 1000)
         finally:
             self._loading_editor = False
+        self._segment_edit_dirty = False
 
     def _schedule_autosave(self, *_args: object) -> None:
         if not self._loading_editor and self.current_segment_id:
+            self._segment_edit_dirty = True
             self._autosave.start()
 
     def _flush_pending_segment_edit(self) -> bool:
-        if not self._autosave.isActive():
+        if not self._segment_edit_dirty:
             return True
         self._autosave.stop()
         return self.save_current_segment()
@@ -546,6 +550,7 @@ class AnnotationWindow(QMainWindow):
         except DatasetIntegrityError as exc:
             self.statusBar().showMessage(str(exc))
             return False
+        self._segment_edit_dirty = False
         self.boundary_warning.setText("; ".join(warnings) or "None")
         self.statusBar().showMessage("Segment autosaved atomically; original ASR fields were not changed.")
         recording = self.dataset.get_recording(recording_id)
@@ -677,8 +682,9 @@ class AnnotationWindow(QMainWindow):
             widget.setEnabled(enabled)
 
     def closeEvent(self, event) -> None:  # noqa: N802
-        self._autosave.stop()
-        self.save_current_segment()
+        if not self._flush_pending_segment_edit():
+            event.ignore()
+            return
         if self._worker and self._worker.isRunning():
             QMessageBox.information(
                 self,

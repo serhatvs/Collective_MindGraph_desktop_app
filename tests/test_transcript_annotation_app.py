@@ -93,6 +93,60 @@ def test_annotation_navigation_flushes_pending_human_edits(qtbot, tmp_path: Path
     )["reference_text"] == "Veri kümesi geçişinden önceki düzeltme."
 
 
+def test_failed_autosave_remains_dirty_and_blocks_navigation(qtbot, tmp_path: Path):
+    audio = tmp_path / "recording.wav"
+    _write_wav(audio)
+    dataset = AnnotationDataset.create(tmp_path / "dataset", dataset_name="Dirty Edit Pilot")
+    recording = dataset.add_recording(audio, _navigation_transcript())
+
+    window = AnnotationWindow(dataset.root)
+    qtbot.addWidget(window)
+    window.show()
+    qtbot.waitUntil(lambda: window.dataset is not None)
+    window.recording_list.setCurrentRow(0)
+    qtbot.waitUntil(lambda: window.current_recording_id == recording["recording_id"])
+    window.segment_table.selectRow(0)
+    first_segment_id = recording["segments"][0]["segment_id"]
+    second_segment_id = recording["segments"][1]["segment_id"]
+    qtbot.waitUntil(lambda: window.current_segment_id == first_segment_id)
+
+    window.reference_text.clear()
+    window.segment_status.setCurrentText("reviewed")
+    qtbot.waitUntil(lambda: not window._autosave.isActive(), timeout=2_000)
+    assert window._segment_edit_dirty is True
+
+    class CloseEvent:
+        accepted = False
+        ignored = False
+
+        def accept(self):
+            self.accepted = True
+
+        def ignore(self):
+            self.ignored = True
+
+    close_event = CloseEvent()
+    window.closeEvent(close_event)
+    assert close_event.ignored is True
+    assert close_event.accepted is False
+    assert window._segment_edit_dirty is True
+
+    window.segment_table.selectRow(1)
+
+    assert window.current_segment_id == first_segment_id
+    assert window.segment_table.currentRow() == 0
+    assert window._segment_edit_dirty is True
+
+    window.reference_text.setPlainText("Geçerli insan referansı.")
+    window.segment_table.selectRow(1)
+    qtbot.waitUntil(lambda: window.current_segment_id == second_segment_id)
+
+    reloaded = AnnotationDataset.load(dataset.root)
+    assert reloaded.get_segment(recording["recording_id"], first_segment_id)["reference_text"] == (
+        "Geçerli insan referansı."
+    )
+
+
 def _transcript() -> dict:
     return {
         "conversation_id": "ui_fixture",

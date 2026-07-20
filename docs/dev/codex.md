@@ -10,7 +10,7 @@
 
 - Active maintenance branch: `refactor/engineering-cleanup`, created from `feature/transcription-reference-tooling` at `291637e966ed08fca1d1f394012b1e64c42fb590`.
 - The cleanup and follow-up hardening preserve the transcription, memory, persistence, API, WebSocket, and desktop boundaries. No cloud services, models, UI features, or product redesign were added.
-- The latest hardening work enforces local LLM endpoint boundaries, contains conversation identifiers and generated WAV paths, rejects incomplete live finalization, flushes annotation edits before navigation, and only ranks comparable experiment runs.
+- The latest hardening work enforces HTTP(S)-only local LLM endpoint boundaries, contains portable conversation identifiers and generated WAV paths, waits for threaded audio owners on cancellation, rejects incomplete live finalization, preserves dirty annotation edits, and only ranks complete comparable experiment matrices.
 - Default pytest discovery includes both `tests/` and `realtime_backend/tests/`.
 - Generated/local state at repository root is ignored, including `.venv-win/`, `models/`, `realtime_backend_temp/`, `realtime_backend_data/`, and `transcription_settings.json`.
 - `transcription_settings.json` and the seeded demo transcript remain available locally but are no longer tracked.
@@ -28,7 +28,7 @@
 ## Verified Behavior
 
 - Hardening baseline at `115b133`: focused transcription suite `74 passed, 2 skipped, 2 warnings`; annotation/evaluation suite `43 passed`; unified offscreen suite `367 passed, 5 skipped, 5 warnings`.
-- Hardening result: focused transcription suite `75 passed, 2 skipped, 2 warnings`; annotation/evaluation suite `46 passed`; unified offscreen suite `389 passed, 5 skipped, 5 warnings` in `76.93s` on Python `3.13.14`.
+- Hardening result: focused transcription suite `78 passed, 2 skipped, 2 warnings`; annotation/evaluation suite `49 passed`; unified offscreen suite `407 passed, 5 skipped, 5 warnings` in `139.44s` on Python `3.13.14`.
 - Optional skips are two unavailable local-LLM paths, one unconfigured real embedding model, one missing generic Turkish fixture, and one missing project meeting fixture.
 - Remaining warnings are one Starlette TestClient deprecation and four `torch.jit.load` deprecations.
 - A cached Faster-Whisper `small` CPU/int8 smoke on `cv_tr_000.wav` returned `ASR_STATUS=OK`, provider `faster_whisper`, the expected Turkish sentence, and no mock or GPU fallback.
@@ -40,11 +40,12 @@
 - Do not silently change transcription profiles, model/device defaults, VAD/preprocessing thresholds, selective retranscription defaults, fallback behavior, or persisted schemas.
 - Keep raw, selected, and cleaned transcript data distinct; keep reference metrics distinct from heuristic confidence.
 - Keep ASR provider, preprocessing, orchestration, evaluation, persistence, API, and desktop boundaries even when similar models exist across layers.
-- Treat only exact localhost names and IP addresses classified as local/private by `ipaddress` as local LLM endpoints; hostname prefixes are not a security boundary.
-- External conversation IDs must be validated at the route and service boundaries, and all persistence paths must remain direct children of the configured store.
+- Treat only HTTP(S) endpoints on exact localhost names or local/private IP addresses as local LLM endpoints; hostname prefixes and remote-access overrides are not URL-scheme validation.
+- External conversation IDs must be validated at the route and service boundaries, fit the conservative Windows UTF-16 filename budget, and resolve to direct children of the configured store.
+- Cancellation of a threaded audio stage must wait until its worker releases owned WAV files before cleanup; delayed cancellation is preferable to a Windows temp-file leak.
 - A live transcription session is successful only after a final event; receiving partial text before disconnect is not completion.
-- Pending annotation edits must be flushed before segment, recording, or dataset navigation.
-- Transcription experiments may select a best configuration only when every run is failure-free and covers identical attempted and referenced recording sets.
+- Dirty annotation edits must be flushed before segment, recording, dataset, or window-close navigation, and failed validation must keep the edit dirty.
+- Transcription experiments may rank configurations or condition deltas only when the exact planned configuration-by-recording matrix is complete, failure-free, and has identical reference coverage; resume output is filtered to exact full-configuration experiment IDs.
 - Do not commit real meeting audio, personal device identifiers, model weights, local databases, generated exports, or machine-specific paths.
 - Preserve benchmark evidence and dated reports that support project claims.
 
@@ -59,6 +60,7 @@
 - Equivalent memory/provider modules exist in desktop/core and backend trees, but source-mode isolation and persistence ownership make consolidation risky without a dedicated migration plan.
 - `llm_provider="disabled"` is inconsistent with the LLM builder's unknown-value fallback to LM Studio. Preserve current behavior until configuration semantics are explicitly migrated and tested.
 - Environment/config naming remains partly duplicated across legacy `CMG_*` and `CMG_RT_*` aliases; external compatibility prevents silent removal.
+- The console-script `pytest` entry point needs `PYTHONPATH=src;.` in this environment; without it, two root tests cannot import `realtime_backend` during collection.
 - Real meeting-room Turkish WER/CER, Silero behavior on the target Windows runtime, packaging, and installer validation remain open validation work.
 
 ## Next Likely Tasks

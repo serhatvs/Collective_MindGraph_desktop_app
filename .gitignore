@@ -9,12 +9,14 @@ __pycache__/
 venv/
 .env
 realtime_backend/run_logs/
+*.log
 realtime_backend/realtime_backend_data/
 realtime_backend/realtime_backend_temp/
 /realtime_backend_temp/
 /realtime_backend_data/
 wake_phrase_models/
-/models/
+/models/*
+!/models/README.md
 recordings/
 video/
 dist/
@@ -29,6 +31,7 @@ realtime_backend/tests/fixtures/audio/common_voice_tr/*
 !realtime_backend/tests/fixtures/audio/common_voice_tr/.gitkeep
 *.sqlite3
 benchmark_results.json
-datasets/transcription/
+/datasets/*
+!/datasets/README.md
 /transcription_settings.json
 /ui_dump*.txt

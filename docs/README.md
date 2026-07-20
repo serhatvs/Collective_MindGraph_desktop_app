@@ -4,7 +4,7 @@ Documentation is organized by audience and lifecycle. Maintained documents may b
 
 ## Maintained documentation
 
-- `dev/`: engineering setup, architecture, runtime status, transcription design, and repository memory. `dev/SETUP.md` is the authoritative local setup guide; `dev/ARCHITECTURE.md` is the authoritative current architecture overview; `dev/codex.md` is concise repository working memory.
+- `dev/`: engineering setup, architecture, runtime status, transcription design, and repository memory. `dev/SETUP.md` is the authoritative local setup guide; `dev/ARCHITECTURE.md` is the authoritative current architecture overview; `dev/REPOSITORY_STRUCTURE.md` owns repository layout and file-lifecycle policy; `dev/codex.md` is concise repository working memory.
 - `product/`: current product status, roadmap, release notes, and claim boundaries.
 - `demo/`: maintained demo flow and packaging instructions.
 - `alpha/`: friend-alpha installation and testing instructions.

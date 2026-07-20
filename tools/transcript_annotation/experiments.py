@@ -314,6 +314,11 @@ def write_experiment_outputs(
         if planned_recording_ids is not None
         else None
     )
+    planned_run_ids = (
+        sorted(experiment_plan_ids(configurations, planned_ids))
+        if planned_ids is not None
+        else None
+    )
     payload = {
         "schema_version": EXPERIMENT_RESULTS_SCHEMA_VERSION,
         "dataset_name": dataset.manifest["dataset_name"],
@@ -321,6 +326,7 @@ def write_experiment_outputs(
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "configurations": configurations,
         "planned_recording_ids": planned_ids,
+        "planned_experiment_ids": planned_run_ids,
         "results": results,
     }
     atomic_write_json(output / "experiment_results.json", payload)
@@ -344,10 +350,21 @@ def build_experiment_report(
     planned_recording_ids: Iterable[str] | None = None,
 ) -> str:
     aggregates = aggregate_experiment_results(results)
+    planned_ids = (
+        tuple(str(recording_id) for recording_id in planned_recording_ids)
+        if planned_recording_ids is not None
+        else None
+    )
+    expected_experiment_ids = (
+        experiment_plan_ids(configurations, planned_ids)
+        if planned_ids is not None
+        else None
+    )
     best = choose_best_configuration(
         aggregates,
         expected_configuration_keys=[configuration_key(item) for item in configurations],
-        expected_recording_ids=planned_recording_ids,
+        expected_recording_ids=planned_ids,
+        expected_experiment_ids=expected_experiment_ids,
     )
     condition_counts: dict[str, int] = {}
     for recording in dataset.recordings:
@@ -508,6 +525,7 @@ def aggregate_experiment_results(results: list[dict[str, Any]]) -> list[dict[str
         aggregates.append(
             {
                 "configuration_key": key,
+                "experiment_ids": [_result_experiment_id(item) for item in items],
                 "result_count": len(items),
                 "attempted_recording_ids": attempted_recording_ids,
                 "referenced_recording_ids": referenced_recording_ids,
@@ -528,6 +546,7 @@ def choose_best_configuration(
     *,
     expected_configuration_keys: Iterable[str] | None = None,
     expected_recording_ids: Iterable[str] | None = None,
+    expected_experiment_ids: Iterable[str] | None = None,
 ) -> dict[str, Any] | None:
     candidates = [item for item in aggregates if item.get("wer") is not None]
     if not candidates:
@@ -546,6 +565,15 @@ def choose_best_configuration(
             != expected_recordings
             for item in aggregates
         ):
+            return None
+    if expected_experiment_ids is not None:
+        expected_runs = sorted({str(value) for value in expected_experiment_ids})
+        observed_runs = sorted(
+            str(experiment_id)
+            for item in aggregates
+            for experiment_id in item.get("experiment_ids") or ()
+        )
+        if not expected_runs or observed_runs != expected_runs:
             return None
     attempted_coverage = {
         tuple(str(value) for value in item.get("attempted_recording_ids") or ())
@@ -601,9 +629,42 @@ def configuration_key(configuration: dict[str, Any]) -> str:
         for value in (
             configuration.get("mode"),
             configuration.get("profile"),
+            configuration.get("selective_retranscription_enabled"),
+            configuration.get("second_pass_profile"),
             configuration.get("model_override"),
             configuration.get("selective_model_override"),
         )
+    )
+
+
+def experiment_plan_ids(
+    configurations: Iterable[dict[str, Any]],
+    recording_ids: Iterable[str],
+) -> set[str]:
+    configuration_items = tuple(configurations)
+    recording_id_items = tuple(str(recording_id) for recording_id in recording_ids)
+    return {
+        experiment_identifier(recording_id, configuration)
+        for configuration in configuration_items
+        for recording_id in recording_id_items
+    }
+
+
+def filter_results_for_plan(
+    results: Iterable[dict[str, Any]],
+    planned_experiment_ids: Iterable[str],
+) -> list[dict[str, Any]]:
+    planned = {str(value) for value in planned_experiment_ids}
+    return [item for item in results if _result_experiment_id(item) in planned]
+
+
+def _result_experiment_id(result: dict[str, Any]) -> str:
+    identifier = result.get("experiment_id")
+    if identifier:
+        return str(identifier)
+    return experiment_identifier(
+        str(result.get("recording_id") or ""),
+        result.get("configuration") or {},
     )
 
 

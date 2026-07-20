@@ -16,7 +16,9 @@ from tools.transcript_annotation.dataset import AnnotationDataset  # noqa: E402
 from tools.transcript_annotation.experiments import (  # noqa: E402
     build_experiment_configurations,
     completed_experiment_ids,
+    experiment_plan_ids,
     experiment_identifier,
+    filter_results_for_plan,
     filter_recordings,
     load_existing_results,
     load_experiment_glossary,
@@ -67,10 +69,15 @@ async def main() -> int:
     if not recordings:
         raise SystemExit("No non-excluded recordings matched the requested filters.")
     planned_recording_ids = [str(recording["recording_id"]) for recording in recordings]
+    planned_run_ids = experiment_plan_ids(configurations, planned_recording_ids)
     glossary_file = args.glossary_file.expanduser().resolve() if args.glossary_file else None
     glossary_terms, glossary_metadata = load_experiment_glossary(dataset, glossary_file)
     results_path = output / "experiment_results.json"
-    results = load_existing_results(results_path) if args.resume else []
+    results = (
+        filter_results_for_plan(load_existing_results(results_path), planned_run_ids)
+        if args.resume
+        else []
+    )
     completed = completed_experiment_ids(results)
 
     for configuration in configurations:

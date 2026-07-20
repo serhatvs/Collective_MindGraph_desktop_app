@@ -16,7 +16,9 @@ from tools.transcript_annotation.experiments import (
     completed_experiment_ids,
     configuration_key,
     condition_regressions,
+    experiment_plan_ids,
     experiment_identifier,
+    filter_results_for_plan,
     filter_recordings,
     load_existing_results,
     parse_model_overrides,
@@ -144,6 +146,9 @@ def test_output_generation_resume_and_best_configuration_use_reference_metrics(t
 
     assert {item["experiment_id"] for item in loaded} == {balanced["experiment_id"], strong["experiment_id"]}
     assert payload["planned_recording_ids"] == [dataset.recordings[0]["recording_id"]]
+    assert payload["planned_experiment_ids"] == sorted(
+        experiment_plan_ids(configurations, [dataset.recordings[0]["recording_id"]])
+    )
     assert best["configuration_key"].startswith("full_max_quality")
     assert (output / "experiment_results.csv").is_file()
     report = (output / "TRANSCRIPTION_EXPERIMENT_REPORT.md").read_text(encoding="utf-8")
@@ -230,6 +235,50 @@ def test_report_never_ranks_an_incomplete_planned_matrix(tmp_path: Path):
     assert best is None
     assert "ranks first" not in report
     assert "incomplete planned experiment matrix" in report
+
+
+def test_resume_filters_colliding_stale_configuration_results(tmp_path: Path):
+    dataset = _dataset_with_two_recordings(tmp_path)
+    recording_id = dataset.recordings[0]["recording_id"]
+    old_configuration = build_experiment_configurations(
+        [],
+        only_selective=True,
+        second_pass_profile="selective_recovery",
+    )[0]
+    current_configuration = build_experiment_configurations(
+        [],
+        only_selective=True,
+        second_pass_profile="max_quality",
+    )[0]
+    old_result = _result(
+        recording_id,
+        old_configuration,
+        wer=0.0,
+        cer=0.0,
+        domain=1.0,
+        seconds=0.5,
+    )
+    current_result = _result(
+        recording_id,
+        current_configuration,
+        wer=0.2,
+        cer=0.1,
+        domain=0.8,
+        seconds=1.0,
+    )
+    plan = experiment_plan_ids([current_configuration], [recording_id])
+
+    filtered = filter_results_for_plan([old_result, current_result], plan)
+    report = build_experiment_report(
+        dataset,
+        [current_configuration],
+        filtered,
+        planned_recording_ids=[recording_id],
+    )
+
+    assert configuration_key(old_configuration) != configuration_key(current_configuration)
+    assert filtered == [current_result]
+    assert "ranks first" in report
 
 
 def test_experiment_identifier_is_stable_for_resume():

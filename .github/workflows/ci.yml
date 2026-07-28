@@ -29,8 +29,8 @@ jobs:
           - "3.12"
           - "3.13"
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           python-version: ${{ matrix.python }}
@@ -39,7 +39,7 @@ jobs:
         run: >-
           sudo apt-get update &&
           sudo apt-get install --yes
-          libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+          libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install locked test environment
         run: uv sync --frozen --extra dev
       - name: Run automated suite
@@ -49,10 +49,10 @@ jobs:
     name: Quality, contracts, and coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v6
+      - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           python-version: "3.13"
@@ -60,7 +60,7 @@ jobs:
         run: >-
           sudo apt-get update &&
           sudo apt-get install --yes
-          libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+          libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install locked quality environment
         run: uv sync --frozen --extra dev
       - name: Check formatting
@@ -90,7 +90,7 @@ jobs:
         run: uv run diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=90
       - name: Scan production code
         run: uv run bandit -q -lll -iii -c pyproject.toml -r src
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-python-3.13
@@ -102,8 +102,8 @@ jobs:
     name: Windows package smoke
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8
         with:
           enable-cache: true
           python-version: "3.11"

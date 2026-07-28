@@ -42,7 +42,8 @@
   Qt/EGL runtime required for offscreen PySide6 imports, and repository
   dependency alerts were disabled. The workflow now installs the minimal
   Linux Qt runtime, and GitHub vulnerability alerts/dependency graph support
-  are enabled instead of bypassing dependency review.
+  are enabled instead of bypassing dependency review. Hosted actions use
+  their current Node 24-compatible major versions.
 
 ## Architecture and Runtime
 

@@ -29,7 +29,7 @@
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Quality measurements: 75.36% branch-inclusive coverage, 79% statement
+- Quality measurements: 75.59% branch-inclusive coverage, 79% statement
   coverage, and 304 existing strict-mypy errors across the full production
   package. CI rejects coverage below 75%, changed production lines below 90%,
   or any new/increased module/error-code type debt.
@@ -119,9 +119,9 @@
 
 ## Verification
 
-- Latest automated run on stage 1: `298 passed, 4 skipped`; skips require real
+- Latest automated run on stage 1: `301 passed, 4 skipped`; skips require real
   local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 75.36%; changed production lines: 100%.
+- Branch-inclusive coverage: 75.59%; changed production lines: 96%.
 - Ruff format/lint, complexity ratchet, 400-line architecture policy,
   strict-mypy ratchet, compileall, high-confidence/high-severity Bandit, and
   runtime dependency audit pass locally.

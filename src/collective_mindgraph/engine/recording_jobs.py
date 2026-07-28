@@ -45,6 +45,40 @@ class RecordingJobCoordinator:
         self._recordings = recordings
         self._storage = storage
         self._tasks: dict[JobId, asyncio.Task[None]] = {}
+        self._meeting_locks: dict[int, asyncio.Lock] = {}
+        self._live_meetings: dict[int, int] = {}
+
+    def meeting_lock(self, meeting_id) -> asyncio.Lock:
+        key = int(meeting_id)
+        lock = self._meeting_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._meeting_locks[key] = lock
+        return lock
+
+    def begin_live_capture(self, meeting_id) -> None:
+        key = int(meeting_id)
+        self._live_meetings[key] = self._live_meetings.get(key, 0) + 1
+
+    def end_live_capture(self, meeting_id) -> None:
+        key = int(meeting_id)
+        remaining = self._live_meetings.get(key, 0) - 1
+        if remaining > 0:
+            self._live_meetings[key] = remaining
+        else:
+            self._live_meetings.pop(key, None)
+
+    def meeting_is_busy(self, meeting_id) -> bool:
+        key = int(meeting_id)
+        if self._live_meetings.get(key, 0) > 0:
+            return True
+        for job_id, task in self._tasks.items():
+            if task.done():
+                continue
+            job = self._jobs.get(job_id)
+            if job is not None and job.meeting_id == meeting_id:
+                return True
+        return False
 
     def recover_interrupted(self) -> int:
         recovered = 0
@@ -68,6 +102,12 @@ class RecordingJobCoordinator:
                     self._recordings.update_storage(
                         job.recording_id,
                         status=RecordingStorageStatus.RETAINED,
+                    )
+                if job.meeting_id is not None:
+                    self._meetings.set_status(
+                        job.meeting_id,
+                        status=MeetingStatus.FAILED,
+                        now=datetime.now(tz=UTC),
                     )
                 recovered += 1
         return recovered
@@ -152,6 +192,12 @@ class RecordingJobCoordinator:
                 job.recording_id,
                 status=RecordingStorageStatus.RETAINED,
             )
+        if job.meeting_id is not None:
+            self._meetings.set_status(
+                job.meeting_id,
+                status=MeetingStatus.FAILED,
+                now=datetime.now(tz=UTC),
+            )
         return cancelled
 
     def retry(self, job_id: JobId) -> ProcessingJob:
@@ -230,6 +276,11 @@ class RecordingJobCoordinator:
             self._recordings.update_storage(
                 recording.id,
                 status=RecordingStorageStatus.RETAINED,
+            )
+            self._meetings.set_status(
+                recording.meeting_id,
+                status=MeetingStatus.FAILED,
+                now=datetime.now(tz=UTC),
             )
             raise
         except Exception as exc:

@@ -17,6 +17,9 @@ class ManagedRecordingStorage:
     def root(self) -> Path:
         return self._root
 
+    def is_managed(self, source_uri: str) -> bool:
+        return source_uri.startswith(self.URI_PREFIX)
+
     def allocate(
         self,
         meeting_id: MeetingId,

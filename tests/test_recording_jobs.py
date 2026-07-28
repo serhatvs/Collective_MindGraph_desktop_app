@@ -75,6 +75,7 @@ def test_running_job_is_actually_cancelled_and_retry_keeps_lineage(
         assert cancelled.status_code == 200
         assert cancelled.json()["status"] == "cancelled"
         assert cancelled.json()["retryable"] is True
+        assert client.get(f"/api/v1/meetings/{meeting_id}").json()["status"] == "failed"
         recording = client.app.state.engine_context.recordings.get(
             RecordingId(original["recording_id"])
         )
@@ -89,6 +90,57 @@ def test_running_job_is_actually_cancelled_and_retry_keeps_lineage(
         assert retried.json()["parent_job_id"] == original["id"]
         assert retried.json()["recording_id"] == original["recording_id"]
         client.post(f"/api/v1/jobs/{retried.json()['id']}/cancel")
+
+
+def test_meeting_delete_rejects_active_work_then_removes_managed_audio(
+    tmp_path,
+    monkeypatch,
+):
+    started = threading.Event()
+
+    async def slow_process(self, *_args, **_kwargs):
+        started.set()
+        await asyncio.sleep(30)
+
+    monkeypatch.setattr(RecordingProcessor, "process_audio_path", slow_process)
+    with TestClient(create_app(_settings(tmp_path))) as client:
+        meeting_id = client.post(
+            "/api/v1/meetings",
+            json={"title": "Delete safety"},
+        ).json()["id"]
+        queued = _upload(client, meeting_id).json()
+        assert started.wait(2)
+        context = client.app.state.engine_context
+        recording = context.recordings.get(RecordingId(str(queued["recording_id"])))
+        assert recording is not None
+        managed_path = context.recording_storage.resolve(recording.source_uri)
+        assert managed_path.is_file()
+
+        blocked = client.delete(f"/api/v1/meetings/{meeting_id}")
+        assert blocked.status_code == 409
+        client.post(f"/api/v1/jobs/{queued['id']}/cancel")
+        _wait_for_terminal(client, str(queued["id"]))
+
+        deleted = client.delete(f"/api/v1/meetings/{meeting_id}")
+        assert deleted.status_code == 204
+        assert not managed_path.exists()
+        assert client.get(f"/api/v1/meetings/{meeting_id}").status_code == 404
+
+
+def test_empty_upload_is_rejected_without_managed_artifacts(tmp_path):
+    with TestClient(create_app(_settings(tmp_path))) as client:
+        meeting_id = client.post(
+            "/api/v1/meetings",
+            json={"title": "Empty upload"},
+        ).json()["id"]
+        response = client.post(
+            f"/api/v1/meetings/{meeting_id}/recordings",
+            files={"upload": ("empty.wav", b"", "audio/wav")},
+        )
+        assert response.status_code == 422
+        context = client.app.state.engine_context
+        assert context.recordings.list_for_meeting(MeetingId(meeting_id)) == ()
+        assert list(context.recording_storage.root.rglob("*.*")) == []
 
 
 def test_failed_job_retains_audio_and_reports_retryable_error(tmp_path, monkeypatch):

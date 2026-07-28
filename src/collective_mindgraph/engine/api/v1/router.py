@@ -167,8 +167,21 @@ async def update_meeting(
 
 @router.delete("/meetings/{meeting_id}", status_code=204)
 async def delete_meeting(request: Request, meeting_id: int) -> Response:
-    if not _context(request).delete_meeting(MeetingId(meeting_id)):
-        raise HTTPException(status_code=404, detail="Meeting not found.")
+    context = _context(request)
+    selected_meeting = MeetingId(meeting_id)
+    async with context.recording_jobs.meeting_lock(selected_meeting):
+        if context.get_meeting(selected_meeting) is None:
+            raise HTTPException(status_code=404, detail="Meeting not found.")
+        if context.recording_jobs.meeting_is_busy(selected_meeting):
+            raise HTTPException(
+                status_code=409,
+                detail="Meeting has active recording work and cannot be deleted.",
+            )
+        for recording in context.recordings.list_for_meeting(selected_meeting):
+            if context.recording_storage.is_managed(recording.source_uri):
+                context.recording_storage.delete(recording.source_uri)
+        if not context.delete_meeting(selected_meeting):
+            raise HTTPException(status_code=404, detail="Meeting not found.")
     return Response(status_code=204)
 
 
@@ -228,44 +241,48 @@ async def ingest_recording(
 ) -> ProcessingJobResponse:
     context = _context(request)
     selected_meeting = MeetingId(meeting_id)
-    if context.get_meeting(selected_meeting) is None:
-        raise HTTPException(status_code=404, detail="Meeting not found.")
-    recording_id = RecordingId(str(uuid4()))
-    source_path, source_uri = context.recording_storage.allocate(
-        selected_meeting,
-        recording_id,
-        upload.filename or "audio.bin",
-    )
-    try:
-        await _store_upload(upload, source_path)
-    except BaseException:
-        source_path.unlink(missing_ok=True)
-        raise
-    recording = Recording(
-        id=recording_id,
-        meeting_id=selected_meeting,
-        source_uri=source_uri,
-        duration_seconds=None,
-        input_device=context.get_meeting(selected_meeting).input_device,
-        storage_status=RecordingStorageStatus.MANAGED,
-        keep_audio=context.settings.retain_raw_audio,
-        captured_at=datetime.now(tz=UTC),
-    )
-    context.recordings.save(recording)
-    try:
-        job = context.recording_jobs.enqueue(
-            recording,
-            language=language,
-            quality_mode=quality_mode,
-            session_glossary_terms=parse_term_input(session_glossary) or None,
-            user_hotwords=parse_term_input(hotwords) or None,
-        )
-    except BaseException:
-        context.recordings.update_storage(
+    async with context.recording_jobs.meeting_lock(selected_meeting):
+        meeting = context.get_meeting(selected_meeting)
+        if meeting is None:
+            raise HTTPException(status_code=404, detail="Meeting not found.")
+        recording_id = RecordingId(str(uuid4()))
+        source_path, source_uri = context.recording_storage.allocate(
+            selected_meeting,
             recording_id,
-            status=RecordingStorageStatus.RETAINED,
+            upload.filename or "audio.bin",
         )
-        raise
+        try:
+            await _store_upload(upload, source_path)
+            if source_path.stat().st_size == 0:
+                raise HTTPException(status_code=422, detail="Recording upload is empty.")
+        except BaseException:
+            source_path.unlink(missing_ok=True)
+            raise
+        recording = Recording(
+            id=recording_id,
+            meeting_id=selected_meeting,
+            source_uri=source_uri,
+            duration_seconds=None,
+            input_device=meeting.input_device,
+            storage_status=RecordingStorageStatus.MANAGED,
+            keep_audio=context.settings.retain_raw_audio,
+            captured_at=datetime.now(tz=UTC),
+        )
+        context.recordings.save(recording)
+        try:
+            job = context.recording_jobs.enqueue(
+                recording,
+                language=language,
+                quality_mode=quality_mode,
+                session_glossary_terms=parse_term_input(session_glossary) or None,
+                user_hotwords=parse_term_input(hotwords) or None,
+            )
+        except BaseException:
+            context.recordings.update_storage(
+                recording_id,
+                status=RecordingStorageStatus.RETAINED,
+            )
+            raise
     return processing_job_response(job)
 
 

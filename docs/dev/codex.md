@@ -20,6 +20,10 @@
 - Active branch: `chore/production-quality-baseline`, created directly from
   `origin/main`. It is stage 1 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
+- Draft delivery PR
+  [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
+  targets `main`; the stage will be squash-merged only after hosted gates and
+  review are clean.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
@@ -125,8 +129,8 @@
 
 ## Next Likely Tasks
 
-- Finish stage-1 local package smoke, push the branch, open/review/squash its
-  PR, and verify remote `main`.
+- Review PR #15, address hosted-gate findings, squash-merge it, and verify
+  remote `main`.
 - Start `refactor/workspace-sync-identities` from the updated remote `main`.
 - Introduce schema v3 workspace/global identities while preserving local
   integer IDs, backup-first migration, and every golden contract.

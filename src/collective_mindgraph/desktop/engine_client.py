@@ -46,7 +46,9 @@ from .contracts import (
     TranscriptionPreferences,
     TranscriptSegment,
 )
-from .http_transport import EngineClientError, LocalHttpTransport
+from .http_transport import EngineClientError as EngineClientError
+from .http_transport import LocalHttpTransport
+from .http_transport import is_engine_offline_error as is_engine_offline_error
 
 
 class EngineClient:

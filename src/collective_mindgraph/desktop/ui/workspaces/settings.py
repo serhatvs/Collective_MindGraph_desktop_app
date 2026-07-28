@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from ...audio_capture import list_audio_inputs
 from ...contracts import EngineHealth, EnginePreferencesSnapshot
-from ...engine_client import EngineClient, EngineClientError
+from ...engine_client import EngineClient, is_engine_offline_error
 from ...language_catalog import LanguageCatalog
 from ...preferences import DesktopPreferenceStore
 from ..job_presenter import JobPresenter
@@ -181,7 +181,7 @@ class SettingsWorkspace(QWidget):
     def _failed(self, error: Exception) -> None:
         self._save.setEnabled(True)
         self.state_panel.show_state(
-            "offline" if isinstance(error, EngineClientError) else "error",
+            "offline" if is_engine_offline_error(error) else "error",
             str(error),
         )
 

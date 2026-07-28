@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..contracts import DashboardSnapshot, EngineHealth
-from ..engine_client import EngineClient, EngineClientError
+from ..engine_client import EngineClient, is_engine_offline_error
 from ..engine_runtime import LocalEngineManager
 from ..language_catalog import LanguageCatalog
 from ..preferences import DesktopPreferenceStore
@@ -176,7 +176,7 @@ class MainWindow(QMainWindow):
         )
 
     def _dashboard_failed(self, error: Exception) -> None:
-        offline = isinstance(error, EngineClientError)
+        offline = is_engine_offline_error(error)
         self.dashboard.show_error(str(error), offline=offline)
         if offline and self._auto_start_engine and not self._startup_attempted:
             self._startup_attempted = True

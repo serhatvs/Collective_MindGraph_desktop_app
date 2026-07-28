@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...contracts import EvidenceItem, InsightItem, MeetingSummary, MeetingTranscript
-from ...engine_client import EngineClient, EngineClientError
+from ...engine_client import EngineClient, EngineClientError, is_engine_offline_error
 from ...language_catalog import LanguageCatalog
 from ..job_presenter import JobPresenter
 from ..state_panel import StatePanel
@@ -348,7 +348,7 @@ class MeetingsWorkspace(QWidget):
 
     def _failed(self, error: Exception) -> None:
         self.state_panel.show_state(
-            "offline" if isinstance(error, EngineClientError) else "error",
+            "offline" if is_engine_offline_error(error) else "error",
             str(error),
         )
 

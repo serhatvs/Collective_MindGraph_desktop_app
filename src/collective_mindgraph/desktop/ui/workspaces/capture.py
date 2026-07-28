@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from ...contracts import MeetingSummary, MeetingTranscript, TranscriptionPreferences
-from ...engine_client import EngineClient, EngineClientError
+from ...engine_client import EngineClient, EngineClientError, is_engine_offline_error
 from ...language_catalog import LanguageCatalog
 from ...live_capture_client import LiveCaptureClient
 from ...preferences import DesktopPreferenceStore
@@ -56,6 +56,7 @@ class CaptureWorkspace(QWidget):
         self._live_meeting_id: int | None = None
         self._last_failed_job_id: str | None = None
         self._last_failed_meeting_id: int | None = None
+        self._last_failed_cleanup_path: Path | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
@@ -129,9 +130,18 @@ class CaptureWorkspace(QWidget):
         self._selected_file = Path(selected)
         self._process.setText(self._selected_file.name)
 
-    def process_path(self, source: Path | None, *, meeting_id: int | None = None) -> None:
+    def process_path(
+        self,
+        source: Path | None,
+        *,
+        meeting_id: int | None = None,
+        cleanup_source_on_success: bool = False,
+    ) -> None:
         if source is None:
             return
+        self._last_failed_job_id = None
+        self._last_failed_meeting_id = meeting_id if cleanup_source_on_success else None
+        self._last_failed_cleanup_path = source if cleanup_source_on_success else None
         title = self._meeting_name.text().strip() or source.stem
         preferences = TranscriptionPreferences(
             language=self._language.currentData(),
@@ -165,7 +175,10 @@ class CaptureWorkspace(QWidget):
                     },
                 )
             transcript = self._client.get_transcript(selected_meeting_id)
-            return selected_meeting_id, transcript
+            cleanup_error = (
+                _remove_uploaded_spool(source) if cleanup_source_on_success else None
+            )
+            return selected_meeting_id, transcript, cleanup_error
 
         self._presenter.submit(
             operation,
@@ -231,14 +244,24 @@ class CaptureWorkspace(QWidget):
         if self._live_meeting_id is None:
             self._show_error("Live capture fallback has no meeting.")
             return
-        self.process_path(Path(path), meeting_id=self._live_meeting_id)
+        self.process_path(
+            Path(path),
+            meeting_id=self._live_meeting_id,
+            cleanup_source_on_success=True,
+        )
 
     def _processed(self, value: object) -> None:
-        meeting_id, transcript = value
+        meeting_id, transcript, cleanup_error = value
         assert isinstance(transcript, MeetingTranscript)
         self._progress.hide()
         self._set_actions_enabled(True)
-        self.state_panel.clear()
+        self._last_failed_job_id = None
+        self._last_failed_meeting_id = None
+        self._last_failed_cleanup_path = None
+        if cleanup_error:
+            self._show_error(str(cleanup_error))
+        else:
+            self.state_panel.clear()
         self._transcript.setPlainText(transcript.corrected_text or transcript.raw_text)
         self.meeting_ready.emit(int(meeting_id))
 
@@ -250,15 +273,26 @@ class CaptureWorkspace(QWidget):
             meeting_id = error.details.get("meeting_id")
             self._last_failed_job_id = str(job_id) if job_id else None
             self._last_failed_meeting_id = int(meeting_id) if meeting_id is not None else None
-        self._show_error(str(error), offline=isinstance(error, EngineClientError))
+        self._show_error(str(error), offline=is_engine_offline_error(error))
 
     def _retry_last(self) -> None:
         if self._last_failed_job_id is None or self._last_failed_meeting_id is None:
+            if (
+                self._last_failed_cleanup_path is not None
+                and self._last_failed_meeting_id is not None
+            ):
+                self.process_path(
+                    self._last_failed_cleanup_path,
+                    meeting_id=self._last_failed_meeting_id,
+                    cleanup_source_on_success=True,
+                )
+                return
             if self._selected_file is not None:
                 self.process_path(self._selected_file)
             return
         job_id = self._last_failed_job_id
         meeting_id = self._last_failed_meeting_id
+        cleanup_path = self._last_failed_cleanup_path
         self._progress.show()
         self._set_actions_enabled(False)
 
@@ -272,7 +306,10 @@ class CaptureWorkspace(QWidget):
                     retryable=completed.retryable,
                     details={"job_id": completed.id, "meeting_id": meeting_id},
                 )
-            return meeting_id, self._client.get_transcript(meeting_id)
+            cleanup_error = (
+                _remove_uploaded_spool(cleanup_path) if cleanup_path is not None else None
+            )
+            return meeting_id, self._client.get_transcript(meeting_id), cleanup_error
 
         self._presenter.submit(
             operation,
@@ -317,6 +354,14 @@ class CaptureWorkspace(QWidget):
             ),
         )
         self._transcript_label.setText(tr("capture.transcript"))
+
+
+def _remove_uploaded_spool(path: Path) -> str | None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        return "The recording was processed, but its temporary capture file could not be removed."
+    return None
 
 
 def _replace_options(

@@ -25,7 +25,9 @@ except ModuleNotFoundError:  # Direct file execution from this directory.
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Benchmark CMG ASR on CPU and GPU for one local audio file.")
+    parser = argparse.ArgumentParser(
+        description="Benchmark CMG ASR on CPU and GPU for one local audio file."
+    )
     parser.add_argument("--audio", type=Path, required=True)
     parser.add_argument("--model", default="small")
     parser.add_argument("--vad-provider", default="energy")
@@ -50,7 +52,9 @@ def main() -> int:
     audio_path = args.audio.expanduser().resolve()
 
     if not audio_path.exists():
-        report = _build_not_run_report(audio_path, args.model, "CPU_VS_GPU_ASR_BENCHMARK_NOT_RUN_NO_AUDIO")
+        report = _build_not_run_report(
+            audio_path, args.model, "CPU_VS_GPU_ASR_BENCHMARK_NOT_RUN_NO_AUDIO"
+        )
         _write_report(output_path, report)
         print(f"Audio file not found: {audio_path}")
         print(f"Report written to {output_path}")
@@ -90,88 +94,94 @@ def main() -> int:
 
 
 def _build_report(*, status: str, cpu, gpu) -> str:
-    return "\n".join(
-        [
-            "# CPU vs GPU ASR Benchmark Report",
-            "",
-            f"Date: {datetime.now(tz=UTC).date().isoformat()}",
-            f"Status: `{status}`",
-            "",
-            "## Claim Boundary",
-            "",
-            "This benchmark compares runtime behavior only. It does not claim transcription accuracy because no reference transcript is required or scored here.",
-            "",
-            "## Summary",
-            "",
-            f"- Audio path: `{cpu.audio_path}`",
-            f"- Audio duration: `{format_seconds(cpu.audio_duration)}` seconds",
-            f"- Model: `{cpu.model}`",
-            f"- VAD provider: `{cpu.requested_vad_provider}`",
-            f"- CPU transcription time: `{format_seconds(cpu.transcription_time_seconds)}` seconds",
-            f"- GPU transcription time: `{format_seconds(gpu.transcription_time_seconds)}` seconds",
-            f"- CPU real-time factor: `{format_seconds(cpu.real_time_factor)}`",
-            f"- GPU real-time factor: `{format_seconds(gpu.real_time_factor)}`",
-            f"- CPU segment count: `{cpu.segment_count}`",
-            f"- GPU segment count: `{gpu.segment_count}`",
-            f"- GPU fallback status: `{gpu.metadata.get('gpu_fallback_happened', gpu.diagnostics.get('Fallback happened'))}`",
-            f"- GPU fallback reason: `{gpu.metadata.get('gpu_fallback_reason', gpu.diagnostics.get('Fallback reason'))}`",
-            "",
-            "## CPU Run",
-            "",
-            format_run_summary(cpu),
-            "",
-            "Diagnostics:",
-            "",
-            "```text",
-            diagnostics_block(cpu),
-            "```",
-            "",
-            "CPU transcript:",
-            "",
-            "```text",
-            cpu.cleaned_transcript or cpu.raw_transcript or "[not produced]",
-            "```",
-            "",
-            "## GPU Run",
-            "",
-            format_run_summary(gpu),
-            "",
-            "Diagnostics:",
-            "",
-            "```text",
-            diagnostics_block(gpu),
-            "```",
-            "",
-            "GPU transcript:",
-            "",
-            "```text",
-            gpu.cleaned_transcript or gpu.raw_transcript or "[not produced]",
-            "```",
-            "",
-            "## Errors And Warnings",
-            "",
-            f"- CPU error: `{cpu.error}`",
-            f"- GPU error: `{gpu.error}`",
-            f"- CPU warnings: `{cpu.warnings}`",
-            f"- GPU warnings: `{gpu.warnings}`",
-        ]
-    ) + "\n"
+    return (
+        "\n".join(
+            [
+                "# CPU vs GPU ASR Benchmark Report",
+                "",
+                f"Date: {datetime.now(tz=UTC).date().isoformat()}",
+                f"Status: `{status}`",
+                "",
+                "## Claim Boundary",
+                "",
+                "This benchmark compares runtime behavior only. It does not claim transcription accuracy because no reference transcript is required or scored here.",
+                "",
+                "## Summary",
+                "",
+                f"- Audio path: `{cpu.audio_path}`",
+                f"- Audio duration: `{format_seconds(cpu.audio_duration)}` seconds",
+                f"- Model: `{cpu.model}`",
+                f"- VAD provider: `{cpu.requested_vad_provider}`",
+                f"- CPU transcription time: `{format_seconds(cpu.transcription_time_seconds)}` seconds",
+                f"- GPU transcription time: `{format_seconds(gpu.transcription_time_seconds)}` seconds",
+                f"- CPU real-time factor: `{format_seconds(cpu.real_time_factor)}`",
+                f"- GPU real-time factor: `{format_seconds(gpu.real_time_factor)}`",
+                f"- CPU segment count: `{cpu.segment_count}`",
+                f"- GPU segment count: `{gpu.segment_count}`",
+                f"- GPU fallback status: `{gpu.metadata.get('gpu_fallback_happened', gpu.diagnostics.get('Fallback happened'))}`",
+                f"- GPU fallback reason: `{gpu.metadata.get('gpu_fallback_reason', gpu.diagnostics.get('Fallback reason'))}`",
+                "",
+                "## CPU Run",
+                "",
+                format_run_summary(cpu),
+                "",
+                "Diagnostics:",
+                "",
+                "```text",
+                diagnostics_block(cpu),
+                "```",
+                "",
+                "CPU transcript:",
+                "",
+                "```text",
+                cpu.cleaned_transcript or cpu.raw_transcript or "[not produced]",
+                "```",
+                "",
+                "## GPU Run",
+                "",
+                format_run_summary(gpu),
+                "",
+                "Diagnostics:",
+                "",
+                "```text",
+                diagnostics_block(gpu),
+                "```",
+                "",
+                "GPU transcript:",
+                "",
+                "```text",
+                gpu.cleaned_transcript or gpu.raw_transcript or "[not produced]",
+                "```",
+                "",
+                "## Errors And Warnings",
+                "",
+                f"- CPU error: `{cpu.error}`",
+                f"- GPU error: `{gpu.error}`",
+                f"- CPU warnings: `{cpu.warnings}`",
+                f"- GPU warnings: `{gpu.warnings}`",
+            ]
+        )
+        + "\n"
+    )
 
 
 def _build_not_run_report(audio_path: Path, model: str, status: str) -> str:
-    return "\n".join(
-        [
-            "# CPU vs GPU ASR Benchmark Report",
-            "",
-            f"Date: {datetime.now(tz=UTC).date().isoformat()}",
-            f"Status: `{status}`",
-            "",
-            f"Audio path: `{audio_path}`",
-            f"Model: `{model}`",
-            "",
-            "No benchmark was run because the audio file was not found.",
-        ]
-    ) + "\n"
+    return (
+        "\n".join(
+            [
+                "# CPU vs GPU ASR Benchmark Report",
+                "",
+                f"Date: {datetime.now(tz=UTC).date().isoformat()}",
+                f"Status: `{status}`",
+                "",
+                f"Audio path: `{audio_path}`",
+                f"Model: `{model}`",
+                "",
+                "No benchmark was run because the audio file was not found.",
+            ]
+        )
+        + "\n"
+    )
 
 
 def _resolve_repo_path(path: Path) -> Path:

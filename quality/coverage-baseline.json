@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "measured_on": "2026-07-29",
+  "python": "3.13",
+  "statement_coverage_percent": 79.0,
+  "branch_inclusive_coverage_percent": 75.0,
+  "minimum_total_percent": 75.0,
+  "minimum_changed_lines_percent": 90.0,
+  "production_v1_total_target_percent": 85.0,
+  "production_v1_critical_target_percent": 95.0,
+  "critical_scopes": [
+    "collective_mindgraph.domain",
+    "collective_mindgraph.application",
+    "collective_mindgraph.infrastructure.persistence.legacy_migration",
+    "collective_mindgraph.application.sync",
+    "collective_mindgraph.infrastructure.crypto"
+  ]
+}

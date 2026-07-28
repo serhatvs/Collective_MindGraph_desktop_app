@@ -175,9 +175,7 @@ class CaptureWorkspace(QWidget):
                     },
                 )
             transcript = self._client.get_transcript(selected_meeting_id)
-            cleanup_error = (
-                _remove_uploaded_spool(source) if cleanup_source_on_success else None
-            )
+            cleanup_error = _remove_uploaded_spool(source) if cleanup_source_on_success else None
             return selected_meeting_id, transcript, cleanup_error
 
         self._presenter.submit(

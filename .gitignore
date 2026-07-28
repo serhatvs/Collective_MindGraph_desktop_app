@@ -24,6 +24,7 @@ build/
 *.egg-info/
 htmlcov/
 .coverage
+coverage.xml
 .DS_Store
 Thumbs.db
 realtime_backend/tests/fixtures/audio/*.wav

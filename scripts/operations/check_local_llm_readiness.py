@@ -14,8 +14,7 @@ def main() -> int:
         or "http://127.0.0.1:1234/v1"
     )
     allow_remote = (
-        os.getenv("CMG_ALLOW_REMOTE_ACCESS")
-        or os.getenv("CMG_RT_ALLOW_REMOTE_ACCESS", "false")
+        os.getenv("CMG_ALLOW_REMOTE_ACCESS") or os.getenv("CMG_RT_ALLOW_REMOTE_ACCESS", "false")
     ).casefold() == "true"
     print("--- Collective MindGraph Local AI Readiness ---")
     print(f"Endpoint: {endpoint}")

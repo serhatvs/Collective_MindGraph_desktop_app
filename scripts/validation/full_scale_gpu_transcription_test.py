@@ -25,10 +25,16 @@ TURKISH_CHARS = ["ç", "ğ", "ı", "İ", "ö", "ş", "ü"]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a full CMG transcription pipeline GPU ASR test.")
+    parser = argparse.ArgumentParser(
+        description="Run a full CMG transcription pipeline GPU ASR test."
+    )
     parser.add_argument("--audio", type=Path, required=True, help="Audio file to transcribe.")
-    parser.add_argument("--profile", choices=["gpu_asr", "cpu"], help="Runtime profile for this run.")
-    parser.add_argument("--vad-provider", default="energy", help="VAD provider for this ASR-focused test.")
+    parser.add_argument(
+        "--profile", choices=["gpu_asr", "cpu"], help="Runtime profile for this run."
+    )
+    parser.add_argument(
+        "--vad-provider", default="energy", help="VAD provider for this ASR-focused test."
+    )
     parser.add_argument(
         "--output",
         type=Path,
@@ -142,10 +148,16 @@ async def main_async() -> int:
     transcription_time = time.perf_counter() - start
     nvidia_smi_after = _capture_nvidia_smi()
     raw_transcript = "\n".join(segment.raw_text for segment in transcript.segments).strip()
-    cleaned_transcript = "\n".join(segment.corrected_text for segment in transcript.segments).strip()
+    cleaned_transcript = "\n".join(
+        segment.corrected_text for segment in transcript.segments
+    ).strip()
     metadata = dict(transcript.metadata)
     duration = audio_duration or metadata.get("input_audio", {}).get("duration_seconds")
-    real_time_factor = transcription_time / duration if isinstance(duration, (int, float)) and duration > 0 else None
+    real_time_factor = (
+        transcription_time / duration
+        if isinstance(duration, (int, float)) and duration > 0
+        else None
+    )
     mock_fallback_used = bool(metadata.get("mock_fallback_used"))
     status = "FULL_SCALE_GPU_ASR_TEST_RUN"
     if metadata.get("asr_status") == ASR_STATUS_MOCK_FALLBACK or mock_fallback_used:
@@ -196,7 +208,9 @@ def _build_report(
     metadata: dict[str, Any] | None = None,
 ) -> str:
     metadata = metadata or {}
-    gpu_observed = _current_process_seen_in_nvidia_smi(nvidia_smi_load) or _current_process_seen_in_nvidia_smi(nvidia_smi_after)
+    gpu_observed = _current_process_seen_in_nvidia_smi(
+        nvidia_smi_load
+    ) or _current_process_seen_in_nvidia_smi(nvidia_smi_after)
     char_lines = [
         f"- `{char}`: raw={char in raw_transcript}, cleaned={char in cleaned_transcript}"
         for char in TURKISH_CHARS

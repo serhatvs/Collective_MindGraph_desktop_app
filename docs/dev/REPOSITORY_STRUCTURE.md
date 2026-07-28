@@ -98,12 +98,14 @@ content is read only by the migration boundary when configured or detected.
 
 ## Quality policy
 
-- Runtime modules are limited to 500 lines. The allowlist in `pyproject.toml`
-  is intentionally empty.
+- Runtime modules are limited to 400 lines. The exact transitional exceptions
+  and their removal reasons are declared in `pyproject.toml`; CI rejects any
+  unlisted oversized module.
 - Ruff enforces import, naming, modern-Python, correctness, and complexity
-  rules. The two stateful signal-processing algorithms exempted from the
-  complexity threshold are explicitly listed with rationale.
-- Mypy runs strict over `domain` and `application`; UI and infrastructure can
-  be tightened incrementally without weakening those core boundaries.
+  rules with a complexity limit of 12. Existing exceptions are explicit and
+  may only shrink during the production-v1 PR series.
+- Strict mypy analyzes the full production package. Existing module/error-code
+  debt is ratcheted in `quality/mypy-baseline.json`; a new category or count
+  increase fails CI.
 - Package import and test discovery must not create data, load models, or open
   network connections.

@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 dependencies = [
   "fastapi>=0.115,<1.0",
   "httpx>=0.28,<1.0",
-  "numpy>=1.26,<3.0",
+  "numpy>=1.26,<2.4",
   "pydantic>=2.11,<3.0",
   "PySide6>=6.8,<6.9",
   "python-multipart>=0.0.9,<1.0",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 transcription = [
   "faster-whisper>=1.1,<2.0",
-  "huggingface-hub<1.0",
+  "huggingface-hub>=1.5,<2.0",
   "pyannote.audio>=3.3,<4.0",
   "silero-vad>=5.1,<6.0",
   "sounddevice>=0.5,<1.0",
@@ -31,11 +31,18 @@ transcription = [
 ]
 local-ai = [
   "sentence-transformers>=3.0,<6.0",
+  "transformers>=5.5,<6.0",
 ]
 dev = [
+  "bandit[toml]>=1.8,<2.0",
+  "cyclonedx-bom>=6.0,<8.0",
+  "diff-cover>=9.0,<10.0",
+  "hypothesis>=6.135,<7.0",
   "mypy>=1.15,<2.0",
-  "pytest>=8.0,<9.0",
-  "pytest-asyncio>=0.24,<1.0",
+  "pip-audit>=2.9,<3.0",
+  "pytest>=9.0.3,<10.0",
+  "pytest-asyncio>=1.0,<2.0",
+  "pytest-cov>=6.1,<8.0",
   "pytest-qt>=4.4,<5.0",
   "ruff>=0.11,<1.0",
 ]
@@ -62,7 +69,7 @@ include = ["collective_mindgraph*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = [".", "src"]
 addopts = "-ra --strict-markers"
 markers = [
   "hardware: requires local audio or accelerator hardware",
@@ -80,24 +87,97 @@ select = ["C90", "E", "F", "I", "N", "UP"]
 ignore = ["E501"]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 16
+max-complexity = 12
 
 [tool.ruff.lint.per-file-ignores]
-# Stateful media orchestration and trigger scoring are intentionally kept
-# cohesive; both are isolated behind application ports and focused tests.
+# Existing complexity is ratcheted at twelve. Every exception is scheduled for
+# removal in the production-v1 PR series and no new exception is permitted.
+"scripts/benchmarks/run_project_turkish_transcription_benchmark.py" = ["C901"]
+"src/collective_mindgraph/application/transcription/extract_structured_insights.py" = ["C901"]
+"src/collective_mindgraph/desktop/wake_phrase.py" = ["C901"]
+"src/collective_mindgraph/engine/api/ws.py" = ["C901"]
+"src/collective_mindgraph/engine/main.py" = ["C901"]
+"src/collective_mindgraph/infrastructure/persistence/legacy_backend_import.py" = ["C901"]
 "src/collective_mindgraph/infrastructure/transcription/recording_processor.py" = ["C901"]
 "src/collective_mindgraph/infrastructure/transcription/selective_retranscription.py" = ["C901"]
+"src/collective_mindgraph/tooling/transcript_annotation/exporter.py" = ["C901"]
 
 [tool.mypy]
 python_version = "3.11"
 mypy_path = "src"
-packages = [
-  "collective_mindgraph.domain",
-  "collective_mindgraph.application",
-]
+packages = ["collective_mindgraph"]
 strict = true
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+module = [
+  "faster_whisper",
+  "faster_whisper.*",
+  "pyannote",
+  "pyannote.*",
+  "sentence_transformers",
+  "sentence_transformers.*",
+  "silero_vad",
+  "silero_vad.*",
+  "sounddevice",
+  "soundfile",
+  "vosk",
+  "vosk.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["collective_mindgraph"]
+
+[tool.coverage.report]
+fail_under = 75
+precision = 1
+show_missing = true
+skip_covered = true
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.bandit]
+exclude_dirs = ["build", "dist", "docs", "tests"]
+skips = ["B101"]
+
 [tool.collective-mindgraph.architecture]
-line_limit = 500
-line_limit_allowlist = []
+line_limit = 400
+line_limit_allowlist = [
+  "desktop/engine_client.py",
+  "desktop/wake_phrase.py",
+  "engine/api/v1/router.py",
+  "engine/settings.py",
+  "infrastructure/audio/ffmpeg_processing.py",
+  "infrastructure/persistence/data_exchange.py",
+  "infrastructure/persistence/legacy_backend_import.py",
+  "infrastructure/persistence/legacy_desktop_import.py",
+  "infrastructure/persistence/legacy_migration.py",
+  "infrastructure/persistence/transcription_result_archive.py",
+  "infrastructure/transcription/asr.py",
+  "infrastructure/transcription/recording_processor.py",
+  "infrastructure/transcription/selective_retranscription.py",
+  "tooling/transcript_annotation/app.py",
+  "tooling/transcript_annotation/dataset.py",
+  "tooling/transcript_annotation/experiments.py",
+]
+
+[tool.collective-mindgraph.architecture.line_limit_exception_reasons]
+"desktop/engine_client.py" = "Split by API surface during desktop sync client work."
+"desktop/wake_phrase.py" = "Separate device loop and phrase policy during desktop product polish."
+"engine/api/v1/router.py" = "Separate compatibility handlers while preserving golden v1 contracts."
+"engine/settings.py" = "Separate provider settings when the signed model manager is introduced."
+"infrastructure/audio/ffmpeg_processing.py" = "Separate probing, channel handling, and normalization during audio quality work."
+"infrastructure/persistence/data_exchange.py" = "Separate export validation and import mapping during schema v3 work."
+"infrastructure/persistence/legacy_backend_import.py" = "Separate legacy graph and job readers during schema v3 work."
+"infrastructure/persistence/legacy_desktop_import.py" = "Separate meeting, transcript, and insight readers during schema v3 work."
+"infrastructure/persistence/legacy_migration.py" = "Separate discovery, staging, validation, and activation during schema v3 work."
+"infrastructure/persistence/transcription_result_archive.py" = "Separate archive serialization and mapping during schema v3 work."
+"infrastructure/transcription/asr.py" = "Separate provider loading and transcription execution during model quality work."
+"infrastructure/transcription/recording_processor.py" = "Separate stage orchestration during bounded audio pipeline work."
+"infrastructure/transcription/selective_retranscription.py" = "Separate candidate selection and retry execution during model quality work."
+"tooling/transcript_annotation/app.py" = "Separate Qt controller and view binding during desktop product polish."
+"tooling/transcript_annotation/dataset.py" = "Separate persistence, validation, and editing during schema v3 work."
+"tooling/transcript_annotation/experiments.py" = "Separate experiment planning, execution, and reporting during audio quality work."

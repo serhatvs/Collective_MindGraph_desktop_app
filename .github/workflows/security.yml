@@ -1,0 +1,66 @@
+name: Supply-chain security
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "23 3 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  UV_LINK_MODE: copy
+
+jobs:
+  dependency-audit:
+    name: Dependency audit and SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install locked audit environment
+        run: uv sync --frozen --extra dev
+      - name: Export every locked dependency extra
+        run: >-
+          uv export --frozen --all-extras --no-dev
+          --no-emit-project --no-hashes
+          --output-file requirements-audit.txt
+      - name: Audit all supported dependencies
+        run: uv run pip-audit --requirement requirements-audit.txt
+      - name: Generate CycloneDX SBOM
+        run: >-
+          uv run cyclonedx-py requirements requirements-audit.txt
+          --pyproject pyproject.toml --output-reproducible
+          --output-file sbom.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: collective-mindgraph-sbom
+          path: sbom.json
+          retention-days: 30
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

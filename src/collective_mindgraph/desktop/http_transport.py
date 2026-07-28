@@ -89,9 +89,7 @@ class LocalHttpTransport:
         content_length = len(preamble) + file_path.stat().st_size + len(epilogue)
         parsed = urllib.parse.urlsplit(self._url(path))
         connection_type = (
-            http.client.HTTPSConnection
-            if parsed.scheme == "https"
-            else http.client.HTTPConnection
+            http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
         )
         connection = connection_type(
             parsed.hostname,

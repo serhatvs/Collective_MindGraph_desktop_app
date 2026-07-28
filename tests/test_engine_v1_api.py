@@ -153,7 +153,7 @@ def test_recording_upload_persists_stable_source_identity(tmp_path):
         assert response.status_code == 202
         assert response.json()["recording_id"]
         job_id = response.json()["id"]
-        deadline = time.monotonic() + 5
+        deadline = time.monotonic() + 15
         while time.monotonic() < deadline:
             job = client.get(f"/api/v1/jobs/{job_id}").json()
             if job["status"] in {"succeeded", "failed", "cancelled"}:

@@ -30,7 +30,9 @@ DEFAULT_OUTPUT = (
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run local transcription quality profile benchmarks.")
+    parser = argparse.ArgumentParser(
+        description="Run local transcription quality profile benchmarks."
+    )
     parser.add_argument("audio", nargs="+", type=Path, help="One or more local audio files.")
     parser.add_argument(
         "--profiles",
@@ -41,7 +43,9 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--language", default=None, help="Language override, for example tr.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--include-summary", action="store_true", help="Also run summary generation.")
+    parser.add_argument(
+        "--include-summary", action="store_true", help="Also run summary generation."
+    )
     return parser.parse_args()
 
 
@@ -55,7 +59,9 @@ async def main() -> int:
     results: list[dict[str, Any]] = []
     for audio_path in audio_paths:
         for profile in args.profiles:
-            results.append(await run_profile(audio_path, profile, args.language, args.include_summary))
+            results.append(
+                await run_profile(audio_path, profile, args.language, args.include_summary)
+            )
 
     report = build_report(results)
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -107,8 +113,10 @@ async def run_profile(
                 "condition_on_previous_text",
                 resolved_profile.condition_on_previous_text,
             ),
-            "temperature_fallback": metadata.get("temperature_fallback") or list(resolved_profile.temperature),
-            "preprocessing_strength": metadata.get("preprocessing_strength") or resolved_profile.preprocessing_strength,
+            "temperature_fallback": metadata.get("temperature_fallback")
+            or list(resolved_profile.temperature),
+            "preprocessing_strength": metadata.get("preprocessing_strength")
+            or resolved_profile.preprocessing_strength,
         },
         "processing_time": elapsed,
         "transcript": transcript_text,

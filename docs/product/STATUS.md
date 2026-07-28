@@ -27,7 +27,10 @@ compatibility APIs, WebSocket behavior, desktop rendering, transcription
 adapters, memory/review workflows, imports, and tooling. Source-engine startup,
 desktop-managed engine autostart/shutdown, and the packaged engine health
 endpoint have also been smoke-tested on the current Windows development
-machine.
+machine. The production-v1 quality baseline adds locked dependency resolution,
+Windows/Linux Python 3.11-3.13 CI, branch-inclusive coverage and changed-line
+ratchets, full-package strict-mypy debt tracking, dependency and secret scans,
+CodeQL, SBOM generation, and Windows package smoke automation.
 
 The following claims are intentionally not made:
 
@@ -43,7 +46,8 @@ Confidence estimates are diagnostics, not reference-based WER/CER.
 
 Wake phrase, unvalidated speaker separation, and expert ASR settings remain
 available only under Labs or advanced settings and are labelled experimental.
-There is no graph canvas or multi-user synchronization in this release.
+Graph canvas, multi-user synchronization, cloud administration, and dark theme
+are planned production-v1 stages and are not yet implemented.
 
 ## Data and privacy
 
@@ -61,5 +65,5 @@ export payloads declare an explicit format version.
   hardware.
 - Repeat the PyInstaller smoke test on a clean Windows machine before public
   distribution.
-- Tighten type checking for infrastructure and desktop after the strict
-  domain/application baseline.
+- Complete schema-v3 workspace/sync identities while preserving local IDs,
+  backup-first migration, and every golden compatibility contract.

@@ -82,6 +82,10 @@ class SearchMemory:
         )
         return tuple(ordered[:capped_limit])
 
+    @property
+    def semantic_available(self) -> bool:
+        return self._semantic_is_available()
+
     def _keyword_matches(
         self,
         query: str,

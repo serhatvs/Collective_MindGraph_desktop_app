@@ -21,9 +21,13 @@ class LocalEndpointLanguageModel(LocalLanguageModel):
         base_url: str = "http://127.0.0.1:1234/v1",
         timeout: int = 30,
         allow_remote: bool = False,
+        model_name: str | None = None,
+        api_key: str | None = None,
     ):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self._model_name = (model_name or "").strip()
+        self._api_key = api_key
 
         parsed = urllib.parse.urlparse(self.base_url)
         if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
@@ -56,7 +60,11 @@ class LocalEndpointLanguageModel(LocalLanguageModel):
 
     def is_available(self) -> bool:
         try:
-            req = urllib.request.Request(f"{self.base_url}/models", method="GET")
+            req = urllib.request.Request(
+                f"{self.base_url}/models",
+                headers=self._headers(),
+                method="GET",
+            )
             with urllib.request.urlopen(req, timeout=5) as response:
                 return response.status == 200
         except (URLError, HTTPError, TimeoutError):
@@ -65,7 +73,9 @@ class LocalEndpointLanguageModel(LocalLanguageModel):
     def generate_structured_json(self, prompt: str, schema: dict[str, Any]) -> dict[str, Any]:
         """Requests structured JSON output using OpenAI compatible chat completions."""
         content = ""
+        model_name = self._resolve_model()
         payload = {
+            "model": model_name,
             "messages": [
                 {
                     "role": "system",
@@ -83,7 +93,7 @@ class LocalEndpointLanguageModel(LocalLanguageModel):
         req = urllib.request.Request(
             f"{self.base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            headers=self._headers(content_type=True),
             method="POST",
         )
 
@@ -130,3 +140,35 @@ class LocalEndpointLanguageModel(LocalLanguageModel):
             raise ValueError(
                 f"Local LLM failed to return valid structured JSON. Raw response: {content[:200]}..."
             )
+
+    def _resolve_model(self) -> str:
+        if self._model_name and self._model_name.casefold() not in {"auto", "none"}:
+            return self._model_name
+        request = urllib.request.Request(
+            f"{self.base_url}/models",
+            headers=self._headers(),
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (URLError, HTTPError, TimeoutError) as exc:
+            raise RuntimeError(f"Local LLM model discovery failed: {exc}") from exc
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Local LLM model discovery returned invalid JSON.") from exc
+        models = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(models, list) or not models or not isinstance(models[0], dict):
+            raise ValueError("Local LLM endpoint did not report an available model.")
+        identifier = str(models[0].get("id") or "").strip()
+        if not identifier:
+            raise ValueError("Local LLM endpoint reported a model without an id.")
+        self._model_name = identifier
+        return identifier
+
+    def _headers(self, *, content_type: bool = False) -> dict[str, str]:
+        headers: dict[str, str] = {}
+        if content_type:
+            headers["Content-Type"] = "application/json"
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        return headers

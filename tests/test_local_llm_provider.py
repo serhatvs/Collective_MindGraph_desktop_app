@@ -52,4 +52,12 @@ def test_structured_generation_accepts_fenced_json(mock_urlopen):
     ).encode()
     mock_urlopen.return_value.__enter__.return_value = response
 
-    assert LocalEndpointLanguageModel().generate_structured_json("hello", {}) == {"summary": "Test"}
+    provider = LocalEndpointLanguageModel(
+        model_name="test-model",
+        api_key="local-secret",
+    )
+    assert provider.generate_structured_json("hello", {}) == {"summary": "Test"}
+    request = mock_urlopen.call_args.args[0]
+    sent = json.loads(request.data.decode("utf-8"))
+    assert sent["model"] == "test-model"
+    assert request.get_header("Authorization") == "Bearer local-secret"

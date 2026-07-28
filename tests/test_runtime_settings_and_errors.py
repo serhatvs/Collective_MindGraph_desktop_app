@@ -64,6 +64,22 @@ def test_invalid_embedding_path_rolls_back_runtime_and_preferences(tmp_path):
         assert context.preferences.load().get("embedding_provider") is None
 
 
+def test_invalid_transcription_quality_rolls_back_runtime_and_preferences(tmp_path):
+    with TestClient(create_app(_settings(tmp_path))) as client:
+        context = client.app.state.engine_context
+        original_bundle = context.runtime.snapshot()
+
+        response = client.put(
+            "/api/v1/settings",
+            json={"transcription_quality": "unbounded"},
+        )
+
+        assert response.status_code == 422
+        assert context.runtime.snapshot() is original_bundle
+        assert context.settings.transcription_quality_mode == "max_quality"
+        assert context.preferences.load().get("transcription_quality_mode") is None
+
+
 def test_health_uses_actual_mock_and_disabled_adapter_state(tmp_path):
     with TestClient(create_app(_settings(tmp_path))) as client:
         payload = client.get("/api/v1/health").json()

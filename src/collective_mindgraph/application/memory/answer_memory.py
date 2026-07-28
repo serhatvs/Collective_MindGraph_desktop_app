@@ -50,11 +50,29 @@ class AnswerMemory:
             include_pending=include_pending,
             limit=12,
         )
-        if not results:
+        supported_results = tuple(
+            result
+            for result in results
+            if result.evidence is not None
+            and (
+                result.evidence.text_preview
+                or result.node.body
+                or result.node.title
+            )
+        )
+        if not supported_results:
             return _insufficient_answer(query, mode)
 
-        chains = _evidence_chains(results)
-        evidence_answer = "; ".join(result.node.title or result.node.body for result in results[:5])
+        chains = _evidence_chains(supported_results)
+        evidence_answer = "; ".join(
+            (
+                result.evidence.text_preview
+                or result.node.body
+                or result.node.title
+            )
+            for result in supported_results[:5]
+            if result.evidence is not None
+        )
         used_mode = "evidence_only"
         validation_status = "accepted"
         warnings: list[str] = []
@@ -63,11 +81,11 @@ class AnswerMemory:
             AnswerSentenceValidation(
                 sentence=evidence_answer,
                 supported=True,
-                sources=_source_ids(results),
+                sources=_source_ids(supported_results),
             ),
         )
         if mode == "llm_assisted":
-            generated, rejection = self._try_local_answer(query, results)
+            generated, rejection = self._try_local_answer(query, supported_results)
             if generated is not None:
                 answer = generated.answer
                 validations = generated.validations
@@ -91,7 +109,7 @@ class AnswerMemory:
                 if result.evidence is not None and result.evidence.segment_id is not None
             )
         )
-        used_sources = _source_ids(results)
+        used_sources = _source_ids(supported_results)
         coverage = min(1.0, len(chains) / 3)
         return MemoryAnswer(
             query=query,
@@ -223,10 +241,7 @@ def _unsupported_terms(sentence: str, evidence: str) -> tuple[str, ...]:
     if not sentence_terms:
         return ()
     evidence_terms = _claim_terms(evidence)
-    supported = sentence_terms & evidence_terms
     unsupported = sentence_terms - evidence_terms
-    if supported and len(unsupported) <= max(2, len(sentence_terms) // 2):
-        return ()
     return tuple(sorted(unsupported))
 
 
@@ -234,13 +249,22 @@ def _claim_terms(value: str) -> set[str]:
     ignored = {
         "and",
         "are",
+        "as",
         "bir",
         "bu",
         "da",
         "de",
+        "did",
+        "edildi",
+        "olarak",
         "for",
+        "için",
         "ile",
+        "is",
+        "oldu",
         "the",
+        "was",
+        "were",
         "ve",
     }
     return {

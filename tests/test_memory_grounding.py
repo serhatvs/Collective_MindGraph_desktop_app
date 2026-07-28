@@ -137,6 +137,45 @@ def test_malformed_language_model_json_falls_back_without_provider_exception():
     assert "malformed" in answer.warnings[0]
 
 
+def test_evidence_only_answer_refuses_nodes_without_evidence():
+    result = _results()[0]
+    answer = AnswerMemory(
+        _Search(
+            (
+                MemorySearchResult(
+                    node=result.node,
+                    score=result.score,
+                    matched_by=result.matched_by,
+                    evidence=None,
+                ),
+            )
+        )
+    )("What was accepted?")
+
+    assert answer.confidence_level == "insufficient"
+    assert answer.used_sources == ()
+    assert answer.chains == ()
+
+
+def test_partially_supported_generated_claim_falls_back_to_evidence():
+    answer = AnswerMemory(
+        _Search(_results()),
+        _LanguageModel(
+            {
+                "sentences": [
+                    {
+                        "text": "SQLite migration accepted in Paris.",
+                        "citations": ["evidence-1"],
+                    }
+                ]
+            }
+        ),
+    )("What was accepted?", mode="llm_assisted")
+
+    assert answer.mode_used == "evidence_only_fallback"
+    assert "unsupported" in answer.warnings[0]
+
+
 def test_local_endpoint_malformed_top_level_json_never_raises_unbound_local(
     monkeypatch,
 ):
@@ -153,7 +192,10 @@ def test_local_endpoint_malformed_top_level_json_never_raises_unbound_local(
             return b"not-json"
 
     monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: _Response())
-    model = LocalEndpointLanguageModel("http://127.0.0.1:1234/v1")
+    model = LocalEndpointLanguageModel(
+        "http://127.0.0.1:1234/v1",
+        model_name="test-model",
+    )
 
     with pytest.raises(ValueError, match="valid structured JSON"):
         model.generate_structured_json("prompt", {"type": "object"})

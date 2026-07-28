@@ -202,6 +202,16 @@ class EngineRuntimeManager:
             "openai_compatible",
         }:
             raise ValueError(f"Unsupported local language-model provider: {settings.llm_provider}")
+        if settings.transcription_quality_mode not in {
+            "fast",
+            "balanced",
+            "max_quality",
+            "bad_mic_recovery",
+            "selective_recovery",
+        }:
+            raise ValueError(
+                f"Unsupported transcription quality: {settings.transcription_quality_mode}"
+            )
 
 
 def _build_embedding_model(settings: EngineSettings) -> TextEmbeddingModel | None:
@@ -219,10 +229,17 @@ def _build_embedding_model(settings: EngineSettings) -> TextEmbeddingModel | Non
 def _build_language_model(settings: EngineSettings) -> LocalEndpointLanguageModel | None:
     if settings.llm_provider in {"disabled", "none"}:
         return None
+    default_endpoint = (
+        "http://127.0.0.1:11434/v1"
+        if settings.llm_provider == "ollama"
+        else "http://127.0.0.1:1234/v1"
+    )
     return LocalEndpointLanguageModel(
-        base_url=settings.llm_endpoint or "http://127.0.0.1:1234/v1",
+        base_url=settings.llm_endpoint or default_endpoint,
         timeout=int(settings.llm_timeout_seconds),
         allow_remote=settings.allow_remote_access,
+        model_name=settings.llm_model_name,
+        api_key=settings.llm_api_key,
     )
 
 

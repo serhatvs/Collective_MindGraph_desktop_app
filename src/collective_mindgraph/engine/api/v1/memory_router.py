@@ -29,11 +29,12 @@ async def search_memory(
 ) -> MemorySearchResponse:
     context = request.app.state.engine_context
     offset = _memory_offset(cursor)
-    results = context.search_memory(q, mode=mode, limit=min(200, offset + limit))
+    search = context.search_memory
+    results = search(q, mode=mode, limit=200)
     selected = results[offset : offset + limit]
     warnings = (
         ["Semantic provider unavailable; keyword and graph fallback used."]
-        if mode == "hybrid" and context.settings.embedding_provider != "sentence_transformer"
+        if mode == "hybrid" and not search.semantic_available
         else []
     )
     return MemorySearchResponse(

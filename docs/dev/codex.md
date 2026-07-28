@@ -16,6 +16,11 @@
 
 - Active branch: `refactor/product-architecture-rework`, based on
   `refactor/engineering-cleanup` at `f5b9791`.
+- Delivery PR
+  [#14](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/14)
+  targets `main`. Review fixes remain as normal feature-branch commits; the
+  accepted delivery strategy is one squash commit on `main` while retaining
+  the remote feature branch.
 - Runtime code is consolidated under
   `src/collective_mindgraph/{domain,application,infrastructure,engine,desktop,tooling}`.
   Former backend, desktop, service, and tool package roots are removed without
@@ -83,7 +88,7 @@
 
 ## Verification
 
-- Latest full suite: `275 passed, 4 skipped`; skipped cases require optional
+- Latest full suite: `289 passed, 4 skipped`; skipped cases require optional
   real models/audio/hardware.
 - The original 407-test characterization target is recorded in
   `tests/legacy_test_replacements.json`; every removed legacy test module has an
@@ -95,8 +100,15 @@
 - The Windows one-file executable was rebuilt without optional semantic-model
   packages and its embedded engine passed the isolated packaged-health smoke
   check. Build output remains ignored.
+- The complete `main...HEAD` change was reviewed for migration safety,
+  localhost/path containment, runtime snapshots, cancellation/retry,
+  compatibility contracts, memory grounding, desktop lifecycle, and
+  packaging boundaries.
+- Review fixes harden atomic migration/import behavior, meeting and recording
+  lifecycle races, grounded memory retrieval, streaming desktop upload/error
+  handling, live-spool cleanup, and enqueue-time runtime snapshots.
 - Documentation, diff whitespace, ignored-artifact boundaries, and Git scope
-  were reviewed for the single architecture-rework delivery commit.
+  were reviewed for the squash delivery.
 
 ## Durable Decisions
 
@@ -116,6 +128,5 @@
 
 ## Next Likely Tasks
 
-- Merge the completed architecture-rework commit when its review is accepted.
 - Validate optional Turkish meeting-room fixtures and target hardware on a
   clean Windows machine.

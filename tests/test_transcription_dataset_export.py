@@ -3,13 +3,18 @@ from __future__ import annotations
 import csv
 import json
 import math
-from pathlib import Path
 import wave
+from pathlib import Path
 
-from realtime_backend.app.evaluation.transcription_metrics import evaluate_transcription
-from tools.transcript_annotation.dataset import AnnotationDataset, sha256_file
-from tools.transcript_annotation.experiments import build_experiment_report
-from tools.transcript_annotation.exporter import export_reviewed_dataset
+from collective_mindgraph.application.transcription.evaluation.transcription_metrics import (
+    evaluate_transcription,
+)
+from collective_mindgraph.tooling.transcript_annotation.dataset import (
+    AnnotationDataset,
+    sha256_file,
+)
+from collective_mindgraph.tooling.transcript_annotation.experiments import build_experiment_report
+from collective_mindgraph.tooling.transcript_annotation.exporter import export_reviewed_dataset
 
 
 def test_reviewed_export_writes_csv_jsonl_and_huggingface_audiofolder(tmp_path: Path):
@@ -56,7 +61,10 @@ def test_reviewed_export_writes_csv_jsonl_and_huggingface_audiofolder(tmp_path: 
         "condition_tags",
         "speaker_id",
     }
-    jsonl = [json.loads(line) for line in (output / "transcription.jsonl").read_text(encoding="utf-8").splitlines()]
+    jsonl = [
+        json.loads(line)
+        for line in (output / "transcription.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     assert jsonl[0]["source_audio_sha256"] == original_hash
     hf_rows = list(csv.DictReader((output / "huggingface" / "metadata.csv").open(encoding="utf-8")))
     assert hf_rows[0]["file_name"].startswith("audio/")
@@ -105,7 +113,9 @@ def test_integration_edit_reload_export_evaluate_and_report(tmp_path: Path):
     )
 
     reloaded = AnnotationDataset.load(dataset.root)
-    export_summary = export_reviewed_dataset(reloaded, tmp_path / "export", formats=("csv", "jsonl"))
+    export_summary = export_reviewed_dataset(
+        reloaded, tmp_path / "export", formats=("csv", "jsonl")
+    )
     evaluation = evaluate_transcription(
         reloaded.get_segment(recording["recording_id"], first["segment_id"])["reference_text"],
         "Collective MindGraph konuşuldu",

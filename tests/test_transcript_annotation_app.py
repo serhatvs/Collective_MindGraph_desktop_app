@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 import wave
+from pathlib import Path
 
-from tools.transcript_annotation.app import AnnotationWindow, parse_args
-from tools.transcript_annotation.dataset import AnnotationDataset
+from collective_mindgraph.tooling.transcript_annotation.app import AnnotationWindow, parse_args
+from collective_mindgraph.tooling.transcript_annotation.dataset import AnnotationDataset
 
 
 def test_annotation_window_opens_dataset_and_saves_human_edit(qtbot, tmp_path: Path):
@@ -28,7 +28,9 @@ def test_annotation_window_opens_dataset_and_saves_human_edit(qtbot, tmp_path: P
     window.save_current_segment()
 
     reloaded = AnnotationDataset.load(dataset.root)
-    segment = reloaded.get_segment(recording["recording_id"], recording["segments"][0]["segment_id"])
+    segment = reloaded.get_segment(
+        recording["recording_id"], recording["segments"][0]["segment_id"]
+    )
     assert segment["reference_text"] == "İnsan tarafından doğrulandı."
     assert segment["annotation_status"] == "reviewed"
     assert "Transcript Annotation" in window.windowTitle()
@@ -82,15 +84,24 @@ def test_annotation_navigation_flushes_pending_human_edits(qtbot, tmp_path: Path
     assert window._set_dataset(replacement) is True
 
     reloaded = AnnotationDataset.load(dataset.root)
-    assert reloaded.get_segment(
-        first_recording["recording_id"], first_recording["segments"][0]["segment_id"]
-    )["reference_text"] == "Birinci hızlı düzeltme."
-    assert reloaded.get_segment(
-        first_recording["recording_id"], first_recording["segments"][1]["segment_id"]
-    )["reference_text"] == "İkinci hızlı düzeltme."
-    assert reloaded.get_segment(
-        second_recording["recording_id"], second_recording["segments"][0]["segment_id"]
-    )["reference_text"] == "Veri kümesi geçişinden önceki düzeltme."
+    assert (
+        reloaded.get_segment(
+            first_recording["recording_id"], first_recording["segments"][0]["segment_id"]
+        )["reference_text"]
+        == "Birinci hızlı düzeltme."
+    )
+    assert (
+        reloaded.get_segment(
+            first_recording["recording_id"], first_recording["segments"][1]["segment_id"]
+        )["reference_text"]
+        == "İkinci hızlı düzeltme."
+    )
+    assert (
+        reloaded.get_segment(
+            second_recording["recording_id"], second_recording["segments"][0]["segment_id"]
+        )["reference_text"]
+        == "Veri kümesi geçişinden önceki düzeltme."
+    )
 
 
 def test_failed_autosave_remains_dirty_and_blocks_navigation(qtbot, tmp_path: Path):

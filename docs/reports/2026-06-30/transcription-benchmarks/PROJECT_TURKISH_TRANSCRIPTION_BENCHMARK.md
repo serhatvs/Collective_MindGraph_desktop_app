@@ -1,4 +1,4 @@
-﻿# Project Turkish Transcription Benchmark
+# Project Turkish Transcription Benchmark
 
 Date: 2026-06-22
 

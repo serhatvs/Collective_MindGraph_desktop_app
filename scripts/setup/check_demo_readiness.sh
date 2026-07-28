@@ -29,15 +29,15 @@ else
     status=1
 fi
 
-if [ -x "realtime_backend/.venv/bin/python" ]; then
-    echo "[OK] Backend virtual environment found."
-    python_runtime="$REPO_ROOT/realtime_backend/.venv/bin/python"
+if [ -x ".venv/bin/python" ]; then
+    echo "[OK] Project virtual environment found."
+    python_runtime="$REPO_ROOT/.venv/bin/python"
 else
-    echo "[INFO] Backend virtual environment not found; checking system Python."
+    echo "[INFO] Project virtual environment not found; checking system Python."
 fi
 
 if [ -n "$python_runtime" ] && "$python_runtime" -c "import fastapi, faster_whisper, PySide6" >/dev/null 2>&1; then
-    echo "[OK] Core backend, ASR, and desktop dependencies are importable."
+    echo "[OK] Engine, ASR, and desktop dependencies are importable."
 else
     echo "[MISSING] Core Python dependencies; run the documented dependency installer."
     status=1
@@ -58,5 +58,5 @@ if [ "$status" -ne 0 ]; then
 fi
 
 echo "Readiness check passed."
-echo "1. Run ./scripts/launch/dev_backend.sh"
+echo "1. Run ./scripts/launch/dev_engine.sh"
 echo "2. Run ./scripts/launch/dev_desktop.sh"

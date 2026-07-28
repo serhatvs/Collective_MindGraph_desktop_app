@@ -3,28 +3,22 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-import os
 from pathlib import Path
-import sys
-import time
 from typing import Any
 
+from collective_mindgraph.application.transcription.contracts import SpeechRegion
+from collective_mindgraph.engine.settings import EngineSettings
+from collective_mindgraph.infrastructure.audio.ffmpeg_processing import inspect_audio
+from collective_mindgraph.infrastructure.transcription.asr_runtime_config import (
+    format_asr_diagnostics,
+)
+from collective_mindgraph.infrastructure.transcription.recording_processor import RecordingProcessor
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
-
-from app.config import Settings  # noqa: E402
-from app.evaluation.transcription_metrics import evaluate_transcription  # noqa: E402
-from app.models import SpeechRegion  # noqa: E402
-from app.pipeline.asr_runtime_config import format_asr_diagnostics  # noqa: E402
-from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
-from app.utils.audio_process import inspect_audio  # noqa: E402
-
-
 TURKISH_CHARS = ["ç", "ğ", "ı", "İ", "ö", "ş", "ü"]
 
 
@@ -54,7 +48,7 @@ class PipelineRun:
 class NoVAD:
     provider_name = "none"
 
-    def __init__(self, _settings: Settings) -> None:
+    def __init__(self, _settings: EngineSettings) -> None:
         return
 
     def detect(self, _audio_path: Path) -> list[SpeechRegion]:
@@ -88,7 +82,7 @@ async def run_cmg_pipeline(
         return run
 
     with asr_environment(profile=profile, model=model, language=language, require_gpu=require_gpu):
-        settings = Settings()
+        settings = EngineSettings()
         settings.vad_provider = "energy" if vad_provider == "none" else vad_provider
         settings.default_language = language
         settings.transcription_quality_mode = quality_mode
@@ -101,7 +95,7 @@ async def run_cmg_pipeline(
         start_load = time.perf_counter()
         try:
             vad = NoVAD(settings) if vad_provider == "none" else None
-            pipeline = TranscriptionPipeline(settings=settings, vad=vad)
+            pipeline = RecordingProcessor(settings=settings, vad=vad)
         except Exception as exc:
             run.error = f"{type(exc).__name__}: {exc}"
             run.model_load_time_seconds = time.perf_counter() - start_load

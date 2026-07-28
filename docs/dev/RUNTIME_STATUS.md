@@ -1,48 +1,32 @@
-# PRODUCTION_RUNTIME_STATUS.md
+# Runtime Status
 
-## Local Technical Memory: Audited AI Runtime Status
+The maintained runtime consists of the PySide6 desktop and one localhost
+FastAPI engine from the `collective_mindgraph` package.
 
-This document provides a real-time snapshot of the Collective MindGraph production runtime as of May 2026.
+## Default providers
 
-### 1. Local AI Layer
-*   **Local LLM Status**: **ACTIVE**
-    *   **Provider**: LM Studio (Local/Private Safe)
-    *   **Model**: `meta-llama-3.1-8b-instruct`
-    *   **Capabilities**: Structured JSON extraction, LLM-assisted Ask Memory.
-*   **Extraction Mode**: **LOCAL_LLM**
-    *   High-fidelity Turkish technical extraction active.
-    *   Heuristic fallback enabled for zero-failure reliability.
+- ASR: local provider selected by engine settings; mock is used only when
+  explicitly configured for diagnostics/tests.
+- VAD: local energy adapter with optional Silero configuration.
+- Speaker labels: fallback labels; speaker separation is experimental and not
+  validated.
+- Embeddings: disabled/mock unless a local Sentence Transformer is configured.
+- Language model: disabled unless an allowed localhost endpoint is configured.
 
-### 2. Semantic Memory Layer
-*   **Status**: **REAL_ACTIVE**
-    *   **Provider**: `sentence_transformers`
-    *   **Model**: `paraphrase-multilingual-MiniLM-L12-v2` (Local path verified)
-    *   **Dimension**: 384
-    *   **Infrastructure**: SQLite Vector store is operational and end-to-end verified.
-    *   **Hybrid Query**: Keyword + Vector + Graph reasoning active.
+## Persistence
 
-### 3. Knowledge Graph Layer
-*   **Status**: **ACTIVE**
-    *   V2 Graph (Nodes/Edges/Refs) is the primary storage backbone.
-    *   Multi-hop structural reasoning active without LLM dependency.
-    *   Interactive Knowledge Graph explorer active in Desktop UI.
+The engine owns
+`%LOCALAPPDATA%\CollectiveMindGraph\collective_mindgraph.sqlite3`.
+Legacy desktop, engine, and transcript-archive sources are imported through the
+backup-first migration.
 
-### 4. Ask Memory Layer
-*   **Status**: **ACTIVE (Audited)**
-    *   **Evidence-only Mode**: Fully operational (template-based graph evidence).
-    *   **LLM-assisted Mode**: Fully operational with **Strict Hallucination Guard**.
-    *   **Validation Status**: 
-        *   Technical term rejection: ACTIVE.
-        *   Citation coverage scoring: ACTIVE.
-        *   Sentence-level audit: ACTIVE.
-        *   Automated fallback: ACTIVE.
+## Verified automation
 
-### 5. Production Gaps
-*   **Diarization**: NOT IMPLEMENTED. Speaker identification remains on the roadmap.
-*   **Resource Constraints**: Real semantic retrieval currently forced to CPU to avoid GPU OOM during multi-model execution.
+The repository validates product workflows, compatibility routes, migrations,
+offscreen desktop rendering, import safety, Ruff, strict domain/application
+typing, and source compilation. The current Windows development machine also
+passes source-engine startup, packaged-engine health, and packaged-desktop
+engine-autostart smoke checks. A clean-machine packaging run and real-model
+hardware checks remain separate validation work.
 
-### 6. Validation Summary
-*   **Regression Suite**: 43/43 tests **PASSED** (100% clean).
-*   **ASR Accuracy**: 91% Keyword Overlap (Common Voice TR).
-*   **Graph Reasoning**: 100% pathfinding accuracy on clean session data.
-*   **Hallucination Prevention**: Verified rejection of unsupported technical tools (e.g. Pytest/Docker) in Ask Memory.
+See [Product Status](../product/STATUS.md) for claim boundaries.

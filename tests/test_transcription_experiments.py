@@ -2,24 +2,24 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 import wave
+from pathlib import Path
 
 import pytest
 
-from tools.transcript_annotation.dataset import AnnotationDataset
-from tools.transcript_annotation.experiments import (
+from collective_mindgraph.tooling.transcript_annotation.dataset import AnnotationDataset
+from collective_mindgraph.tooling.transcript_annotation.experiments import (
     aggregate_experiment_results,
-    build_experiment_report,
     build_experiment_configurations,
+    build_experiment_report,
     choose_best_configuration,
     completed_experiment_ids,
-    configuration_key,
     condition_regressions,
-    experiment_plan_ids,
+    configuration_key,
     experiment_identifier,
-    filter_results_for_plan,
+    experiment_plan_ids,
     filter_recordings,
+    filter_results_for_plan,
     load_existing_results,
     parse_model_overrides,
     run_recording_experiment,
@@ -31,7 +31,11 @@ def test_experiment_configurations_capture_three_required_modes_and_models():
     configurations = build_experiment_configurations(
         ["balanced", "max_quality"],
         include_selective=True,
-        model_overrides={"balanced": "large-v3-turbo", "max_quality": "large-v3", "selective_recovery": "large-v3"},
+        model_overrides={
+            "balanced": "large-v3-turbo",
+            "max_quality": "large-v3",
+            "selective_recovery": "large-v3",
+        },
     )
 
     assert [item["mode"] for item in configurations] == [
@@ -128,8 +132,22 @@ async def test_experiment_failure_is_preserved_and_resume_retries_it(tmp_path: P
 def test_output_generation_resume_and_best_configuration_use_reference_metrics(tmp_path: Path):
     dataset = _dataset_with_two_recordings(tmp_path)
     configurations = build_experiment_configurations(["balanced", "max_quality"])
-    balanced = _result(dataset.recordings[0]["recording_id"], configurations[0], wer=0.3, cer=0.2, domain=0.8, seconds=1.0)
-    strong = _result(dataset.recordings[0]["recording_id"], configurations[1], wer=0.2, cer=0.15, domain=0.7, seconds=4.0)
+    balanced = _result(
+        dataset.recordings[0]["recording_id"],
+        configurations[0],
+        wer=0.3,
+        cer=0.2,
+        domain=0.8,
+        seconds=1.0,
+    )
+    strong = _result(
+        dataset.recordings[0]["recording_id"],
+        configurations[1],
+        wer=0.2,
+        cer=0.15,
+        domain=0.7,
+        seconds=4.0,
+    )
     output = tmp_path / "reports"
 
     write_experiment_outputs(
@@ -144,7 +162,10 @@ def test_output_generation_resume_and_best_configuration_use_reference_metrics(t
     aggregates = aggregate_experiment_results(loaded)
     best = choose_best_configuration(aggregates)
 
-    assert {item["experiment_id"] for item in loaded} == {balanced["experiment_id"], strong["experiment_id"]}
+    assert {item["experiment_id"] for item in loaded} == {
+        balanced["experiment_id"],
+        strong["experiment_id"],
+    }
     assert payload["planned_recording_ids"] == [dataset.recordings[0]["recording_id"]]
     assert payload["planned_experiment_ids"] == sorted(
         experiment_plan_ids(configurations, [dataset.recordings[0]["recording_id"]])
@@ -193,8 +214,7 @@ def test_best_configuration_requires_failure_free_identical_recording_coverage(t
 
     assert choose_best_configuration(aggregates) is None
     assert all(
-        item["attempted_recording_ids"] == sorted([first_id, second_id])
-        for item in aggregates
+        item["attempted_recording_ids"] == sorted([first_id, second_id]) for item in aggregates
     )
     report = build_experiment_report(dataset, configurations, results)
     assert "No best configuration is declared" in report
@@ -286,7 +306,9 @@ def test_resume_filters_colliding_stale_configuration_results(tmp_path: Path):
 def test_experiment_identifier_is_stable_for_resume():
     configuration = build_experiment_configurations(["balanced"])[0]
 
-    assert experiment_identifier("recording", configuration) == experiment_identifier("recording", dict(configuration))
+    assert experiment_identifier("recording", configuration) == experiment_identifier(
+        "recording", dict(configuration)
+    )
 
 
 def _dataset_with_two_recordings(tmp_path: Path) -> AnnotationDataset:
@@ -295,8 +317,12 @@ def _dataset_with_two_recordings(tmp_path: Path) -> AnnotationDataset:
     second_audio = tmp_path / "second.wav"
     _write_wav(first_audio, frequency=220)
     _write_wav(second_audio, frequency=330)
-    dataset.add_recording(first_audio, _annotation_transcript(), condition_tags=["bad_mic", "technical_meeting"])
-    dataset.add_recording(second_audio, _annotation_transcript(), condition_tags=["good_mic", "quiet_room"])
+    dataset.add_recording(
+        first_audio, _annotation_transcript(), condition_tags=["bad_mic", "technical_meeting"]
+    )
+    dataset.add_recording(
+        second_audio, _annotation_transcript(), condition_tags=["good_mic", "quiet_room"]
+    )
     return dataset
 
 
@@ -330,7 +356,11 @@ def _candidate_transcript(_audio_path: Path) -> dict:
     return {
         "conversation_id": "candidate",
         "source": "experiment",
-        "diagnostics": {"device": "cpu", "compute_type": "int8", "vad_settings": {"provider": "energy"}},
+        "diagnostics": {
+            "device": "cpu",
+            "compute_type": "int8",
+            "vad_settings": {"provider": "energy"},
+        },
         "metadata": {
             "asr_status": "ASR_STATUS=OK",
             "model_name": "small",
@@ -339,7 +369,10 @@ def _candidate_transcript(_audio_path: Path) -> dict:
             "preprocessing_status": "ffmpeg_safe_loudness",
             "preprocessing_strength": "safe_loudness",
             "preprocessing_steps": ["loudnorm"],
-            "selective_retranscription": {"number_of_second_pass_regions": 0, "percentage_of_audio_retranscribed": 0.0},
+            "selective_retranscription": {
+                "number_of_second_pass_regions": 0,
+                "percentage_of_audio_retranscribed": 0.0,
+            },
             "warnings": [],
         },
         "segments": [
@@ -363,7 +396,9 @@ def _candidate_transcript(_audio_path: Path) -> dict:
     }
 
 
-def _result(recording_id: str, configuration: dict, *, wer: float, cer: float, domain: float, seconds: float) -> dict:
+def _result(
+    recording_id: str, configuration: dict, *, wer: float, cer: float, domain: float, seconds: float
+) -> dict:
     reference_words = 10
     reference_characters = 50
     return {
@@ -395,7 +430,9 @@ def _result(recording_id: str, configuration: dict, *, wer: float, cer: float, d
     }
 
 
-def _write_wav(path: Path, *, frequency: int, duration: float = 2.0, sample_rate: int = 16000) -> None:
+def _write_wav(
+    path: Path, *, frequency: int, duration: float = 2.0, sample_rate: int = 16000
+) -> None:
     frames = bytearray()
     for index in range(int(duration * sample_rate)):
         value = int(math.sin(2 * math.pi * frequency * index / sample_rate) * 0.1 * 32767)

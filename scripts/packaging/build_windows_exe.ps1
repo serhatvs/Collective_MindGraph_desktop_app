@@ -9,7 +9,7 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $repoRoot
 
 if ([string]::IsNullOrWhiteSpace($PythonExe)) {
-    $venvPython = Join-Path $repoRoot "realtime_backend\.venv\Scripts\python.exe"
+    $venvPython = Join-Path $repoRoot ".venv-win\Scripts\python.exe"
     if (Test-Path $venvPython) {
         $PythonExe = $venvPython
     } else {
@@ -20,8 +20,7 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) {
 Write-Host "Using Python:" $PythonExe
 
 if (-not $SkipBootstrap) {
-    & $PythonExe -m pip install -e .
-    & $PythonExe -m pip install "PyInstaller>=6.12,<7.0"
+    & $PythonExe -m pip install -e ".[build]"
 }
 
 & $PythonExe -m PyInstaller --noconfirm --clean .\CollectiveMindGraph.spec

@@ -5,9 +5,9 @@ launch_cmg.py - Collective MindGraph desktop launcher.
 Usage:
     python scripts/launch/launch_cmg.py
 
-Sets PYTHONPATH to include src/ and the repo root, checks whether the real
-local ASR dependency is importable, then launches the desktop app via:
-    python -m collective_mindgraph_desktop
+Checks whether the real local ASR dependency is importable, then launches the
+installed desktop app via:
+    python -m collective_mindgraph.desktop
 
 Exit codes:
     0  - app exited normally
@@ -17,7 +17,6 @@ Exit codes:
 from __future__ import annotations
 
 import importlib.util
-import os
 import subprocess
 import sys
 import textwrap
@@ -45,12 +44,6 @@ def main() -> int:
         )
         return 1
 
-    env = os.environ.copy()
-    existing = env.get("PYTHONPATH", "")
-    additions = [str(src_dir), str(repo_root)]
-    new_path_parts = additions + [p for p in existing.split(os.pathsep) if p]
-    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys(new_path_parts))
-
     faster_whisper_available, faster_whisper_error = _check_faster_whisper_available()
     faster_whisper_status = "available" if faster_whisper_available else "missing"
 
@@ -60,7 +53,6 @@ def main() -> int:
         ================================================
         Python executable : {sys.executable}
         Repo root         : {repo_root}
-        PYTHONPATH        : {env['PYTHONPATH']}
         faster_whisper    : {faster_whisper_status}
     """))
 
@@ -68,18 +60,18 @@ def main() -> int:
         print(
             "[CMG] WARNING: Real transcription is not available. "
             "The app may use mock fallback.\n"
-            "      Install backend ASR dependencies before friend testing:\n"
-            "      python -m pip install -r realtime_backend\\requirements.txt",
+            "      Install transcription dependencies before testing:\n"
+            "      python -m pip install -e .[transcription]",
             file=sys.stderr,
         )
         if faster_whisper_error:
             print(f"      Import check detail: {faster_whisper_error}", file=sys.stderr)
 
-    cmd = [sys.executable, "-m", "collective_mindgraph_desktop"]
+    cmd = [sys.executable, "-m", "collective_mindgraph.desktop"]
     print(f"[CMG] Launching: {' '.join(cmd)}\n")
 
     try:
-        result = subprocess.run(cmd, env=env, cwd=str(repo_root))
+        result = subprocess.run(cmd, cwd=str(repo_root))
     except FileNotFoundError:
         print(
             "[CMG] ERROR: Python executable not found.\n"

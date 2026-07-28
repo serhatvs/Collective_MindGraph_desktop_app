@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import QApplication
 
-from collective_mindgraph_desktop import wake_phrase as wake_phrase_module
-from collective_mindgraph_desktop.wake_phrase import (
+from collective_mindgraph.desktop import wake_phrase as wake_phrase_module
+from collective_mindgraph.desktop.wake_phrase import (
     DEFAULT_SHUTDOWN_PHRASE,
     DEFAULT_WAKE_PHRASE,
     VoskWakePhraseController,
@@ -41,7 +41,13 @@ def test_detect_control_phrase_matches_shutdown_phrase():
 
 
 def test_detect_control_phrase_matches_common_vosk_shortened_wake_variants():
-    for text in ("i command wake", "command wake up", "command wake", "i command wakeup", "command wakeup"):
+    for text in (
+        "i command wake",
+        "command wake up",
+        "command wake",
+        "i command wakeup",
+        "command wakeup",
+    ):
         detected = detect_control_phrase(
             text=text,
             wake_phrase=DEFAULT_WAKE_PHRASE,
@@ -52,7 +58,13 @@ def test_detect_control_phrase_matches_common_vosk_shortened_wake_variants():
 
 
 def test_detect_control_phrase_matches_common_vosk_shortened_shutdown_variants():
-    for text in ("i command shut", "command shut down", "command shut", "i command shutdown", "command shutdown"):
+    for text in (
+        "i command shut",
+        "command shut down",
+        "command shut",
+        "i command shutdown",
+        "command shutdown",
+    ):
         detected = detect_control_phrase(
             text=text,
             wake_phrase=DEFAULT_WAKE_PHRASE,
@@ -97,7 +109,9 @@ def test_wake_phrase_controller_updates_status_for_arm_and_suspend_states(monkey
     stop_calls: list[str] = []
     ensure_calls: list[str] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
     monkeypatch.setattr(
         VoskWakePhraseController,
         "_ensure_worker",
@@ -129,7 +143,10 @@ def test_wake_phrase_controller_updates_status_for_arm_and_suspend_states(monkey
 
     controller.suspend()
 
-    assert controller.status_text() == "Wake trigger paused while the app is recording or transcribing."
+    assert (
+        controller.status_text()
+        == "Wake trigger paused while the app is recording or transcribing."
+    )
     assert stop_calls == ["stop", "stop"]
 
     controller.resume()
@@ -140,7 +157,9 @@ def test_wake_phrase_controller_updates_status_for_arm_and_suspend_states(monkey
 
 def test_wake_phrase_controller_reports_failure_and_disarms(monkeypatch):
     build_app()
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
     monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: None)
     monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: None)
 
@@ -181,7 +200,9 @@ def test_wake_phrase_controller_restarts_worker_after_input_device_change(monkey
     stop_calls: list[str | None] = []
     ensure_calls: list[str | None] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
 
     def fake_ensure(self) -> None:
         ensure_calls.append(self._config.input_device)
@@ -215,7 +236,9 @@ def test_wake_phrase_controller_restarts_worker_after_input_device_change(monkey
 
 def test_wake_phrase_controller_routes_detected_wake_and_shutdown_signals(monkeypatch):
     build_app()
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
     monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: None)
     monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: None)
 
@@ -238,9 +261,15 @@ def test_wake_phrase_controller_toggle_armed_switches_worker_state(monkeypatch):
     ensure_calls: list[str] = []
     states: list[str] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
-    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure"))
-    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure")
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop")
+    )
 
     controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
     controller.state_changed.connect(states.append)
@@ -264,7 +293,9 @@ def test_wake_phrase_controller_apply_config_rearms_and_starts_worker(monkeypatc
     ensure_calls: list[str | None] = []
     states: list[str] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
     monkeypatch.setattr(
         VoskWakePhraseController,
         "_ensure_worker",
@@ -276,18 +307,24 @@ def test_wake_phrase_controller_apply_config_rearms_and_starts_worker(monkeypatc
         lambda self: stop_calls.append(self.config.input_device),
     )
 
-    controller = VoskWakePhraseController(config=WakePhraseConfig(enabled=False, model_path="stub-model"))
+    controller = VoskWakePhraseController(
+        config=WakePhraseConfig(enabled=False, model_path="stub-model")
+    )
     controller.state_changed.connect(states.append)
     ensure_calls.clear()
     stop_calls.clear()
 
-    controller.apply_config(WakePhraseConfig(enabled=True, model_path="stub-model", input_device="Desk Mic"))
+    controller.apply_config(
+        WakePhraseConfig(enabled=True, model_path="stub-model", input_device="Desk Mic")
+    )
 
     assert controller.is_armed is True
     assert controller.config.input_device == "Desk Mic"
     assert ensure_calls == ["Desk Mic"]
     assert stop_calls == []
-    assert states == ["Wake trigger armed. Say 'command wake' to start and 'command shut' to cancel the active voice turn."]
+    assert states == [
+        "Wake trigger armed. Say 'command wake' to start and 'command shut' to cancel the active voice turn."
+    ]
 
 
 def test_wake_phrase_controller_apply_config_disarms_and_stops_worker(monkeypatch):
@@ -296,7 +333,9 @@ def test_wake_phrase_controller_apply_config_disarms_and_stops_worker(monkeypatc
     ensure_calls: list[str | None] = []
     states: list[str] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
     monkeypatch.setattr(
         VoskWakePhraseController,
         "_ensure_worker",
@@ -308,12 +347,16 @@ def test_wake_phrase_controller_apply_config_disarms_and_stops_worker(monkeypatc
         lambda self: stop_calls.append(self.config.input_device),
     )
 
-    controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model", input_device="Desk Mic"))
+    controller = VoskWakePhraseController(
+        config=WakePhraseConfig(model_path="stub-model", input_device="Desk Mic")
+    )
     controller.state_changed.connect(states.append)
     ensure_calls.clear()
     stop_calls.clear()
 
-    controller.apply_config(WakePhraseConfig(enabled=False, model_path="stub-model", input_device="USB Mic"))
+    controller.apply_config(
+        WakePhraseConfig(enabled=False, model_path="stub-model", input_device="USB Mic")
+    )
 
     assert controller.is_armed is False
     assert controller.config.input_device == "USB Mic"
@@ -327,9 +370,15 @@ def test_wake_phrase_controller_shutdown_stops_worker_and_clears_desired_running
     stop_calls: list[str] = []
     ensure_calls: list[str] = []
 
-    monkeypatch.setattr(wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready"))
-    monkeypatch.setattr(VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure"))
-    monkeypatch.setattr(VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop"))
+    monkeypatch.setattr(
+        wake_phrase_module, "_check_runtime_availability", lambda _config: (True, "ready")
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController, "_ensure_worker", lambda self: ensure_calls.append("ensure")
+    )
+    monkeypatch.setattr(
+        VoskWakePhraseController, "_stop_worker", lambda self: stop_calls.append("stop")
+    )
 
     controller = VoskWakePhraseController(config=WakePhraseConfig(model_path="stub-model"))
     ensure_calls.clear()

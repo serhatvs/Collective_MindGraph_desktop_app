@@ -11,18 +11,18 @@ Create local audio fixtures that can fairly test Turkish speech-to-text quality 
 Save project fixtures under:
 
 ```text
-realtime_backend/tests/fixtures/audio/project_turkish/
-realtime_backend/tests/fixtures/expected/project_turkish/
+tests/transcription/fixtures/audio/project_turkish/
+tests/transcription/fixtures/expected/project_turkish/
 ```
 
 Recommended naming:
 
 ```text
-realtime_backend/tests/fixtures/audio/project_turkish/clean_nearfield_001.wav
-realtime_backend/tests/fixtures/expected/project_turkish/clean_nearfield_001.reference.txt
+tests/transcription/fixtures/audio/project_turkish/clean_nearfield_001.wav
+tests/transcription/fixtures/expected/project_turkish/clean_nearfield_001.reference.txt
 
-realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav
-realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt
+tests/transcription/fixtures/audio/project_turkish/real_meeting_room_001.wav
+tests/transcription/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt
 ```
 
 ## Fixture Types
@@ -145,8 +145,8 @@ Example:
 
 ```powershell
 python scripts/benchmarks/run_project_turkish_transcription_benchmark.py `
-  --audio realtime_backend/tests/fixtures/audio/project_turkish/real_meeting_room_001.wav `
-  --reference realtime_backend/tests/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
+  --audio tests/transcription/fixtures/audio/project_turkish/real_meeting_room_001.wav `
+  --reference tests/transcription/fixtures/expected/project_turkish/real_meeting_room_001.reference.txt `
   --audio-kind real_meeting_room `
   --output docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md
 ```

@@ -14,11 +14,11 @@ Candidate confidence is useful for review prioritization but is not accuracy. WE
 
 ## Installation and Launch
 
-Install the desktop and local backend dependencies in the same Python environment used by Collective MindGraph:
+Install the desktop and local engine dependencies in the same Python environment used by Collective MindGraph:
 
 ```powershell
 python -m pip install -e ".[dev]"
-python -m pip install -r realtime_backend/requirements.txt
+python -m pip install -e ".[transcription,dev]"
 ```
 
 Launch the standalone annotation application:
@@ -122,7 +122,7 @@ Comma-separated custom tags are allowed and normalized to lowercase underscore f
 
 ## Normalization and Metrics
 
-The shared module is `realtime_backend/app/evaluation/transcription_metrics.py`. Default Turkish normalization:
+The shared module is `src/collective_mindgraph/application/transcription/evaluation/transcription_metrics.py`. Default Turkish normalization:
 
 - Unicode NFC normalization;
 - Turkish-aware lowercase (`I → ı`, `İ → i`);

@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import json
 import math
+import wave
 from pathlib import Path
 from types import SimpleNamespace
-import wave
 
 import pytest
 
-from tools.transcript_annotation import dataset as dataset_module
-from tools.transcript_annotation.dataset import (
+from collective_mindgraph.tooling.transcript_annotation import (
+    dataset_manifest as dataset_manifest_module,
+)
+from collective_mindgraph.tooling.transcript_annotation.dataset import (
     CURRENT_SCHEMA_VERSION,
     AnnotationDataset,
     DatasetIntegrityError,
@@ -17,7 +19,10 @@ from tools.transcript_annotation.dataset import (
     atomic_write_text,
     sha256_file,
 )
-from tools.transcript_annotation.pipeline import RealASRUnavailableError, transcribe_for_annotation
+from collective_mindgraph.tooling.transcript_annotation.pipeline import (
+    RealASRUnavailableError,
+    transcribe_for_annotation,
+)
 
 
 def test_dataset_creation_builds_versioned_directory_structure(tmp_path: Path):
@@ -73,7 +78,11 @@ def test_add_edit_reload_preserves_original_asr_and_human_reference(tmp_path: Pa
     assert reloaded.manifest["annotation_statistics"]["segments_by_status"]["reviewed"] == 1
     reference_file = reloaded.root / "references" / f"{recording['recording_id']}.txt"
     assert reference_file.read_text(encoding="utf-8") == "Merhaba ekip.\n"
-    assert set(recording["recording_condition_tags"]) == {"bad_mic", "technical_meeting", "custom_setup"}
+    assert set(recording["recording_condition_tags"]) == {
+        "bad_mic",
+        "technical_meeting",
+        "custom_setup",
+    }
 
 
 def test_boundary_validation_clamps_duration_and_rejects_invalid_order(tmp_path: Path):
@@ -113,7 +122,9 @@ def test_duplicate_audio_and_segment_detection(tmp_path: Path):
     assert error.value.recording_id == recording["recording_id"]
 
     duplicate_segments = _transcript_payload()
-    duplicate_segments["segments"][1]["segment_id"] = duplicate_segments["segments"][0]["segment_id"]
+    duplicate_segments["segments"][1]["segment_id"] = duplicate_segments["segments"][0][
+        "segment_id"
+    ]
     other_audio = tmp_path / "other.wav"
     _write_wav(other_audio, duration=2.0, frequency=330)
     with pytest.raises(DatasetIntegrityError, match="unique"):
@@ -139,7 +150,10 @@ def test_new_transcription_candidate_never_overwrites_human_reference(tmp_path: 
         profile="max_quality",
     )
 
-    assert dataset.get_segment(recording["recording_id"], segment["segment_id"])["reference_text"] == "İnsan tarafından düzeltildi."
+    assert (
+        dataset.get_segment(recording["recording_id"], segment["segment_id"])["reference_text"]
+        == "İnsan tarafından düzeltildi."
+    )
     assert len(dataset.get_recording(recording["recording_id"])["transcription_candidates"]) == 2
 
 
@@ -175,7 +189,14 @@ def test_schema_migration_creates_backup_and_preserves_legacy_fields(tmp_path: P
                 "audio_path": "legacy.wav",
                 "audio_sha256": sha256_file(audio),
                 "duration": 1.0,
-                "segments": [{"segment_id": "legacy_segment", "start": 0.0, "end": 1.0, "raw_text": "ham metin"}],
+                "segments": [
+                    {
+                        "segment_id": "legacy_segment",
+                        "start": 0.0,
+                        "end": 1.0,
+                        "raw_text": "ham metin",
+                    }
+                ],
             }
         ],
     }
@@ -193,7 +214,9 @@ def test_unknown_schema_is_rejected_without_overwriting_manifest(tmp_path: Path)
     root = tmp_path / "future"
     root.mkdir()
     manifest = root / "dataset.json"
-    manifest.write_text('{"schema_version":"99","dataset_name":"Future","recordings":[]}', encoding="utf-8")
+    manifest.write_text(
+        '{"schema_version":"99","dataset_name":"Future","recordings":[]}', encoding="utf-8"
+    )
     original = manifest.read_bytes()
 
     with pytest.raises(DatasetIntegrityError, match="No safe migration"):
@@ -202,14 +225,16 @@ def test_unknown_schema_is_rejected_without_overwriting_manifest(tmp_path: Path)
     assert manifest.read_bytes() == original
 
 
-def test_atomic_write_failure_leaves_previous_file_and_cleans_temporary(tmp_path: Path, monkeypatch):
+def test_atomic_write_failure_leaves_previous_file_and_cleans_temporary(
+    tmp_path: Path, monkeypatch
+):
     target = tmp_path / "dataset.json"
     target.write_text("original", encoding="utf-8")
 
     def fail_replace(_source, _target):
         raise OSError("simulated replace failure")
 
-    monkeypatch.setattr(dataset_module.os, "replace", fail_replace)
+    monkeypatch.setattr(dataset_manifest_module.os, "replace", fail_replace)
     with pytest.raises(OSError, match="simulated"):
         atomic_write_text(target, "replacement")
 
@@ -241,7 +266,16 @@ async def test_annotation_pipeline_rejects_mock_result(tmp_path: Path):
 
     class FakePipeline:
         async def process_audio_path(self, *_args, **_kwargs):
-            return type("Transcript", (), {"metadata": {"mock_fallback_used": True, "asr_status": "ASR_STATUS=MOCK_FALLBACK"}})()
+            return type(
+                "Transcript",
+                (),
+                {
+                    "metadata": {
+                        "mock_fallback_used": True,
+                        "asr_status": "ASR_STATUS=MOCK_FALLBACK",
+                    }
+                },
+            )()
 
     with pytest.raises(RealASRUnavailableError, match="mock ASR"):
         await transcribe_for_annotation(
@@ -252,7 +286,9 @@ async def test_annotation_pipeline_rejects_mock_result(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_annotation_pipeline_forces_local_asr_and_preserves_configured_glossary(tmp_path: Path):
+async def test_annotation_pipeline_forces_local_asr_and_preserves_configured_glossary(
+    tmp_path: Path,
+):
     audio = tmp_path / "meeting.wav"
     glossary = tmp_path / "project_terms.txt"
     _write_wav(audio, duration=1.0)
@@ -287,9 +323,9 @@ async def test_annotation_pipeline_forces_local_asr_and_preserves_configured_glo
 
 
 def _settings(tmp_path: Path):
-    from realtime_backend.app.config import Settings
+    from collective_mindgraph.engine.settings import EngineSettings
 
-    return Settings(data_dir=tmp_path / "data", temp_dir=tmp_path / "temp")
+    return EngineSettings(data_dir=tmp_path / "data", temp_dir=tmp_path / "temp")
 
 
 def _transcript_payload(*, raw_first: str = "merhaba ekip") -> dict:
@@ -335,7 +371,9 @@ def _transcript_payload(*, raw_first: str = "merhaba ekip") -> dict:
     }
 
 
-def _write_wav(path: Path, *, duration: float, frequency: int = 220, sample_rate: int = 16000) -> None:
+def _write_wav(
+    path: Path, *, duration: float, frequency: int = 220, sample_rate: int = 16000
+) -> None:
     frames = bytearray()
     for index in range(int(duration * sample_rate)):
         value = int(math.sin(2 * math.pi * frequency * index / sample_rate) * 0.1 * 32767)

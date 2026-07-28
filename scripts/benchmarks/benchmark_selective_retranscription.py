@@ -4,29 +4,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from dataclasses import dataclass, field
 import json
-from pathlib import Path
-import sys
 import time
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
-
-ROOT = Path(__file__).resolve().parents[2]
-BACKEND_ROOT = ROOT / "realtime_backend"
-for import_path in (str(ROOT), str(BACKEND_ROOT)):
-    if import_path not in sys.path:
-        sys.path.insert(0, import_path)
-
-from app.config import Settings  # noqa: E402
-from app.evaluation.transcription_metrics import (  # noqa: E402
+from collective_mindgraph.application.transcription.evaluation.transcription_metrics import (
     compare_to_reference,
     evaluate_domain_terms,
 )
-from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
-from app.pipeline.transcription_glossary import resolve_transcription_glossary  # noqa: E402
+from collective_mindgraph.application.transcription.transcription_glossary import (
+    resolve_transcription_glossary,
+)
+from collective_mindgraph.engine.settings import EngineSettings
+from collective_mindgraph.infrastructure.transcription.recording_processor import RecordingProcessor
 
-
+ROOT = Path(__file__).resolve().parents[2]
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".m4a", ".ogg", ".aac"}
 DEFAULT_OUTPUT = (
     ROOT
@@ -140,7 +134,7 @@ async def run_configuration(
         reference_path=reference_path,
         reference_text=reference_text,
     )
-    settings = Settings()
+    settings = EngineSettings()
     settings.asr_provider = "faster_whisper"
     settings.default_language = language
     settings.transcription_quality_mode = profile
@@ -155,7 +149,7 @@ async def run_configuration(
 
     started = time.perf_counter()
     try:
-        pipeline = TranscriptionPipeline(settings)
+        pipeline = RecordingProcessor(settings)
         transcript = await pipeline.process_audio_path(
             audio_path,
             source=f"benchmark_selective_retranscription_{mode}",
@@ -232,7 +226,7 @@ def resolve_reference(audio_path: Path, reference: Path | None, *, single_audio:
 def resolve_domain_terms(glossary_path: Path | None) -> list[str]:
     if glossary_path is None:
         return []
-    settings = Settings(
+    settings = EngineSettings(
         transcription_project_glossary_path=glossary_path,
         transcription_glossary_max_terms=10_000,
         transcription_glossary_max_prompt_chars=1_000_000,

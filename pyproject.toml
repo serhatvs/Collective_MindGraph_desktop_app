@@ -3,40 +3,101 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "collective-mindgraph-desktop"
-version = "0.1.0"
-description = "Native PySide6 desktop application for local reasoning sessions and mind graph exploration."
+name = "collective-mindgraph"
+version = "0.3.0"
+description = "Local-first meeting capture, memory, and knowledge workspace."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "fastapi>=0.115,<1.0",
+  "httpx>=0.28,<1.0",
+  "numpy>=1.26,<3.0",
+  "pydantic>=2.11,<3.0",
   "PySide6>=6.8,<6.9",
-  "sounddevice>=0.5,<1.0",
-  "vosk>=0.3.45,<1.0",
+  "python-multipart>=0.0.9,<1.0",
+  "uvicorn[standard]>=0.35,<1.0",
 ]
 
 [project.optional-dependencies]
+transcription = [
+  "faster-whisper>=1.1,<2.0",
+  "huggingface-hub<1.0",
+  "pyannote.audio>=3.3,<4.0",
+  "silero-vad>=5.1,<6.0",
+  "sounddevice>=0.5,<1.0",
+  "soundfile>=0.13,<1.0",
+  "vosk>=0.3.45,<1.0",
+  "websockets>=14.0,<16.0",
+]
+local-ai = [
+  "sentence-transformers>=3.0,<6.0",
+]
 dev = [
-  "fastapi>=0.115,<1.0",
-  "httpx>=0.28,<1.0",
-  "pydantic>=2.11,<3.0",
+  "mypy>=1.15,<2.0",
   "pytest>=8.0,<9.0",
   "pytest-asyncio>=0.24,<1.0",
   "pytest-qt>=4.4,<5.0",
-  "python-multipart>=0.0.9,<1.0",
-  "soundfile>=0.13,<1.0",
-  "uvicorn[standard]>=0.35,<1.0",
+  "ruff>=0.11,<1.0",
 ]
 build = [
   "PyInstaller>=6.12,<7.0",
 ]
 
+[project.scripts]
+mindgraph = "collective_mindgraph.launcher:run"
+mindgraph-engine = "collective_mindgraph.engine.cli:main"
+mindgraph-annotate = "collective_mindgraph.tooling.transcript_annotation.annotation_launcher:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["collective_mindgraph*", "collective_mindgraph_desktop*"]
+include = ["collective_mindgraph*"]
+
+[tool.setuptools.package-data]
+"collective_mindgraph" = ["config/*.json", "py.typed"]
+"collective_mindgraph.desktop" = ["i18n/*.json"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "realtime_backend/tests"]
-addopts = "-ra"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra --strict-markers"
+markers = [
+  "hardware: requires local audio or accelerator hardware",
+  "local_model: requires a configured local model",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src", "tests"]
+exclude = ["docs/archive"]
+
+[tool.ruff.lint]
+select = ["C90", "E", "F", "I", "N", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 16
+
+[tool.ruff.lint.per-file-ignores]
+# Stateful media orchestration and trigger scoring are intentionally kept
+# cohesive; both are isolated behind application ports and focused tests.
+"src/collective_mindgraph/infrastructure/transcription/recording_processor.py" = ["C901"]
+"src/collective_mindgraph/infrastructure/transcription/selective_retranscription.py" = ["C901"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = [
+  "collective_mindgraph.domain",
+  "collective_mindgraph.application",
+]
+strict = true
+warn_unused_configs = true
+
+[tool.collective-mindgraph.architecture]
+line_limit = 500
+line_limit_allowlist = []

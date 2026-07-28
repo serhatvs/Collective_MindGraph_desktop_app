@@ -1,30 +1,26 @@
 """Smoke-check the real Collective MindGraph ASR backend on GPU.
 
-This script uses the same backend Settings and ASR builder as the app. It does
+This script uses the same backend EngineSettings and ASR builder as the app. It does
 not instantiate Faster-Whisper directly except through the CMG ASR provider.
 """
 
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-import sys
 import time
+from pathlib import Path
 
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
-
-from app.config import Settings  # noqa: E402
-from app.pipeline.asr import ASR_STATUS_MOCK_FALLBACK, build_asr  # noqa: E402
-from app.pipeline.asr_runtime_config import (  # noqa: E402
+from collective_mindgraph.engine.logging import configure_logging
+from collective_mindgraph.engine.settings import EngineSettings
+from collective_mindgraph.infrastructure.transcription.asr import (
+    ASR_STATUS_MOCK_FALLBACK,
+    build_asr,
+)
+from collective_mindgraph.infrastructure.transcription.asr_runtime_config import (
     build_asr_diagnostics,
     format_asr_diagnostics,
     probe_torch_cuda,
 )
-from app.utils.logging import configure_logging  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -48,7 +44,7 @@ def main() -> int:
         os.environ["CMG_RUNTIME_PROFILE"] = args.profile
 
     configure_logging("INFO")
-    settings = Settings()
+    settings = EngineSettings()
     settings.ensure_directories()
 
     cuda_probe = probe_torch_cuda()
@@ -91,7 +87,7 @@ def main() -> int:
     return 0
 
 
-def print_selected_config(settings: Settings, cuda_probe) -> None:
+def print_selected_config(settings: EngineSettings, cuda_probe) -> None:
     print(f"ASR runtime profile: {settings.asr_runtime_profile}")
     print(f"ASR backend: {settings.asr_provider}")
     print(f"ASR model: {settings.asr_model_name}")

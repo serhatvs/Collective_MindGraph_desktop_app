@@ -38,7 +38,7 @@ Main technical gaps:
 | VAD | Implemented | `realtime_backend/app/pipeline/vad.py` | Silero VAD and fallback logic are present. |
 | Raw vs cleaned transcript handling | Implemented | `realtime_backend/app/models.py`, `realtime_backend/app/pipeline/orchestrator.py`, `src/collective_mindgraph_desktop/ui/pages/transcript_page.py` | `TranscriptSegment.raw_text` and `corrected_text` are stored and displayed side by side. |
 | Transcript correction / cleanup | Partially implemented | `realtime_backend/app/pipeline/llm_postprocess.py`, `realtime_backend/app/utils/turkish_cleanup.py` | Deterministic Turkish cleanup is baseline. Local LLM correction is optional and endpoint-dependent. |
-| Extraction pipeline | Partially implemented | `realtime_backend/app/services/summary.py`, `realtime_backend/app/pipeline/extraction.py`, `src/collective_mindgraph_desktop/services.py` | Heuristic summary/task/decision/topic extraction is active in the transcription pipeline. `AIExtractionService` exists but is not clearly wired into `TranscriptionPipeline.process_audio_path`. |
+| Extraction pipeline | Partially implemented | `realtime_backend/app/services/summary.py`, `realtime_backend/app/pipeline/extraction.py`, `src/collective_mindgraph_desktop/services.py` | Heuristic summary/task/decision/topic extraction is active in the transcription pipeline. `ExtractStructuredInsights` exists but is not clearly wired into `TranscriptionPipeline.process_audio_path`. |
 | Heuristic fallback extraction | Implemented | `realtime_backend/app/services/summary.py`, `realtime_backend/app/pipeline/extraction.py` | Regex and deterministic fallback extraction populate topics, action items, decisions, and some metadata. |
 | Memory graph persistence | Implemented, with boundary risk | `src/collective_mindgraph_desktop/database.py`, `src/collective_mindgraph_desktop/services.py`, `src/collective_mindgraph/infrastructure/database/graph_repository.py` | SQLite V2 tables and repository exist. Desktop ingest creates SESSION, SEGMENT, TASK, DECISION, TOPIC, ENTITY, RISK, OPEN_QUESTION, FOLLOW_UP nodes and edges. Backend also has a parallel repository. |
 | Node/edge schema | Implemented | `src/collective_mindgraph/core/memory_graph.py`, `realtime_backend/app/services/memory_graph.py` | Node and edge enums cover session, segment, task, decision, topic, entity, risk, open question, follow-up, and relationship types. |
@@ -345,7 +345,7 @@ Low priority:
 
 ### High Priority
 
-- Wire or remove `AIExtractionService` ambiguity. If local LLM extraction is product-supported, integrate it explicitly and test fallback behavior.
+- Wire or remove `ExtractStructuredInsights` ambiguity. If local LLM extraction is product-supported, integrate it explicitly and test fallback behavior.
 - Align backend and `src/collective_mindgraph` hybrid query implementations.
 - Validate source references from graph node to transcript row in UI navigation.
 - Add real local embedding configuration docs and smoke tests against `models/embeddings/...`.
@@ -380,7 +380,7 @@ Low priority:
 | Speaker attribution | Partial/fallback | `speaker_mapper.py`, fallback `UNRESOLVED_0` | High | Only claim unresolved speaker labels unless validated. |
 | Raw vs cleaned transcripts | Implemented | `TranscriptSegment`, `TranscriptPage` | Low | Keep audit UI prominent. |
 | Heuristic extraction | Implemented | `ConversationSummaryService` | Medium | Keep as stable fallback; improve pattern tests. |
-| Local LLM extraction | Partially implemented | `AIExtractionService`, `LocalLLMEndpointProvider` | High | Treat as optional until wired and validated. |
+| Local LLM extraction | Partially implemented | `ExtractStructuredInsights`, `LocalLLMEndpointProvider` | High | Treat as optional until wired and validated. |
 | Graph persistence | Implemented | `v2_graph_nodes`, `v2_graph_edges`, `ProductionGraphRepository` | Medium | Remove duplicate service drift. |
 | Node/edge schema | Implemented | `core/memory_graph.py` | Medium | Version schema before export/import grows. |
 | Source traceability | Implemented, partial UX | `SourceReference`, graph source refs, transcript page navigation | Medium | Add source-reference dereference tests. |

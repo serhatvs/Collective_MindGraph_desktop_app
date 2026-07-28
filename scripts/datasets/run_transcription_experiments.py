@@ -5,21 +5,15 @@ from __future__ import annotations
 import argparse
 import asyncio
 from pathlib import Path
-import sys
 
-
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from tools.transcript_annotation.dataset import AnnotationDataset  # noqa: E402
-from tools.transcript_annotation.experiments import (  # noqa: E402
+from collective_mindgraph.tooling.transcript_annotation.dataset import AnnotationDataset
+from collective_mindgraph.tooling.transcript_annotation.experiments import (
     build_experiment_configurations,
     completed_experiment_ids,
-    experiment_plan_ids,
     experiment_identifier,
-    filter_results_for_plan,
+    experiment_plan_ids,
     filter_recordings,
+    filter_results_for_plan,
     load_existing_results,
     load_experiment_glossary,
     parse_model_overrides,

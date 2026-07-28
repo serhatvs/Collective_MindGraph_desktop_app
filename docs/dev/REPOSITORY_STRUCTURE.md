@@ -1,120 +1,109 @@
 # Repository Structure and Ownership
 
-This document is the authoritative map for repository layout, file lifecycle, and responsibility ownership. It describes the existing runtime boundaries; it does not redefine application behavior.
-
-## Target structure
+This is the authoritative map for maintained code and local-data ownership.
 
 ```text
 Collective-MindGraph-2/
-├── src/
-│   ├── collective_mindgraph/             shared domain, memory, and infrastructure
-│   └── collective_mindgraph_desktop/     production PySide6 desktop application
-├── realtime_backend/
-│   ├── app/                              production FastAPI/transcription backend
-│   ├── scripts/                          backend-owned operational helpers
-│   └── tests/                            backend unit and integration tests
-├── tools/
-│   └── transcript_annotation/            reusable annotation application and libraries
+├── src/collective_mindgraph/
+│   ├── domain/
+│   ├── application/
+│   ├── infrastructure/
+│   ├── engine/
+│   ├── desktop/
+│   └── tooling/
+├── tests/
+│   └── transcription/          transcription fixtures and focused tests
 ├── scripts/
-│   ├── launch/                           developer and friend-alpha entry points
-│   ├── benchmarks/                       comparative/report-producing benchmarks
-│   ├── datasets/                         annotation experiment and export CLIs
-│   ├── validation/                       runtime/provider validation
-│   ├── setup/                            readiness and dependency bootstrap
-│   └── packaging/                        build entry points
-├── tests/                                cross-layer, desktop, shared-memory, and tool tests
+│   ├── launch/
+│   ├── benchmarks/
+│   ├── datasets/
+│   ├── operations/
+│   ├── validation/
+│   ├── setup/
+│   └── packaging/
 ├── docs/
-│   ├── dev/                              maintained engineering documentation
-│   ├── product/, demo/, alpha/, patent/  maintained audience-specific documentation
-│   ├── reports/YYYY-MM-DD/                dated generated or measured evidence
-│   └── archive/                           superseded plans, handoffs, and concepts
-├── datasets/                             ignored local data; README tracked
-├── models/                               ignored local model assets; README tracked
-├── .github/                              repository-host configuration
-├── .gitignore                            generated/local-data policy
-├── AGENTS.md                             repository agent instructions
-├── CollectiveMindGraph.spec              PyInstaller packaging configuration
-├── pyproject.toml                        Python build, dependency, and pytest configuration
-└── README.md                             project entry point
+│   ├── dev/
+│   ├── product/
+│   ├── demo/
+│   ├── reports/
+│   └── archive/
+├── datasets/                   ignored local datasets; policy README tracked
+├── models/                     ignored local model assets; policy README tracked
+├── CollectiveMindGraph.spec
+└── pyproject.toml
 ```
 
-Stable production packages and tests remain in place because their ownership is already clear and moving them would add import and discovery risk without a runtime benefit.
+## Code ownership
 
-## Classification map
-
-| Path or item | Classification | Ownership |
-| --- | --- | --- |
-| `realtime_backend/app/` | `PRODUCTION_BACKEND`, `TRANSCRIPTION`, `EVALUATION`, `MEMORY` | FastAPI API, transcription pipeline, backend services, and backend runtime persistence. |
-| `src/collective_mindgraph_desktop/` | `PRODUCTION_DESKTOP` | PySide6 UI, desktop orchestration, backend client, and desktop persistence integration. |
-| `src/collective_mindgraph/` | `SHARED_DOMAIN`, `MEMORY` | Shared memory-graph types, interfaces, query services, and infrastructure used by the desktop layer. |
-| `realtime_backend/app/evaluation/` | `EVALUATION` | Reference transcription metrics used by production-adjacent validation and scripts. |
-| `tools/transcript_annotation/` | `ANNOTATION_TOOLING` | Reusable annotation dataset, experiment, export, pipeline, and UI implementation. |
-| `scripts/launch/`, `scripts/setup/`, `scripts/packaging/` | `DEVELOPMENT_SCRIPT`, `PACKAGING` | Maintained operational entry points; see `scripts/README.md`. |
-| `scripts/benchmarks/` | `BENCHMARK_SCRIPT` | Repository-wide comparative transcription benchmarks and shared harness. |
-| `scripts/datasets/`, `scripts/validation/` | `DEVELOPMENT_SCRIPT` | Annotation workflow CLIs and runtime validation commands. |
-| `realtime_backend/scripts/` | `DEVELOPMENT_SCRIPT` | Backend-local fixtures, readiness checks, seeding, and transcription helpers. |
-| `realtime_backend/tests/` | `TEST` | Tests whose owner is the backend package and fixtures. |
-| `tests/` | `TEST` | Cross-layer, desktop, shared-memory, benchmark, and annotation-tool tests. |
-| `docs/dev/`, `docs/product/`, `docs/demo/`, `docs/alpha/`, `docs/patent/` | `CURRENT_DOCUMENTATION` | Maintained documentation grouped by audience. |
-| `docs/archive/` | `HISTORICAL_DOCUMENTATION` | Superseded handoffs, plans, concepts, and retired documentation. |
-| `docs/reports/` | `GENERATED_OUTPUT`, `HISTORICAL_DOCUMENTATION` | Dated benchmark and validation evidence; curated artifacts may be tracked. |
-| `datasets/` | `DATASET`, `LOCAL_RUNTIME_DATA` | Ignored downloaded and annotation datasets; only the policy README is tracked. |
-| `models/`, `wake_phrase_models/` | `MODEL_ASSET` | Ignored local model weights and caches; only the models policy README is tracked. |
-| `recordings/`, `realtime_backend_data/`, `realtime_backend_temp/` and backend-local equivalents | `LOCAL_RUNTIME_DATA`, `GENERATED_OUTPUT` | Ignored recordings, transcripts, databases, uploads, and temporary audio. |
-| `.gitignore`, `AGENTS.md`, `.github/`, `pyproject.toml` | `CONFIGURATION` | Repository, automation, build, dependency, and test configuration. |
-| `CollectiveMindGraph.spec` | `PACKAGING` | Root-owned PyInstaller build specification. |
-| `README.md` | `CURRENT_DOCUMENTATION` | Root project entry point; it links to canonical detailed documents. |
-| ignored root `benchmark_results.json` | `OBSOLETE_OR_UNCLEAR`, `GENERATED_OUTPUT` | A legacy generic result filename with no single current producer or schema. It remains ignored for compatibility but is not a canonical output target. |
-| ignored `video/` | `OBSOLETE_OR_UNCLEAR`, `LOCAL_RUNTIME_DATA` | A legacy local-media path with no active production owner found. It remains ignored to prevent accidental media commits. |
-
-The two `OBSOLETE_OR_UNCLEAR` paths are intentionally not moved or deleted because they may contain user-local data and no safe migration owner exists.
-
-## Authoritative implementation owners
-
-| Responsibility | Authoritative owner |
+| Responsibility | Owner |
 | --- | --- |
-| ASR provider implementation and profile resolution | `realtime_backend/app/pipeline/asr.py` |
-| Audio inspection, FFmpeg resolution, and normalization | `realtime_backend/app/utils/audio_process.py` |
-| Voice activity detection | `realtime_backend/app/pipeline/vad.py` |
-| Transcription pipeline orchestration | `realtime_backend/app/pipeline/orchestrator.py` |
-| Selective retranscription | `realtime_backend/app/pipeline/selective_retranscription.py` |
-| Transcript formatting | `realtime_backend/app/pipeline/transcript_formatter.py` |
-| Transcription glossary resolution | `realtime_backend/app/pipeline/transcription_glossary.py` |
-| Reference WER/CER and domain-term metrics | `realtime_backend/app/evaluation/transcription_metrics.py` |
-| Annotation dataset schema and persistence | `tools/transcript_annotation/dataset.py` |
-| Annotation experiment mechanics | `tools/transcript_annotation/experiments.py` |
-| Repository-wide benchmark entry points | `scripts/benchmarks/` |
-| API and WebSocket serialization models | `realtime_backend/app/models.py` |
-| ASR provider/runtime diagnostics | `realtime_backend/app/pipeline/asr_runtime_config.py` |
-| Desktop diagnostics presentation | `src/collective_mindgraph_desktop/ui/pages/diagnostics_page.py` |
-| Desktop transcription API client and settings | `src/collective_mindgraph_desktop/transcription.py` |
-| Desktop SQLite schema and default database path | `src/collective_mindgraph_desktop/database.py` |
-| Backend transcript JSON persistence | `realtime_backend/app/services/conversation_store.py` |
-| Shared memory-graph schema | `src/collective_mindgraph/core/memory_graph.py` |
-| Desktop/shared graph persistence | `src/collective_mindgraph/infrastructure/database/graph_repository.py` |
-| Backend runtime graph persistence | `realtime_backend/app/services/graph_repository.py` |
-| Current architecture documentation | `docs/dev/ARCHITECTURE.md` |
-| Repository layout and lifecycle policy | `docs/dev/REPOSITORY_STRUCTURE.md` |
-| Historical reports | `docs/reports/` |
-| Historical handoffs and plans | `docs/archive/handovers/` |
+| Domain entities, identifiers, and lifecycle rules | `src/collective_mindgraph/domain/` |
+| Use cases and external-resource ports | `src/collective_mindgraph/application/` |
+| SQLite stores and migration | `src/collective_mindgraph/infrastructure/persistence/` |
+| Audio normalization and inspection | `src/collective_mindgraph/infrastructure/audio/` |
+| ASR, VAD, alignment, and retranscription adapters | `src/collective_mindgraph/infrastructure/transcription/` |
+| Local embeddings and language-model adapters | `src/collective_mindgraph/infrastructure/ai/` |
+| Composition, settings, FastAPI, and engine CLI | `src/collective_mindgraph/engine/` |
+| Typed engine client and PySide6 product shell | `src/collective_mindgraph/desktop/` |
+| Annotation dataset, experiments, export, and UI | `src/collective_mindgraph/tooling/transcript_annotation/` |
+| Reference WER/CER and domain-term evaluation | `src/collective_mindgraph/application/transcription/evaluation/` |
 
-The shared and backend graph repositories have separate runtime consumers today. Their mirrored behavior is an architectural drift risk, but moving or merging them is outside a structure-only change and would alter stable imports.
+There is no second desktop package, backend package, graph repository, or
+database owner. Old internal import paths are intentionally unsupported.
 
 ## Tests
 
-Pytest discovery remains configured in `pyproject.toml` for `tests` and `realtime_backend/tests`. Backend tests stay beside the backend. Root tests remain flat because they frequently exercise multiple layers and several import script modules directly; grouping them now would be primarily aesthetic and would create path churn. New narrowly owned backend tests should go under `realtime_backend/tests`; new cross-layer, desktop, shared-memory, or tool tests should go under `tests` until a separate test move has a demonstrated discovery benefit.
+Pytest discovers only `tests/`; `pyproject.toml` adds `src` without manual path
+mutation. Transcription fixtures live under `tests/transcription/fixtures/`.
+
+Important acceptance suites cover:
+
+- dependency direction, module naming, line limits, and language-key parity;
+- migration conflict, idempotency, corruption, interruption, and legacy import;
+- product and compatibility HTTP/WebSocket contracts;
+- review, correction, memory, evidence, jobs, settings, and export/import;
+- offscreen Turkish and English desktop rendering;
+- import side effects and startup time.
+
+Real hardware/model tests use explicit `hardware` and `local_model` markers.
+
+## Scripts
+
+Scripts are thin entry points grouped by purpose. They import the installed
+package without runtime import-path mutation.
+`scripts/README.md` is the maintained inventory.
+
+The public installed commands are:
+
+```text
+mindgraph
+mindgraph-engine
+mindgraph-annotate
+```
 
 ## Generated and local data
 
-- Source desktop runs launched from the repository root use ignored `recordings/` and `transcription_settings.json`. The desktop SQLite database uses the platform application-data directory.
-- The maintained backend Bash launcher runs from `realtime_backend/`, so its defaults are ignored `realtime_backend/realtime_backend_data/` and `realtime_backend/realtime_backend_temp/`. Root equivalents remain ignored for direct/manual backend launches.
-- Frozen Windows builds use `%LOCALAPPDATA%\CollectiveMindGraph\` for the SQLite database, recordings, settings, and embedded backend data/temp directories.
-- `datasets/**` and `models/**` are ignored except for their policy README files. Annotation reports and exports below a dataset remain local.
-- `build/`, `dist/`, coverage files, caches, logs, local databases, fixture WAVs, and the legacy `benchmark_results.json` are ignored.
-- Curated benchmark and validation Markdown under `docs/reports/YYYY-MM-DD/` is the only tracked report evidence. New runs should use a dated topic directory and should be committed only after privacy and claim review.
+- Canonical user data:
+  `%LOCALAPPDATA%\CollectiveMindGraph\collective_mindgraph.sqlite3`
+- Ignored runtime content: local SQLite files, recordings, uploads, temp audio,
+  logs, model weights, downloaded datasets, build output, and caches
+- Curated validation evidence: `docs/reports/YYYY-MM-DD/<topic>/`
+- Superseded plans and snapshots: `docs/archive/`
 
-No runtime path changed during repository organization, so no mandatory migration exists. Do not move local data automatically. A developer may manually consolidate root backend data into the backend-local directories only after stopping all processes and confirming which directory is active; changing `CMG_RT_DATA_DIR` or `CMG_RT_TEMP_DIR` is an explicit configuration decision.
+Never commit real meeting audio, personal device identifiers, databases,
+credentials, local-model weights, or machine-specific absolute paths.
 
-## Entry points and compatibility
+Legacy local directories are ignored and are not removed automatically. Their
+content is read only by the migration boundary when configured or detected.
 
-Maintained root-level developer commands are documented in `README.md` and `scripts/README.md`. Script paths moved to purpose directories, and all tracked internal references were migrated. No duplicate compatibility wrappers remain at the former paths. Python package imports, API routes, WebSocket payloads, persistence paths/schemas, settings behavior, benchmark report formats, and pytest discovery are unchanged.
+## Quality policy
+
+- Runtime modules are limited to 500 lines. The allowlist in `pyproject.toml`
+  is intentionally empty.
+- Ruff enforces import, naming, modern-Python, correctness, and complexity
+  rules. The two stateful signal-processing algorithms exempted from the
+  complexity threshold are explicitly listed with rationale.
+- Mypy runs strict over `domain` and `application`; UI and infrastructure can
+  be tightened incrementally without weakening those core boundaries.
+- Package import and test discovery must not create data, load models, or open
+  network connections.

@@ -5,15 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import sys
 
-
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from tools.transcript_annotation.dataset import AnnotationDataset  # noqa: E402
-from tools.transcript_annotation.exporter import EXPORT_FORMATS, export_reviewed_dataset  # noqa: E402
+from collective_mindgraph.tooling.transcript_annotation.dataset import AnnotationDataset
+from collective_mindgraph.tooling.transcript_annotation.exporter import (
+    EXPORT_FORMATS,
+    export_reviewed_dataset,
+)
 
 
 def parse_args() -> argparse.Namespace:

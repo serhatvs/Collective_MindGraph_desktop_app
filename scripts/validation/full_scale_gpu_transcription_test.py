@@ -4,28 +4,23 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from datetime import UTC, datetime
 import os
-from pathlib import Path
 import subprocess
-import sys
 import time
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
+from collective_mindgraph.engine.logging import configure_logging
+from collective_mindgraph.engine.settings import EngineSettings
+from collective_mindgraph.infrastructure.audio.ffmpeg_processing import inspect_audio
+from collective_mindgraph.infrastructure.transcription.asr import ASR_STATUS_MOCK_FALLBACK
+from collective_mindgraph.infrastructure.transcription.asr_runtime_config import (
+    format_asr_diagnostics,
+)
+from collective_mindgraph.infrastructure.transcription.recording_processor import RecordingProcessor
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
-sys.path.insert(0, str(REPO_ROOT))
-sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
-
-from app.config import Settings  # noqa: E402
-from app.pipeline.asr import ASR_STATUS_MOCK_FALLBACK  # noqa: E402
-from app.pipeline.asr_runtime_config import format_asr_diagnostics  # noqa: E402
-from app.pipeline.orchestrator import TranscriptionPipeline  # noqa: E402
-from app.utils.audio_process import inspect_audio  # noqa: E402
-from app.utils.logging import configure_logging  # noqa: E402
-
-
 TURKISH_CHARS = ["ç", "ğ", "ı", "İ", "ö", "ş", "ü"]
 
 
@@ -63,7 +58,7 @@ async def main_async() -> int:
     os.environ.setdefault("CMG_RT_ENABLE_SUMMARY", "false")
 
     configure_logging("INFO")
-    settings = Settings()
+    settings = EngineSettings()
     settings.vad_provider = args.vad_provider
     settings.diarization_enabled = False
     settings.diarizer_provider = "fallback"
@@ -93,7 +88,7 @@ async def main_async() -> int:
     audio_duration = audio_inspection.duration_seconds if audio_inspection else None
 
     try:
-        pipeline = TranscriptionPipeline(settings=settings)
+        pipeline = RecordingProcessor(settings=settings)
     except Exception as exc:
         report = _build_report(
             status="FULL_SCALE_GPU_ASR_TEST_FAILED_ASR_INIT",
@@ -185,7 +180,7 @@ async def main_async() -> int:
 def _build_report(
     *,
     status: str,
-    settings: Settings,
+    settings: EngineSettings,
     audio_path: Path,
     audio_duration: float | None,
     diagnostics: dict[str, Any],
@@ -297,7 +292,7 @@ def _build_report(
             "set CMG_ASR_MODEL=small",
             "set CMG_ASR_LANGUAGE=tr",
             "set CMG_EMBEDDING_DEVICE=cpu",
-            "set PYTHONPATH=%CD%\\src;%CD%",
+            "python -m pip install -e .[transcription]",
             "python scripts\\validation\\check_asr_gpu.py",
             "```",
             "",

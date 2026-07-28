@@ -29,6 +29,11 @@ Thumbs.db
 realtime_backend/tests/fixtures/audio/*.wav
 realtime_backend/tests/fixtures/audio/common_voice_tr/*
 !realtime_backend/tests/fixtures/audio/common_voice_tr/.gitkeep
+tests/transcription/fixtures/audio/*.wav
+tests/transcription/fixtures/audio/common_voice_tr/*
+!tests/transcription/fixtures/audio/common_voice_tr/.gitkeep
+tests/transcription/fixtures/audio/project_turkish/*
+!tests/transcription/fixtures/audio/project_turkish/.gitkeep
 *.sqlite3
 benchmark_results.json
 /datasets/*

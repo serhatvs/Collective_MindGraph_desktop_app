@@ -1,0 +1,23 @@
+{
+  "format": "collective_mindgraph",
+  "format_version": 4,
+  "top_level_keys": [
+    "exported_at",
+    "format",
+    "format_version",
+    "scope",
+    "tables"
+  ],
+  "table_keys": [
+    "embeddings",
+    "evidence_references",
+    "insights",
+    "knowledge_edges",
+    "knowledge_nodes",
+    "meetings",
+    "processing_jobs",
+    "recordings",
+    "transcript_segments",
+    "transcripts"
+  ]
+}

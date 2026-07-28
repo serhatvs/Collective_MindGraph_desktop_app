@@ -30,7 +30,6 @@ def _faster_whisper_available() -> tuple[bool, str | None]:
 
 def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
-    requirements_path = repo_root / "realtime_backend" / "requirements.txt"
     pyproject_path = repo_root / "pyproject.toml"
 
     print(textwrap.dedent(f"""\
@@ -44,18 +43,17 @@ def main() -> int:
     if not pyproject_path.exists():
         print(f"[CMG] ERROR: Missing project file: {pyproject_path}", file=sys.stderr)
         return 1
-    if not requirements_path.exists():
-        print(f"[CMG] ERROR: Missing backend requirements file: {requirements_path}", file=sys.stderr)
-        return 1
-
     steps = [
         (
-            "Install desktop app and validation dependencies",
-            [sys.executable, "-m", "pip", "install", "-e", ".[dev]"],
-        ),
-        (
-            "Install backend and real transcription dependencies",
-            [sys.executable, "-m", "pip", "install", "-r", str(requirements_path)],
+            "Install application, transcription, and validation dependencies",
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "-e",
+                ".[transcription,local-ai,dev]",
+            ],
         ),
     ]
 

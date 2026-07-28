@@ -6,13 +6,22 @@ import argparse
 from datetime import UTC, datetime
 from pathlib import Path
 
-from asr_benchmark_common import (
-    REPO_ROOT,
-    diagnostics_block,
-    format_run_summary,
-    format_seconds,
-    run_pipeline_sync,
-)
+try:
+    from scripts.benchmarks.asr_benchmark_common import (
+        REPO_ROOT,
+        diagnostics_block,
+        format_run_summary,
+        format_seconds,
+        run_pipeline_sync,
+    )
+except ModuleNotFoundError:  # Direct file execution from this directory.
+    from asr_benchmark_common import (
+        REPO_ROOT,
+        diagnostics_block,
+        format_run_summary,
+        format_seconds,
+        run_pipeline_sync,
+    )
 
 
 def parse_args() -> argparse.Namespace:

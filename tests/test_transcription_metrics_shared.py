@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from realtime_backend.app.evaluation.transcription_metrics import (
+from collective_mindgraph.application.transcription.evaluation.transcription_metrics import (
     NormalizationPolicy,
     aggregate_metric_results,
     character_error_rate,

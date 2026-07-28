@@ -16,12 +16,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from collective_mindgraph.application.transcription.evaluation.transcription_metrics import (
+    compare_to_reference,
+)
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
-REALTIME_BACKEND_ROOT = REPO_ROOT / "realtime_backend"
-sys.path.insert(0, str(REALTIME_BACKEND_ROOT))
-
-from app.evaluation.transcription_metrics import compare_to_reference  # noqa: E402
-
 MOCK_FALLBACK_STATUS = "ASR_STATUS=MOCK_FALLBACK"
 TURKISH_CHARS = ["\u00e7", "\u011f", "\u0131", "\u0130", "\u00f6", "\u015f", "\u00fc"]
 AUDIO_EXTENSIONS = {".wav", ".flac", ".mp3", ".m4a", ".ogg", ".opus", ".aac", ".wma"}
@@ -210,8 +209,8 @@ async def run_single_config(
     compute_type: str,
     vad_provider: str,
 ) -> BenchmarkResult:
-    Settings, TranscriptionPipeline = _load_backend_types()
-    settings = Settings()
+    engine_settings_type, recording_processor_type = _load_backend_types()
+    settings = engine_settings_type()
     settings.asr_provider = "faster_whisper"
     settings.asr_model_name = model_name
     settings.asr_device = device
@@ -230,7 +229,7 @@ async def run_single_config(
     settings.allow_remote_download = False
     settings.ensure_directories()
 
-    pipeline = TranscriptionPipeline(settings)
+    pipeline = recording_processor_type(settings)
     transcript = await pipeline.process_audio_path(
         sample.audio_path,
         source="project_turkish_benchmark",
@@ -435,7 +434,7 @@ def build_report(
         "",
         f"Status: {status}",
         "",
-        f"Dataset root path: `{dataset_root}`" if dataset_root else f"Dataset root path: single-file mode",
+        f"Dataset root path: `{dataset_root}`" if dataset_root else "Dataset root path: single-file mode",
         f"Files discovered: {dataset_audio_count}",
         f"Files tested: {len(samples)}",
         f"Audio type: `{audio_kind}`",
@@ -736,7 +735,7 @@ def _force_local_only_environment() -> None:
 
 def _load_configure_logging() -> Any:
     try:
-        from app.utils.logging import configure_logging
+        from collective_mindgraph.engine.logging import configure_logging
     except ModuleNotFoundError as exc:
         import logging
 
@@ -744,7 +743,7 @@ def _load_configure_logging() -> Any:
             logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO))
 
         print(
-            "Warning: using fallback logging because realtime backend logging import failed: "
+            "Warning: using fallback logging because engine logging import failed: "
             f"{exc}",
             file=sys.stderr,
         )
@@ -754,14 +753,16 @@ def _load_configure_logging() -> Any:
 
 def _load_backend_types() -> tuple[Any, Any]:
     try:
-        from app.config import Settings
-        from app.pipeline.orchestrator import TranscriptionPipeline
+        from collective_mindgraph.engine.settings import EngineSettings
+        from collective_mindgraph.infrastructure.transcription.recording_processor import (
+            RecordingProcessor,
+        )
     except ModuleNotFoundError as exc:
         raise RuntimeError(
-            "Missing realtime backend dependencies. Install/use the project backend environment "
+            "Missing engine dependencies. Install the project transcription environment "
             f"before running the benchmark. Import failed: {exc}"
         ) from exc
-    return Settings, TranscriptionPipeline
+    return EngineSettings, RecordingProcessor
 
 
 def _format_seconds(value: float | None) -> str:

@@ -43,7 +43,8 @@
   dependency alerts were disabled. The workflow now installs the minimal
   Linux Qt runtime, and GitHub vulnerability alerts/dependency graph support
   are enabled instead of bypassing dependency review. Hosted actions use
-  their current Node 24-compatible major versions.
+  current Node 24-compatible releases; setup-uv is pinned to its verified
+  8.1.0 commit.
 
 ## Architecture and Runtime
 

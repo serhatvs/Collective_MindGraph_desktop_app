@@ -47,7 +47,9 @@ def build_local_engine_launch_spec(base_url: str) -> EngineLaunchSpec | None:
             },
         )
     return EngineLaunchSpec(
-        program=str(Path(sys.executable).resolve()),
+        # Preserve the virtual-environment executable on POSIX. Resolving the
+        # symlink would launch the base interpreter without the installed app.
+        program=str(Path(sys.executable).absolute()),
         arguments=[
             "-m",
             "collective_mindgraph.engine",

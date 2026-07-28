@@ -40,7 +40,9 @@
   embedding adapter.
 - The desktop-owned engine process now continuously drains a bounded
   diagnostic-output tail, preventing an unattended QProcess pipe from
-  blocking and making startup failures observable across platforms.
+  blocking and making startup failures observable across platforms. Source
+  launch preserves the virtual-environment interpreter path on POSIX instead
+  of resolving its symlink to an environment-less base Python.
 - The first hosted run exposed environment-only CI issues: Ubuntu lacked the
   Qt/EGL runtime required for offscreen PySide6 imports, and repository
   dependency alerts were disabled. The workflow now installs the minimal

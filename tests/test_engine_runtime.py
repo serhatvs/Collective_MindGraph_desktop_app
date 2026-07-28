@@ -17,7 +17,7 @@ def test_source_engine_launch_spec_uses_canonical_module():
     spec = build_local_engine_launch_spec("http://127.0.0.1:9090")
 
     assert spec is not None
-    assert Path(spec.program) == Path(sys.executable).resolve()
+    assert Path(spec.program) == Path(sys.executable).absolute()
     assert spec.arguments == [
         "-m",
         "collective_mindgraph.engine",

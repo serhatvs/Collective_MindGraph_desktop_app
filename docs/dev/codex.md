@@ -38,6 +38,11 @@
 - The isolated locked test environment exposed and fixed test-owned SQLite
   connection leakage and deterministic missing-path handling for the optional
   embedding adapter.
+- The first hosted run exposed environment-only CI issues: Ubuntu lacked the
+  Qt/EGL runtime required for offscreen PySide6 imports, and repository
+  dependency alerts were disabled. The workflow now installs the minimal
+  Linux Qt runtime, and GitHub vulnerability alerts/dependency graph support
+  are enabled instead of bypassing dependency review.
 
 ## Architecture and Runtime
 

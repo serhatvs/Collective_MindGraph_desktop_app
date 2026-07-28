@@ -38,6 +38,9 @@
 - The isolated locked test environment exposed and fixed test-owned SQLite
   connection leakage and deterministic missing-path handling for the optional
   embedding adapter.
+- The desktop-owned engine process now continuously drains a bounded
+  diagnostic-output tail, preventing an unattended QProcess pipe from
+  blocking and making startup failures observable across platforms.
 - The first hosted run exposed environment-only CI issues: Ubuntu lacked the
   Qt/EGL runtime required for offscreen PySide6 imports, and repository
   dependency alerts were disabled. The workflow now installs the minimal
@@ -114,7 +117,7 @@
 
 ## Verification
 
-- Latest automated run on stage 1: `297 passed, 4 skipped`; skips require real
+- Latest automated run on stage 1: `298 passed, 4 skipped`; skips require real
   local models, audio fixtures, or hardware.
 - Branch-inclusive coverage: 75.36%; changed production lines: 100%.
 - Ruff format/lint, complexity ratchet, 400-line architecture policy,

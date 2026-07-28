@@ -166,6 +166,29 @@ def test_failed_job_retains_audio_and_reports_retryable_error(tmp_path, monkeypa
         assert recording.storage_status is RecordingStorageStatus.RETAINED
 
 
+def test_recording_job_uses_one_runtime_snapshot_from_enqueue(tmp_path, monkeypatch):
+    with TestClient(create_app(_settings(tmp_path))) as client:
+        context = client.app.state.engine_context
+        original_snapshot = context.runtime.snapshot
+        snapshots = []
+
+        def tracked_snapshot():
+            bundle = original_snapshot()
+            snapshots.append(bundle)
+            return bundle
+
+        monkeypatch.setattr(context.runtime, "snapshot", tracked_snapshot)
+        meeting_id = client.post(
+            "/api/v1/meetings",
+            json={"title": "Runtime snapshot"},
+        ).json()["id"]
+        queued = _upload(client, meeting_id).json()
+        completed = _wait_for_terminal(client, str(queued["id"]))
+
+        assert completed["status"] == "succeeded"
+        assert len(snapshots) == 1
+
+
 def test_restart_marks_interrupted_job_as_retryable_failure(tmp_path):
     settings = _settings(tmp_path)
     with TestClient(create_app(settings)) as client:

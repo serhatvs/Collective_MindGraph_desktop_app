@@ -24,7 +24,7 @@ from collective_mindgraph.infrastructure.persistence import (
     SqliteRecordingStore,
 )
 
-from .runtime_manager import EngineRuntimeManager
+from .runtime_manager import EngineRuntimeBundle, EngineRuntimeManager
 
 
 class RecordingJobCoordinator:
@@ -128,7 +128,8 @@ class RecordingJobCoordinator:
             "session_glossary_terms": list(session_glossary_terms or []),
             "user_hotwords": list(user_hotwords or []),
         }
-        job = self._runtime.snapshot().process_recording.create_job(
+        runtime = self._runtime.snapshot()
+        job = runtime.process_recording.create_job(
             meeting_id=recording.meeting_id,
             recording_id=recording.id,
             parent_job_id=parent_job_id,
@@ -140,7 +141,7 @@ class RecordingJobCoordinator:
             now=datetime.now(tz=UTC),
         )
         task = asyncio.create_task(
-            self._run(job, recording),
+            self._run(job, recording, runtime),
             name=f"recording-job-{job.id}",
         )
         self._tasks[job.id] = task
@@ -164,8 +165,9 @@ class RecordingJobCoordinator:
             updated_at=now,
         )
         self._jobs.create(job)
+        runtime = self._runtime.snapshot()
         task = asyncio.create_task(
-            self._run_reindex(job),
+            self._run_reindex(job, runtime),
             name=f"knowledge-reindex-{job.id}",
         )
         self._tasks[job.id] = task
@@ -241,14 +243,18 @@ class RecordingJobCoordinator:
             await asyncio.gather(*tasks, return_exceptions=True)
         self._tasks.clear()
 
-    async def _run(self, job: ProcessingJob, recording: Recording) -> None:
+    async def _run(
+        self,
+        job: ProcessingJob,
+        recording: Recording,
+        runtime: EngineRuntimeBundle,
+    ) -> None:
         try:
             path = self._storage.resolve(recording.source_uri)
             if not path.is_file():
                 raise FileNotFoundError("Managed recording file is missing.")
-            bundle = self._runtime.snapshot()
             attributes = job.attributes
-            processed_job, _result = await bundle.process_recording.run(
+            processed_job, _result = await runtime.process_recording.run(
                 job,
                 path,
                 language=_optional_text(attributes.get("language")),
@@ -259,7 +265,7 @@ class RecordingJobCoordinator:
                 finalize_job=False,
             )
             await asyncio.to_thread(
-                bundle.index_knowledge,
+                runtime.index_knowledge,
                 recording.meeting_id,
             )
             self._apply_success_retention(recording)
@@ -304,7 +310,11 @@ class RecordingJobCoordinator:
         finally:
             self._tasks.pop(job.id, None)
 
-    async def _run_reindex(self, job: ProcessingJob) -> None:
+    async def _run_reindex(
+        self,
+        job: ProcessingJob,
+        runtime: EngineRuntimeBundle,
+    ) -> None:
         self._jobs.update(
             job.id,
             status=ProcessingStatus.RUNNING,
@@ -313,7 +323,7 @@ class RecordingJobCoordinator:
             now=datetime.now(tz=UTC),
         )
         try:
-            count = await asyncio.to_thread(self._runtime.snapshot().index_knowledge)
+            count = await asyncio.to_thread(runtime.index_knowledge)
         except asyncio.CancelledError:
             self._jobs.update(
                 job.id,

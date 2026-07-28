@@ -1,0 +1,246 @@
+"""Incremental WebSocket-oriented streaming transcription service."""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Protocol
+
+from collective_mindgraph.application.ports import PcmAudioNormalizer
+from collective_mindgraph.domain import MeetingId
+
+from .contracts import ConversationTranscript, TranscriptSegment
+from .conversation_ids import new_conversation_id
+from .extract_insights import ExtractTranscriptInsights
+from .processing_port import RecordingProcessorPort
+from .result_archive import TranscriptionResultArchive
+from .speaker_mapper import StableSpeakerMapper
+
+
+class LiveCaptureSettings(Protocol):
+    temp_dir: Path
+    sample_rate: int
+    channels: int
+    sample_width_bytes: int
+    stream_min_emit_seconds: float
+    stream_overlap_seconds: float
+    stream_partial_window_seconds: float
+    stream_buffer_retention_seconds: float
+
+
+@dataclass
+class LiveCaptureSession:
+    conversation_id: str
+    language: str | None
+    meeting_id: MeetingId | None = None
+    quality_mode: str | None = None
+    session_glossary_terms: list[str] = field(default_factory=list)
+    user_hotwords: list[str] = field(default_factory=list)
+    pcm_buffer: bytearray = field(default_factory=bytearray)
+    buffer_start_seconds: float = 0.0
+    committed_seconds: float = 0.0
+    transcript: ConversationTranscript = field(
+        default_factory=lambda: ConversationTranscript(
+            conversation_id=new_conversation_id(), source="stream"
+        )
+    )
+    speaker_mapper: StableSpeakerMapper = field(default_factory=StableSpeakerMapper)
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+
+
+class CaptureLiveAudio:
+    def __init__(
+        self,
+        settings: LiveCaptureSettings,
+        processor: RecordingProcessorPort,
+        normalizer: PcmAudioNormalizer,
+        archive: TranscriptionResultArchive,
+        insight_extractor: ExtractTranscriptInsights | None = None,
+    ) -> None:
+        self._settings = settings
+        self._processor = processor
+        self._normalizer = normalizer
+        self._archive = archive
+        self._insight_extractor = insight_extractor or ExtractTranscriptInsights()
+        self._sessions: dict[str, LiveCaptureSession] = {}
+
+    def create_session(
+        self,
+        language: str | None = None,
+        quality_mode: str | None = None,
+        session_glossary_terms: list[str] | None = None,
+        user_hotwords: list[str] | None = None,
+        meeting_id: MeetingId | None = None,
+    ) -> LiveCaptureSession:
+        conversation_id = new_conversation_id()
+        session = LiveCaptureSession(
+            conversation_id=conversation_id,
+            language=language,
+            meeting_id=meeting_id,
+            quality_mode=quality_mode,
+            session_glossary_terms=list(session_glossary_terms or []),
+            user_hotwords=list(user_hotwords or []),
+            transcript=ConversationTranscript(
+                conversation_id=conversation_id,
+                source="stream",
+                language=language,
+                quality_mode=quality_mode,
+                status="streaming",
+            ),
+        )
+        self._sessions[conversation_id] = session
+        return session
+
+    def get_session(self, conversation_id: str) -> LiveCaptureSession | None:
+        return self._sessions.get(conversation_id)
+
+    def discard_session(self, conversation_id: str) -> None:
+        self._sessions.pop(conversation_id, None)
+
+    async def append_audio(
+        self, conversation_id: str, pcm_chunk: bytes
+    ) -> ConversationTranscript | None:
+        session = self._sessions[conversation_id]
+        async with session.lock:
+            session.pcm_buffer.extend(pcm_chunk)
+            total_duration = self._buffer_end_seconds(session)
+            if total_duration - session.committed_seconds < self._settings.stream_min_emit_seconds:
+                return None
+            return await self._flush(session, finalize=False)
+
+    async def finalize(self, conversation_id: str) -> ConversationTranscript:
+        session = self._sessions[conversation_id]
+        async with session.lock:
+            transcript = await self._flush(session, finalize=True)
+            transcript.status = "completed"
+            summary, topics, action_items, decisions = self._insight_extractor.build_summary(
+                transcript
+            )
+            transcript.summary = summary
+            transcript.topics = topics
+            transcript.action_items = action_items
+            transcript.decisions = decisions
+            transcript.updated_at = datetime.now(tz=UTC)
+            self._archive.save(transcript, meeting_id=session.meeting_id)
+            self._sessions.pop(conversation_id, None)
+            return transcript
+
+    async def flush_partial(self, conversation_id: str) -> ConversationTranscript:
+        session = self._sessions[conversation_id]
+        async with session.lock:
+            transcript = await self._flush(session, finalize=False)
+            self._archive.save(transcript, meeting_id=session.meeting_id)
+            return transcript
+
+    async def _flush(self, session: LiveCaptureSession, finalize: bool) -> ConversationTranscript:
+        buffer_end = self._buffer_end_seconds(session)
+        if buffer_end <= session.buffer_start_seconds:
+            return session.transcript
+
+        window_start = self._window_start_seconds(session, buffer_end, finalize)
+        start_byte = self._offset_to_byte_index(session, window_start)
+        window_pcm = bytes(session.pcm_buffer[start_byte:])
+        wav_path = (
+            self._settings.temp_dir / f"{session.conversation_id}_{int(buffer_end * 1000)}.wav"
+        )
+        try:
+            await asyncio.to_thread(
+                self._normalizer.pcm_to_wav,
+                window_pcm,
+                wav_path,
+                self._settings.sample_width_bytes,
+            )
+            partial = await self._processor.process_audio_path(
+                wav_path,
+                conversation_id=session.conversation_id,
+                source="stream",
+                language=session.language,
+                quality_mode=session.quality_mode,
+                prior_segments=session.transcript.segments,
+                speaker_mapper=session.speaker_mapper,
+                chunk_offset=window_start,
+                include_summary=False,
+                debug=False,
+                session_glossary_terms=session.session_glossary_terms,
+                user_hotwords=session.user_hotwords,
+            )
+            session.transcript.segments = self._replace_tail(
+                session.transcript.segments,
+                partial.segments,
+                window_start,
+            )
+            session.transcript.updated_at = datetime.now(tz=UTC)
+            session.transcript.metadata = dict(partial.metadata)
+            session.transcript.diagnostics = partial.diagnostics
+            self._archive.save(session.transcript, meeting_id=session.meeting_id)
+            session.committed_seconds = buffer_end
+            if not finalize:
+                self._compact_buffer(session, buffer_end)
+            return session.transcript
+        finally:
+            wav_path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _replace_tail(
+        existing: list[TranscriptSegment],
+        incoming: list[TranscriptSegment],
+        from_second: float,
+    ) -> list[TranscriptSegment]:
+        preserved = [segment for segment in existing if segment.end <= from_second]
+        return preserved + incoming
+
+    def _buffer_end_seconds(self, session: LiveCaptureSession) -> float:
+        bytes_per_second = (
+            self._settings.sample_rate * self._settings.channels * self._settings.sample_width_bytes
+        )
+        buffered_seconds = len(session.pcm_buffer) / bytes_per_second if bytes_per_second else 0.0
+        return session.buffer_start_seconds + buffered_seconds
+
+    def _window_start_seconds(
+        self, session: LiveCaptureSession, buffer_end: float, finalize: bool
+    ) -> float:
+        if finalize or session.committed_seconds <= session.buffer_start_seconds:
+            return session.buffer_start_seconds
+
+        overlap_start = max(
+            session.buffer_start_seconds,
+            session.committed_seconds - self._settings.stream_overlap_seconds,
+        )
+        bounded_start = max(
+            session.buffer_start_seconds,
+            buffer_end - self._settings.stream_partial_window_seconds,
+        )
+        return min(overlap_start, bounded_start)
+
+    def _offset_to_byte_index(self, session: LiveCaptureSession, offset_seconds: float) -> int:
+        bytes_per_second = (
+            self._settings.sample_rate * self._settings.channels * self._settings.sample_width_bytes
+        )
+        frame_size = self._settings.channels * self._settings.sample_width_bytes
+        relative_seconds = max(0.0, offset_seconds - session.buffer_start_seconds)
+        byte_index = int(relative_seconds * bytes_per_second)
+        if frame_size > 0:
+            byte_index -= byte_index % frame_size
+        return max(0, min(len(session.pcm_buffer), byte_index))
+
+    def _compact_buffer(self, session: LiveCaptureSession, buffer_end: float) -> None:
+        retention_seconds = max(
+            self._settings.stream_buffer_retention_seconds,
+            self._settings.stream_partial_window_seconds + self._settings.stream_overlap_seconds,
+        )
+        keep_from = max(0.0, buffer_end - retention_seconds)
+        if keep_from <= session.buffer_start_seconds:
+            return
+
+        drop_byte_index = self._offset_to_byte_index(session, keep_from)
+        if drop_byte_index <= 0:
+            return
+
+        bytes_per_second = (
+            self._settings.sample_rate * self._settings.channels * self._settings.sample_width_bytes
+        )
+        dropped_seconds = drop_byte_index / bytes_per_second if bytes_per_second else 0.0
+        session.pcm_buffer = bytearray(session.pcm_buffer[drop_byte_index:])
+        session.buffer_start_seconds += dropped_seconds

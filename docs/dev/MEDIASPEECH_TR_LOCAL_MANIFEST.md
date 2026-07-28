@@ -150,7 +150,7 @@ Claim boundary:
 ## Recommended Subset Command
 
 ```powershell
-python scripts/run_project_turkish_transcription_benchmark.py `
+python scripts/benchmarks/run_project_turkish_transcription_benchmark.py `
   --dataset-root "C:\Users\Serhat\Downloads\TR" `
   --max-files 5 `
   --dataset-name mediaspeech_tr `

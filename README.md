@@ -1,67 +1,91 @@
 # Collective MindGraph
 
-Collective MindGraph is a local-first, privacy-focused organizational memory system for technical teams. It captures, transcribes, and extracts structured knowledge from technical conversations—entirely on local hardware.
+Collective MindGraph is a Windows-first, local-first desktop workspace for
+capturing meetings, reviewing transcripts and insights, and retrieving
+evidence-backed organizational memory.
 
-## Current Status: Stable Fallback-First
+The application uses a native PySide6 interface and a localhost-only FastAPI
+engine. The engine owns processing and persistent data; the desktop accesses it
+through a typed client. Core workflows do not require a cloud service.
 
-Collective MindGraph is stable in **fallback-first production memory mode**. This means the system is fully operational for core organizational memory tasks without requiring a local Large Language Model (LLM) server to be running.
+## Product workspaces
 
-### ✅ What works now (Stable/Offline)
-- **Knowledge Graph Persistence**: Full session and insight lifecycle (Sessions, Tasks, Decisions, Topics, Entities).
-- **GPU-routed Local ASR**: Validated through the real backend transcription pipeline with Faster-Whisper CUDA/float16 on a local Turkish WAV. This confirms GPU execution and routing only; it does not claim meeting-room robustness, diarization, Silero VAD validation, or measured WER/CER accuracy.
-- **Hybrid Memory Query**: Combined Keyword and Graph-based reasoning.
-- **Human-in-the-loop Review**: Complete UI for approving, editing, and merging extracted knowledge.
-- **Evidence-only Ask Memory**: Accurate, template-based answers derived directly from the Knowledge Graph.
-- **Reasoning Trace**: Full visibility into the evidence chains supporting every claim.
-- **Semantic Retrieval**: Operational with local embedding models (e.g., `sentence-transformers`).
-- **Source Traceability**: Every extracted item is linked back to the exact temporal segment in the transcript.
-- **Export/Import**: Full session and graph context portability via JSON.
-- **Job Tracking**: Real-time monitoring of background processing tasks.
+- **Home** — quick capture, recent meetings, pending reviews, memory questions,
+  and engine status.
+- **Capture** — live recording or audio-file ingest with progressive disclosure
+  for transcription controls, background progress, cancellation, and retry.
+- **Meetings** — overview, raw and corrected transcript segments, insights, and
+  evidence.
+- **Memory** — keyword, semantic, or hybrid retrieval and evidence-only or
+  optional local-model answers.
+- **Knowledge** — review queue plus filterable knowledge and relationship
+  tables.
+- **Settings** — language, audio, transcription, local AI, privacy, diagnostics,
+  and clearly labelled experimental controls.
 
-### 🛠️ Optional / Manual Activation
-- **Local LLM Extraction**: High-fidelity structured JSON extraction via Llama 3.1 (requires LM Studio/Ollama).
-- **LLM-assisted Ask Memory**: Natural language synthesis of answers with automated hallucination guarding.
+The interface supports Turkish and English and can switch language without a
+restart.
 
-### 📋 Roadmap
-- **Diarization**: Automatic speaker separation is currently not implemented or validated for production.
-- **Semantic Reranking**: Improved relevance for complex multi-session queries.
-- **Enhanced Graph Edges**: Transition from hierarchical trees to rich semantic networks.
+## Install and run
 
-## Getting Started
+Python 3.11 or newer is required.
 
-### 1. Run the Backend
-The backend service handles audio processing, transcription, and memory extraction.
-```bash
-./scripts/dev_backend.sh
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[transcription,local-ai,dev]"
+mindgraph
 ```
 
-### 2. Run the Desktop App
-The native PySide6 application is the primary interface for managing sessions and searching memory.
-```bash
-./scripts/dev_desktop.sh
+`mindgraph` opens the desktop and starts the local engine when necessary.
+Individual entry points are also available:
+
+```powershell
+mindgraph-engine
+mindgraph-annotate --help
 ```
 
-## Main Workflows
+For repository launchers and operational scripts, see
+[scripts/README.md](scripts/README.md).
 
-1.  **Ingest**: Capture live audio via the Voice Panel or transcribe local technical WAV files.
-2.  **Review**: Open a session to compare **Raw ASR** vs. **Cleaned Transcripts** and validate extracted insights.
-3.  **Graph**: Explore the hierarchical knowledge structure where tasks and decisions are linked to transcript segments.
-4.  **Search**: Use **Global Search** to find technical terms across all sessions with direct navigation to sources.
-5.  **Ask Memory**: Ask questions about your organization's history and receive evidence-backed answers.
-6.  **Export/Import**: Backup or share your organizational memory as portable JSON packages.
+## Local data and privacy
 
-## Tests
-Collective MindGraph maintains a rigorous test suite covering core logic and product loops.
-```bash
-PYTHONPATH=src:. python3 -m pytest
+The canonical database remains at:
+
+```text
+%LOCALAPPDATA%\CollectiveMindGraph\collective_mindgraph.sqlite3
 ```
+
+On first use, legacy desktop, engine, and transcript-archive data is detected
+and imported through a backup-first migration. The migration builds and
+validates a separate `.migrating` database before atomic activation. Source
+databases and JSON archives are never deleted automatically.
+
+The engine binds to localhost. Remote model endpoints and downloads remain
+disabled unless an explicit local-safe configuration allows them.
+
+Uploaded audio is copied into contained managed storage. Successful job audio
+is removed by default; failed or cancelled audio remains available for retry.
+Permanent raw-audio retention is an explicit Privacy/Storage preference.
+
+## Validation
+
+```powershell
+python -m pytest -q
+python -m ruff check src tests scripts
+python -m mypy
+```
+
+Hardware and real-model checks are marked separately and skip when their local
+prerequisites are unavailable. Confidence estimates are not presented as
+WER/CER or real meeting-room accuracy.
 
 ## Documentation
-- **[Product Status](docs/product/STATUS.md)**: Capability matrix and current implementation details.
-- **[Roadmap](docs/product/ROADMAP.md)**: Future development phases.
-- **[Demo Guide](docs/demo/DEMO_FLOW.md)**: Instructions for running the technical demonstration loop.
-- **[Demo / Packaging Quickstart](docs/demo/DEMO_PACKAGING_QUICKSTART.md)**: Windows-first manual demo launch, database notes, optional local AI settings, and current packaging readiness.
-- **[Developer Setup](docs/dev/SETUP.md)**: Configuration for local models and environment.
-- **[Architecture](docs/dev/ARCHITECTURE.md)**: Technical overview of the system design.
-- **[Reports Archive](docs/reports/README.md)**: Dated benchmark, validation, and simulation report archive.
-- **[Patent-Safe Claims](docs/patent/PATENT_SAFE_CLAIMS.md)**: Formal terminology for IP filings.
+
+- [Architecture](docs/dev/ARCHITECTURE.md)
+- [Repository structure](docs/dev/REPOSITORY_STRUCTURE.md)
+- [Developer setup](docs/dev/SETUP.md)
+- [Product status](docs/product/STATUS.md)
+- [Demo flow](docs/demo/DEMO_FLOW.md)
+- [Documentation index](docs/README.md)
+- [Dated validation reports](docs/reports/README.md)

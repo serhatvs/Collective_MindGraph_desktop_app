@@ -20,7 +20,7 @@ This document provides precise terminology for use in patent filings, project fo
 | :--- | :--- | :--- |
 | **Search** | "Keyword-based retrieval" | "Conceptual semantic retrieval" |
 | **Memory** | "Basic graph-node persistence" | "Arbitrary relational graph edges" |
-| **Hardware**| "Software MVP implementation" | "Dedicated hardware capture device" |
+| **Hardware**| "Current local software implementation" | "Dedicated hardware capture device" |
 | **Logic** | "Deterministic heuristic matching" | "Multi-hop graph reasoning" |
 
 ## 4. Key Terminology for Privacy
@@ -33,4 +33,7 @@ Use these terms to describe the system's security model:
 "The system architecture **can be configured to** integrate with specialized hardware components, including but not limited to far-field microphone arrays and dedicated local inference modules, for enhanced captured and processing."
 
 ## 7. Official Project Status
-"The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation."
+"The project supports a local demonstration and product integration for
+Turkish transcription and evidence-linked memory exploration. It does not
+currently include validated speaker separation or broad meeting-room accuracy
+evidence."

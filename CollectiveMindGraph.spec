@@ -2,27 +2,29 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import shutil
-import sys
+from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 project_root = Path(SPECPATH).resolve()
 src_root = project_root / "src"
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(src_root))
 
 
 datas: list[tuple[str, str]] = []
 binaries: list[tuple[str, str]] = []
 hiddenimports: list[str] = []
 datas += collect_data_files("vosk")
+datas += collect_data_files("faster_whisper")
+datas += collect_data_files("collective_mindgraph.desktop", includes=["i18n/*.json"])
+datas += collect_data_files("collective_mindgraph", includes=["config/*.json"])
 binaries += collect_dynamic_libs("vosk")
+binaries += collect_dynamic_libs("ctranslate2")
 hiddenimports += collect_submodules("uvicorn")
 hiddenimports += collect_submodules("websockets")
 hiddenimports += [
+    "faster_whisper",
     "sounddevice",
     "soundfile",
     "vosk",
@@ -35,8 +37,8 @@ for tool_name in ("ffmpeg", "ffprobe"):
         binaries.append((str(Path(resolved).resolve()), "."))
 
 analysis = Analysis(
-    [str(src_root / "collective_mindgraph_desktop" / "__main__.py")],
-    pathex=[str(project_root), str(src_root)],
+    [str(src_root / "collective_mindgraph" / "__main__.py")],
+    pathex=[str(src_root)],
     binaries=binaries,
     datas=datas,
     hiddenimports=sorted(set(hiddenimports)),
@@ -49,12 +51,13 @@ analysis = Analysis(
         "torchvision",
         "pyannote",
         "pyannote.audio",
+        "sentence_transformers",
+        "transformers",
+        "datasets",
+        "optuna",
         "speechbrain",
         "lightning",
         "silero_vad",
-        "faster_whisper",
-        "ctranslate2",
-        "av",
         "onnxruntime",
         "pandas",
         "scipy",

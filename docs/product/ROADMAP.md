@@ -1,34 +1,33 @@
-# Collective MindGraph V2 Roadmap
+# Collective MindGraph Roadmap
 
-This roadmap outlines the transition from the current local software MVP to a production-validated hardware/software system with semantic intelligence.
+The current release establishes the single-package, single-data-owner product
+architecture. Future work is ordered by evidence and user value rather than by
+temporary release labels.
 
-## Phase 1: Stabilization & Validation (Short-term)
-Focus on proving current software capabilities on real-world data.
-- **Meeting Audio Validation**: Record project-specific technical meeting WAVs and run full quality benchmarks.
-- **Diarization Development**: Implement and stress-test speaker identification with 3+ overlapping speakers in noisy environments.
-- **UI Polish**: Improve session timeline visualization and global search result ranking.
-- **Packaging**: Finalize single-file `.exe` installer with bundled lightweight models.
+## Quality evidence
 
-## Phase 2: Semantic Memory (Medium-term)
-Transition from keyword-based search to similarity-based understanding.
-- **Local Embeddings**: Integrate a strictly offline transformer model (e.g., Sentence-BERT) for text vectorization.
-- **Vector Search**: Implement a local vector store (e.g., FAISS or simple numpy-based index) for semantic retrieval.
-- **Semantic Query API**: Enable "ask a question" queries that find conceptually related results even without exact keyword matches.
-- **Reranking**: Use semantic similarity to improve the relevance of search results.
+- Build human-reviewed Turkish meeting-room fixtures across noise, distance,
+  overlap, and microphone conditions.
+- Report WER/CER and domain-term accuracy only against those references.
+- Validate optional Silero behavior on target Windows hardware.
 
-## Phase 3: Graph Reasoning & Workspace (Long-term)
-Expand the basic node hierarchy into a rich semantic network.
-- **Arbitrary Graph Edges**: Implement non-hierarchical relationships (e.g., "Decision A relates to Task B from a different session").
-- **Relationship Reasoning**: Heuristic detection of conceptual links between different meetings.
-- **Multi-hop Queries**: Enable queries like "What were the decisions related to the FastAPI issue discussed last month?"
-- **Organizational Workspace**: Add support for multi-user shared memory graphs with local synchronization.
+## Retrieval quality
 
-## Phase 4: Hardware Integration (Future Direction)
-Develop a dedicated physical device for seamless meeting intelligence.
-- **Hardware Device Prototype**: A compact on-premise unit with local compute.
-- **Microphone Array**: Integrated far-field microphone array for superior multi-speaker capture.
-- **Status Display**: A small screen showing real-time transcription status, wake trigger readiness, and active speakers.
-- **Local Inference Workflow**: Seamless push/pull of memory between the hardware device and the desktop application.
+- Evaluate real local embedding models with labelled search judgments.
+- Add explainable reranking when evidence shows a measurable benefit.
+- Expand relationship extraction without weakening source traceability.
 
----
-**Baseline**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
+## Audio and speaker research
+
+- Bound streaming backlog and upload size.
+- Validate speaker separation before promoting it from Labs.
+- Preserve channel information where it improves multi-speaker recordings.
+
+## Distribution
+
+- Complete clean-machine PyInstaller smoke tests.
+- Add repeatable installer, signing, upgrade, backup, and rollback validation.
+- Keep the canonical user-data path stable across upgrades.
+
+Multi-user synchronization, cloud collaboration, a graph canvas, and dark theme
+remain outside the current scope.

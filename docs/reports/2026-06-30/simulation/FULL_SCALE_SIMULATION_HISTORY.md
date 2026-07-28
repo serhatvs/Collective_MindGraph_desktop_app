@@ -3,7 +3,7 @@
 ## Chronological Audit Log
 1. **Simulated Transcript Created**: Generated 10+ minute equivalent Turkish technical meeting.
 2. **Session Ingested**: ID `5`.
-3. **Extraction Run**: `AIExtractionService` invoked with mode `heuristic_fallback`.
+3. **Extraction Run**: `ExtractStructuredInsights` invoked with mode `heuristic_fallback`.
 4. **Graph Persisted**: `TranscriptionResult` mapped and saved via `ingest_transcription_result`. Custom logic added for Risks and Open Questions.
 5. **Review Actions Applied**:
    - 12 items approved.

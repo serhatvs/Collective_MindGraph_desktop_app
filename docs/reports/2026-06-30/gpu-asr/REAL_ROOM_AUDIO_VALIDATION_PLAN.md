@@ -38,11 +38,11 @@ Each fixture should include:
 
 ## Recommended Run Order
 
-1. Run `scripts/check_asr_gpu.py` with `CMG_REQUIRE_GPU=1`.
-2. Run `scripts/full_scale_gpu_transcription_test.py` on the fixture.
-3. Run `scripts/benchmark_asr_accuracy.py --audio <audio> --reference <reference> --profile gpu_asr`.
-4. Run `scripts/validate_silero_vad_asr.py` only after ASR GPU routing is already confirmed.
-5. Compare CPU/GPU runtime with `scripts/benchmark_cpu_vs_gpu_asr.py` when speed matters.
+1. Run `scripts/validation/check_asr_gpu.py` with `CMG_REQUIRE_GPU=1`.
+2. Run `scripts/validation/full_scale_gpu_transcription_test.py` on the fixture.
+3. Run `scripts/benchmarks/benchmark_asr_accuracy.py --audio <audio> --reference <reference> --profile gpu_asr`.
+4. Run `scripts/benchmarks/validate_silero_vad_asr.py` only after ASR GPU routing is already confirmed.
+5. Compare CPU/GPU runtime with `scripts/benchmarks/benchmark_cpu_vs_gpu_asr.py` when speed matters.
 
 ## Completion Criteria
 

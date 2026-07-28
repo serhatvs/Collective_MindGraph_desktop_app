@@ -1,210 +1,119 @@
-# Collective MindGraph - Friend Alpha Test Guide
+# Friend Test Guide
 
-Version: Alpha
-Date: July 2026
-Contact: Share feedback directly with Serhat or open a GitHub issue using the bug report template.
+This guide is for a local Windows test of the current six-workspace desktop.
+Use non-sensitive sample audio and report what you actually observe.
 
-## What This Alpha Is
+## Before starting
 
-Collective MindGraph is a local-first Windows desktop app for testing a basic meeting-memory flow:
+1. Install the application or follow `docs/dev/SETUP.md`.
+2. Make sure FFmpeg is available.
+3. Use headphones if the sample contains confidential speech.
+4. Do not enable speaker separation unless you are intentionally testing the
+   experimental Labs control.
 
-1. Open the desktop app.
-2. Select a local audio file.
-3. Transcribe it locally, Turkish-first.
-4. Review the transcript in the UI.
-5. Review extracted tasks, decisions, and topics.
-6. Ask a simple question about the selected session.
-7. Export the session result.
+The desktop starts its localhost engine automatically. There is one engine and
+one canonical database; no second service or desktop database needs to be
+started.
 
-There are no accounts and no cloud transcription APIs in this alpha.
+## Test flow
 
-## Before Launching
+### 1. Start and language
 
-Run the friend-alpha dependency installer first:
+1. Open Collective MindGraph.
+2. Confirm the left navigation contains Home, Capture, Meetings, Memory,
+   Knowledge, and Settings.
+3. Open Settings and switch between Turkish and English.
+4. Confirm the visible workspace updates without restarting.
 
-```powershell
-python scripts/install_friend_alpha_deps.py
-```
+Expected: the engine indicator becomes ready or honestly reports a degraded,
+disabled, or unavailable optional adapter. Missing local models must not be
+shown as ready.
 
-On Windows you can also double-click:
+### 2. Add an audio file
 
-```text
-scripts\install_friend_alpha_deps.bat
-```
+1. From Home, use the file action; it should open the picker directly.
+2. Select a short WAV, MP3, FLAC, M4A, OGG, OPUS, AAC, or WMA sample.
+3. Watch the job progress through preparation, normalization, speech
+   detection, transcription, alignment, extraction, and persistence.
 
-Then launch the app with `scripts\launch_cmg.bat`. Confirm the launcher prints:
+Expected: upload returns immediately to the interface and processing continues
+as a background job. You can leave the workspace without losing the job.
 
-```text
-faster_whisper    : available
-```
+### 3. Test cancel and retry
 
-If the launcher says mock/fallback or says `faster_whisper` is missing, real transcription is not ready yet.
+1. Start a long-enough file job.
+2. Cancel it while it is running.
+3. Use Retry on the failed/cancelled operation.
 
-## Before Giving This To Testers
+Expected: cancellation stops the actual task. The source audio remains
+available for retry and the retry appears as a new, related job.
 
-Run this developer preflight first:
+### 4. Test live capture
 
-```powershell
-python scripts/install_friend_alpha_deps.py
-python scripts/launch_cmg.py
-```
+1. In Settings, choose a microphone.
+2. Open Capture and start live recording.
+3. Speak a few sentences and watch partial text/progress.
+4. Stop and start a second recording.
 
-Confirm all of these before handing the app to friends:
+Expected: the selected device is used, stopping produces one final ingest, and
+another recording can start immediately. If the WebSocket finalization fails,
+the locally spooled recording is uploaded automatically.
 
-- The desktop app opens.
-- The local backend starts automatically.
-- `faster_whisper` is reported as `available` by the launcher.
-- Diagnostics or backend health shows `ASR_STATUS=OK`, not `ASR_STATUS=MOCK_FALLBACK`.
-- One real Turkish audio file transcribes into real Turkish text, not placeholder text.
-- The transcript appears in `Knowledge Audit`.
-- Extracted notes appear in `Extracted Notes`, or a clear empty state appears.
-- A simple selected-session question works from the Ask Memory panel in `Global Search`.
-- `Export Selected Session` writes a JSON file.
+### 5. Review a meeting
 
-### Mock Fallback Means Transcription Is Not Real
+1. Open Meetings and select the new meeting.
+2. Check Overview, Transcript, Insights, and Evidence.
+3. Correct one transcript segment.
+4. Edit an insight title/body, then accept or reject it.
 
-If the launcher prints:
+Expected: raw text remains unchanged, corrected text is stored separately, and
+derived accepted content becomes `needs review` instead of being deleted.
+Evidence displays readable text, timestamps, and its source meeting.
 
-```text
-Real transcription is not available. The app may use mock fallback.
-```
+### 6. Ask memory
 
-or backend health shows:
+1. Open Memory.
+2. Search for a phrase that appears in the transcript.
+3. Ask a question whose answer is present in the evidence.
 
-```text
-ASR_STATUS=MOCK_FALLBACK
-```
+Expected: the answer shows sources, evidence previews, timestamps, reasoning
+steps, warnings, and sentence validation. Rejected, pending, and `needs review`
+insights are excluded by default. Verified transcript segments remain
+searchable.
 
-then Faster-Whisper is missing or could not load. The app may still open and the flow may still create a placeholder transcript, but that is not real transcription and is not ready for friend testing.
+If embeddings are disabled, hybrid mode should fall back to keyword/graph
+search with a warning. Semantic-only mode should report that the provider is
+unavailable; it must not return fake semantic matches.
 
-The backend dependency install path for real ASR is:
+### 7. Explore knowledge
 
-```powershell
-python scripts/install_friend_alpha_deps.py
-```
+1. Open Knowledge.
+2. Filter nodes and relationships by type, meeting, review state, and text.
+3. Select an item.
 
-For GPU setups, follow `realtime_backend/README.md` first, because PyTorch/CUDA installs may need a specific command before installing backend requirements.
+Expected: the detail panel shows readable relationships and evidence. A graph
+canvas is intentionally not part of this release.
 
-### Known Setup Issue
+### 8. Privacy and export
 
-On a fresh checkout, real transcription may fall back to mock mode if ASR dependencies are not installed. Run the friend-alpha dependency install script before testing.
+1. In Settings, review Privacy/Storage.
+2. Confirm “keep raw audio” is off unless you explicitly need it.
+3. Export data and inspect the resulting JSON.
 
-## Launch The App
+Expected: successful job audio is removed by default; failed/cancelled audio is
+retained for retry. Export declares `format_version: 4`.
 
-From the repo root:
+## What to report
 
-```powershell
-python scripts/launch_cmg.py
-```
+Include:
 
-On Windows you can also double-click:
+- Windows version and app build/commit;
+- language and selected audio device;
+- exact workspace and action;
+- expected versus observed behavior;
+- job ID or meeting title when relevant;
+- screenshot of the visible error;
+- whether Retry recovered the operation.
 
-```text
-scripts\launch_cmg.bat
-```
-
-Expected: the main window opens with a session explorer sidebar on the left.
-
-## Transcribe A Local Audio File
-
-1. In the sidebar, click `Transcribe Local File`.
-2. Select an audio file from your computer.
-
-Supported formats:
-
-| Format | Notes |
-| --- | --- |
-| `.wav` | Best quality, recommended |
-| `.mp3` | Common compressed format |
-| `.flac` | Lossless audio |
-| `.m4a` | Common phone recording format |
-
-Expected: the status bar shows transcription progress. When transcription finishes, the app switches to `Knowledge Audit`.
-
-## View The Transcript
-
-Open the `Knowledge Audit` tab.
-
-Expected:
-
-- Transcript rows are visible.
-- Timestamp, speaker, corrected transcript, and raw ASR output columns are shown when segment details are available.
-- Turkish text is readable.
-- Placeholder text containing `ASR_STATUS=MOCK_FALLBACK` means transcription was not real.
-
-## Check Extracted Notes
-
-Open the `Extracted Notes` tab.
-
-Expected:
-
-- Tasks, decisions, topics, and other extracted items appear if the transcript contains enough structure.
-- New items may show `[pending review]`.
-- If nothing was extracted, the empty state should explain what to do next.
-
-## Ask A Simple Question
-
-Open the `Global Search` tab. The Ask Memory panel is at the top.
-
-1. Make sure the transcribed session is selected in the sidebar.
-2. Ask a simple question grounded in the session, such as:
-   - `What tasks were assigned?`
-   - `What was decided?`
-   - `What topics did we discuss?`
-3. Click `Ask` or press Enter.
-
-Expected:
-
-- The app answers from available session evidence when possible.
-- Evidence/source details appear below the answer.
-- If there is no evidence, the app says so clearly.
-- A local LLM is optional; lack of LLM is not a crash.
-
-## Export The Session
-
-1. Select the session in the sidebar.
-2. Click `Export Selected Session`.
-3. Choose a save location.
-
-Expected: a `.json` file is saved containing the transcript, extracted notes, and memory graph data for the selected session.
-
-## What To Report
-
-Please include:
-
-- What you tried.
-- What you expected.
-- What actually happened.
-- Whether the app crashed, froze, or stayed open.
-- Audio format and approximate length.
-- Whether the transcript was real text or mock fallback placeholder text.
-- Screenshot or terminal output if available.
-
-Use `.github/ISSUE_TEMPLATE/alpha_bug_report.md` for structured bug reports.
-
-## Known Limitations
-
-| Limitation | Detail |
-| --- | --- |
-| No diarization | The app does not identify who said what. |
-| No speaker separation | All speech may appear as unknown or generic speaker labels. |
-| LLM optional | Ask Memory and extraction should still have evidence-only behavior without a local LLM. |
-| Transcription quality varies | Results depend on audio quality, noise, microphone, and local ASR setup. |
-| Turkish-first | Turkish is the primary alpha target. Other languages are not validated. |
-| No packaged installer yet | Launch currently requires Python and repo dependencies installed with the setup script. |
-| Fresh checkout setup | Real transcription may fall back to mock mode if ASR dependencies are not installed. Run `scripts\install_friend_alpha_deps.bat` or `python scripts/install_friend_alpha_deps.py` before testing. |
-| Alpha UI | Some screens may still have rough labels or empty states. |
-
-## Quick Reference
-
-```text
-Setup:       python scripts/install_friend_alpha_deps.py
-Launch:      python scripts/launch_cmg.py
-Transcribe:  Sidebar -> Transcribe Local File -> select audio
-Transcript:  Knowledge Audit
-Notes:       Extracted Notes
-Ask:         Global Search -> Ask Memory panel -> Ask
-Export:      Sidebar -> Export Selected Session
-```
-
-Thank you for testing Collective MindGraph. Your feedback directly shapes the first real release.
+Do not attach private meeting audio, databases, model files, access tokens, or
+machine-specific secrets.

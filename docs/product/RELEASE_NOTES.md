@@ -1,47 +1,40 @@
-# Release Notes: Local MVP Demo Baseline
+# Release Notes — Product Architecture Rework
 
-## Project Status
-**The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.**
+## Highlights
 
-## Implemented Features
-- **Local-First Turkish Transcription**: 100% offline pipeline using Faster-Whisper and Silero-VAD.
-- **Local LLM Extraction**: Structured knowledge extraction via LM Studio (OpenAI compatible).
-- **Dual-Transcript Model**: Concurrently preserves raw ASR output and cleaned, readable text.
-- **Heuristic Knowledge Extraction**: Automatic detection of Tasks, Decisions, and Topics for Technical Turkish.
-- **Traceable Memory Search**: Keyword-based retrieval across sessions with direct source-segment navigation.
-- **Global Search UI**: Integrated desktop panel for cross-session knowledge discovery.
-- **Offline Safety Guards**: Mandatory URL and path validation to prevent data egress.
+- Consolidated all runtime code under `collective_mindgraph`.
+- Introduced pure domain types and feature-focused application use cases.
+- Made the localhost engine the sole owner of processing and persistent data.
+- Added normalized SQLite persistence with backup-first legacy migration.
+- Added a versioned `/api/v1` product API while preserving established
+  transcription and memory transport contracts.
+- Rebuilt the PySide6 interface as six bilingual workspaces.
+- Added typed engine-client mapping, unified state presentation, and shared
+  design tokens.
+- Added real recording tasks with cancellation, retry lineage, restart
+  recovery, staged progress, managed audio retention, and live PCM WebSocket
+  capture with spool fallback.
+- Added atomic runtime adapter hot-swap, truthful health states, knowledge
+  indexing/reindexing, paginated evidence APIs, and sentence-grounded memory
+  answers.
+- Moved transcript annotation, validation, benchmark, and launcher code to
+  canonical imports and installed entry points.
+- Added architecture, migration, API, product-loop, UI, and import-safety tests.
+- Enabled Ruff complexity/naming/import checks and strict domain/application
+  type checking.
 
-## Validation Results
-- **Clean-Speech Baseline**: 91% Keyword Overlap score on Mozilla Common Voice Turkish dataset.
-- **Integration Integrity**: Verified end-to-end data loop from audio ingestion to search navigation.
-- **Regression Suite**: 170+ automated tests passing for core logic.
+## Compatibility
 
-## Documentation Package
-- `PROJECT_STATUS.md`: Executive summary and implementation matrix.
-- `HANDOFF.md`: Technical architecture and developer guide.
-- `DEMO_FLOW.md`: Step-by-step product walkthrough.
-- `PRESENTATION_PACKAGE_TR.md`: Turkish scripts and slide outlines.
-- `TECHNICAL_OVERVIEW_FOR_PATENT.md`: Conceptual summary for formal filing.
-- `V2_ROADMAP.md`: Future strategic plan (Semantic, Graph, Hardware).
-- `PITCH_SUMMARY.md`: Value proposition at different lengths.
-- `TECHNICAL_QA.md`: Honest technical FAQ.
-- `PATENT_SAFE_CLAIMS.md`: Non-overclaiming technical terminology.
+- Canonical database location and user settings are preserved.
+- Legacy desktop, engine, and JSON transcript data are imported without
+  deleting source files.
+- Existing external HTTP/WebSocket payloads remain supported.
+- Earlier `v2_production_graph` export payloads remain importable.
+- Old internal Python package paths are intentionally not supported.
 
-## Known Limitations
-- **Meeting-Room Accuracy**: Production-level accuracy in noisy/overlapping environments is pending manual validation.
-- **Memory Graph**: Currently limited to hierarchical tree structures; arbitrary edges are not yet implemented.
-- **Search**: Strictly keyword-based; semantic/vector retrieval is part of the future roadmap.
+## Known validation limits
 
-## Demo Commands
-```bash
-# 1. Verify Readiness
-./scripts/check_demo_readiness.sh
-
-# 2. Seed Data
-PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
-
-# 3. Launch Demo
-./scripts/dev_backend.sh
-./scripts/dev_desktop.sh
-```
+Speaker separation remains experimental. The Windows executable builds and its
+embedded engine passes a local health smoke test. Real meeting-room WER/CER,
+code signing, installer certification, and repetition on a clean Windows
+machine remain separate validation tasks.

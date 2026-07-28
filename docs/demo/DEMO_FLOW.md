@@ -1,85 +1,56 @@
-# Local Demo Script
+# Collective MindGraph Demo Flow
 
-Follow these steps to demonstrate the end-to-end Collective MindGraph technical Turkish transcription and memory retrieval loop.
+## Preparation
 
-## Step 1: Environment Readiness
-Run the health check to ensure local dependencies (ffmpeg, Faster-Whisper) are correctly configured.
-```bash
-./scripts/check_demo_readiness.sh
+```powershell
+python -m pip install -e ".[transcription,local-ai]"
+mindgraph
 ```
 
-## Step 2: Seed Demo Data
-Populate the system with a synthetic technical meeting session. This writes directly to the local storage, bypasses the need for immediate audio input, and runs the full heuristic extraction pipeline.
-```bash
-PYTHONPATH=. python realtime_backend/scripts/seed_demo_session.py
+The desktop normally starts the localhost engine automatically. For a
+split-process demonstration, start `mindgraph-engine` first.
+
+Optional deterministic sample data:
+
+```powershell
+python scripts/datasets/seed_demo_meeting.py
 ```
 
-## Step 3: Start the Backend
-Open a terminal and start the transcription service. It will default to CPU/int8/Turkish for maximum local compatibility.
-```bash
-./scripts/dev_backend.sh
-```
+## Walkthrough
 
-## Step 4: Start the Desktop App
-Open another terminal and launch the UI.
-```bash
-./scripts/dev_desktop.sh
-```
+1. **Home**
+   - Show recent meetings, pending reviews, and the compact engine status.
+   - Point out quick capture, file ingest, and the short memory-question field.
 
-## Step 5: Guided UI Walkthrough
+2. **Capture**
+   - Add a local WAV/MP3 file or begin a live recording.
+   - Keep advanced ASR controls collapsed unless the audience asks.
+   - Explain that processing stays local and that confidence is not claimed as
+     measured accuracy.
 
-### 1. Explore the Rebuilt MVP UI
-Observe the modern 3-area layout:
-- **Left Sidebar**: The Session Explorer and primary actions.
-- **Main Content**: Tabbed interface (Overview, Transcript, Insights, Memory Search).
-- **Voice Ingest**: header for real-time capture.
+3. **Meetings**
+   - Open the new meeting.
+   - Compare immutable raw text with corrected text.
+   - Correct one segment and show that linked insights are marked for renewed
+     review rather than deleted.
 
-1.  **Select 'demo_technical_turkish'** in the sidebar.
-2.  **View Overview**: See high-level intelligence metrics (Task/Decision counts).
-3.  **Click 'Transcript' Tab**: Observe the side-by-side comparison.
-    -   **Cleaned Transcript**: Main readable view with technical corrections.
-    -   **Raw Text**: Original ASR output (in gray) for auditability.
-4.  **Click 'Insights' Tab**: See extracted **Tasks** and **Decisions**.
+4. **Knowledge**
+   - Accept one insight and reject another.
+   - Filter nodes by type or review state.
+   - Select a node to show relationships and evidence without a graph canvas.
 
-### 2. Global Memory Search
-1.  **Click 'Memory Search' Tab** (or 'Global Memory Search' button in sidebar).
-2.  **Enter Search**: Type `FastAPI endpoint`.
-3.  **Inspect Results**: Note the **Result Cards** with type badges (TASK, TOPIC, etc.).
-4.  **Traceability**: **Double-click** a result.
-5.  **Navigation**: Observe the app automatically switching to the **Transcript Tab** and highlighting the exact source segment.
+5. **Memory**
+   - Search for a term from the accepted insight.
+   - Ask a question and show the answer, source identifiers, and reasoning
+     trace.
+   - Confirm that rejected content is excluded by default.
 
----
-**Status**: The project is local MVP demo ready and product-integration ready for local-first Turkish transcription and keyword-based memory exploration. It does not currently include validated diarization or production meeting-room speaker separation.
+6. **Settings**
+   - Switch Turkish/English without restarting.
+   - Show privacy/diagnostics and the clearly labelled Labs controls.
 
-## Troubleshooting: Desktop App Window Not Appearing
-The **native PySide6 desktop app** is the only user-facing frontend. If the window does not appear after running `./scripts/dev_desktop.sh`:
+## Claim boundary
 
-1.  **Check Display Environment**:
-    ```bash
-    echo "DISPLAY=$DISPLAY"
-    echo "WAYLAND_DISPLAY=$WAYLAND_DISPLAY"
-    ```
-    Ensure you are in a graphical environment (X11 or Wayland).
-
-2.  **Verify Process**:
-    ```bash
-    pgrep -af python | grep collective_mindgraph_desktop
-    ```
-
-3.  **Debug Qt Plugins**:
-    If there are platform errors, run with plugin debugging:
-    ```bash
-    QT_DEBUG_PLUGINS=1 ./scripts/dev_desktop.sh
-    ```
-
-4.  **Confirm New UI**:
-    The new UI window title is: **"Collective MindGraph — Native MVP UI"**.
-    The status bar (bottom right) contains: **"Collective MindGraph Desktop — New MVP UI"**.
-    If you see a different title, you are running an old version. Clear `__pycache__` and ensure `PYTHONPATH` is correct.
-
-5.  **Virtual Environment**:
-    The desktop app requires PySide6. The `dev_desktop.sh` script handles this if `realtime_backend/.venv` exists.
-
-*Note: The backend API at `127.0.0.1:8080` is a background service and is not the intended user interface. Use `/docs` only for developer debugging.*
-
-*Note: This flow demonstrates architectural integration and Turkish heuristic accuracy. Actual meeting-room audio performance is pending manual fixture validation.*
+Demonstrate the verified local workflow. Do not claim validated speaker
+separation, general meeting-room accuracy, semantic retrieval without a real
+local embedding model, or a certified installer.

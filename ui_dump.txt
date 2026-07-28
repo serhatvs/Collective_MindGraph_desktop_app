@@ -1,6 +1,0 @@
---- Collective MindGraph Desktop Startup ---
-python=realtime_backend/.venv/bin/python
-PYTHONPATH=src:realtime_backend
-UI_MODE=REBUILT_NATIVE_MVP_UI
-qt.multimedia.ffmpeg: Using Qt multimedia with FFmpeg version 7.1.3 LGPL version 2.1 or later
-This plugin does not support propagateSizeHints()

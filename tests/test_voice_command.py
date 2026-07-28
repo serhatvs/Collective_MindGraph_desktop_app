@@ -1,4 +1,4 @@
-from collective_mindgraph_desktop.voice_command import VoiceCommandWorkflow
+from collective_mindgraph.desktop.voice_command import VoiceCommandWorkflow
 
 
 def test_voice_command_workflow_reaches_transcript_ready_state():
@@ -55,7 +55,9 @@ def test_voice_command_workflow_can_load_external_audio_for_transcription():
     assert audio_ready_state.stage == "audio_ready"
     assert audio_ready_state.audio_path == "C:/tmp/imported_test_audio.mp3"
     assert audio_ready_state.transcribe_enabled is True
-    assert audio_ready_state.guidance_text == "Imported test audio is ready for backend transcription."
+    assert (
+        audio_ready_state.guidance_text == "Imported test audio is ready for backend transcription."
+    )
 
 
 def test_voice_command_workflow_exposes_error_state_and_recovery():

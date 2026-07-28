@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
 from types import SimpleNamespace
 
-
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
-
-from asr_benchmark_common import provider_status, should_score_accuracy  # noqa: E402
-import benchmark_asr_accuracy  # noqa: E402
+from scripts.benchmarks import benchmark_asr_accuracy
+from scripts.benchmarks.asr_benchmark_common import (
+    provider_status,
+    should_score_accuracy,
+)
 
 
 def test_benchmark_accuracy_refuses_wer_cer_without_reference():

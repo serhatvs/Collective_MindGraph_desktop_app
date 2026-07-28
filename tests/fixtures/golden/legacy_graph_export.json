@@ -1,0 +1,14 @@
+{
+  "session": {"title": "Legacy import"},
+  "v2_production_graph": {
+    "nodes": [
+      {
+        "id": "legacy-node",
+        "type": "DECISION",
+        "properties": {"title": "Legacy decision"}
+      }
+    ],
+    "edges": [],
+    "source_references": []
+  }
+}

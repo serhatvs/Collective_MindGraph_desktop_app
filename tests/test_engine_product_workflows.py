@@ -223,3 +223,37 @@ def test_legacy_graph_export_is_still_importable(tmp_path):
         response = client.post("/api/v1/import", json=payload)
         assert response.status_code == 200
         assert response.json()["imported"]["knowledge_nodes"] == 1
+
+
+def test_canonical_import_is_idempotent_and_rejects_conflicting_rows(tmp_path):
+    with TestClient(create_app(_settings(tmp_path, "source"))) as source:
+        meeting_id, _context = _seed_reviewable_memory(source)
+        exported = source.get("/api/v1/export").json()
+
+    with TestClient(create_app(_settings(tmp_path, "target"))) as target:
+        first = target.post("/api/v1/import", json=exported)
+        second = target.post("/api/v1/import", json=exported)
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()["imported"]["meetings"] == 0
+
+        conflicting = json.loads(json.dumps(exported))
+        conflicting["tables"]["meetings"][0]["title"] = "Conflicting title"
+        rejected = target.post("/api/v1/import", json=conflicting)
+        assert rejected.status_code == 422
+        assert target.get(f"/api/v1/meetings/{meeting_id}").json()["title"] != "Conflicting title"
+
+
+def test_legacy_graph_import_remaps_ids_instead_of_overwriting_existing_nodes(tmp_path):
+    fixture = Path(__file__).parent / "fixtures" / "golden" / "legacy_graph_export.json"
+    payload = json.loads(fixture.read_text(encoding="utf-8"))
+    with TestClient(create_app(_settings(tmp_path))) as client:
+        first = client.post("/api/v1/import", json=payload)
+        second = client.post("/api/v1/import", json=payload)
+        assert first.status_code == 200
+        assert second.status_code == 200
+
+        nodes = client.get("/api/v1/knowledge/nodes", params={"limit": 200}).json()["items"]
+        imported = [node for node in nodes if node["kind"] == "decision"]
+        assert len(imported) == 2
+        assert len({node["id"] for node in imported}) == 2

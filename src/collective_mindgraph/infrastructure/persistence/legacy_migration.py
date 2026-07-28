@@ -319,21 +319,10 @@ class LegacyDataMigrator:
                 path.unlink()
 
     def _activate_target(self, target_path: Path) -> None:
-        if not self._canonical_path.exists():
-            self._replace_with_retry(target_path, self._canonical_path)
-            return
-        retired_path = self._canonical_path.with_suffix(
-            self._canonical_path.suffix + ".legacy-source"
-        )
-        if retired_path.exists():
-            retired_path.unlink()
-        self._replace_with_retry(self._canonical_path, retired_path)
-        try:
-            self._replace_with_retry(target_path, self._canonical_path)
-        except BaseException:
-            self._replace_with_retry(retired_path, self._canonical_path)
-            raise
-        retired_path.unlink()
+        # os.replace is the atomic activation boundary. The timestamped SQLite
+        # backup remains the recovery source; moving the live database aside
+        # first would create a crash window where the canonical path is absent.
+        self._replace_with_retry(target_path, self._canonical_path)
 
     @staticmethod
     def _replace_with_retry(source: Path, target: Path) -> None:

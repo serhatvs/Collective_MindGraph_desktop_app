@@ -291,6 +291,32 @@ def test_interrupted_activation_restores_original_database(tmp_path, monkeypatch
     assert not database_path.with_suffix(".sqlite3.migrating").exists()
 
 
+def test_existing_database_activation_never_retires_live_path_before_replace(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "collective_mindgraph.sqlite3"
+    _legacy_desktop_database(database_path)
+    original_hash = hashlib.sha256(database_path.read_bytes()).hexdigest()
+    migrator = LegacyDataMigrator(database_path)
+    calls: list[tuple[Path, Path]] = []
+
+    def interrupt(source: Path, target: Path) -> None:
+        calls.append((source, target))
+        raise RuntimeError("simulated atomic replace failure")
+
+    monkeypatch.setattr(migrator, "_replace_with_retry", interrupt)
+
+    with pytest.raises(RuntimeError, match="simulated atomic replace failure"):
+        migrator.run()
+
+    assert calls == [
+        (database_path.with_suffix(".sqlite3.migrating"), database_path),
+    ]
+    assert hashlib.sha256(database_path.read_bytes()).hexdigest() == original_hash
+    assert not database_path.with_suffix(".sqlite3.legacy-source").exists()
+
+
 def test_corrupt_existing_file_is_not_overwritten(tmp_path):
     database_path = tmp_path / "collective_mindgraph.sqlite3"
     database_path.write_bytes(b"not-a-sqlite-database")

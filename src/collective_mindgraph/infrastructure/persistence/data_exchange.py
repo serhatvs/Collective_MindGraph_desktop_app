@@ -3,16 +3,33 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from collective_mindgraph.domain import (
-    KnowledgeNodeKind,
     MeetingId,
     MeetingStatus,
-    RelationshipKind,
 )
 
+from .data_exchange_mapping import (
+    node_kind as _node_kind,
+)
+from .data_exchange_mapping import (
+    object_value as _object,
+)
+from .data_exchange_mapping import (
+    raw_import_value as _raw_import_value,
+)
+from .data_exchange_mapping import (
+    relationship_kind as _relationship_kind,
+)
+from .data_exchange_mapping import (
+    review_value as _review,
+)
+from .data_exchange_mapping import (
+    safe_import_value as _import_value,
+)
 from .sqlite_database import SqliteDatabase
 
 FORMAT_VERSION = 4
@@ -167,30 +184,29 @@ class SqliteDataExchange:
         if not isinstance(tables, dict):
             raise ValueError("Export payload must contain a tables object.")
         counts: dict[str, int] = {}
-        with self._database.connect() as connection:
-            for table, columns in _TABLE_COLUMNS.items():
-                raw_rows = tables.get(table, [])
-                if not isinstance(raw_rows, list):
-                    raise ValueError(f"Export table {table} must be a list.")
-                imported = 0
-                for raw_row in raw_rows:
-                    if not isinstance(raw_row, dict):
-                        raise ValueError(f"Export table {table} contains an invalid row.")
-                    values = [_import_value(table, column, raw_row) for column in columns]
-                    placeholders = ", ".join("?" for _ in columns)
-                    updates = ", ".join(
-                        f"{column}=excluded.{column}" for column in columns if column != "id"
-                    )
-                    connection.execute(
-                        f"""
-                        INSERT INTO {table} ({", ".join(columns)})
-                        VALUES ({placeholders})
-                        ON CONFLICT(id) DO UPDATE SET {updates}
-                        """,
-                        values,
-                    )
-                    imported += 1
-                counts[table] = imported
+        try:
+            with self._database.connect() as connection:
+                connection.execute("PRAGMA defer_foreign_keys = ON")
+                existing_rows = _validate_canonical_import(connection, tables)
+                for table, columns in _TABLE_COLUMNS.items():
+                    raw_rows = tables.get(table, [])
+                    imported = 0
+                    for raw_row in raw_rows:
+                        if raw_row["id"] in existing_rows[table]:
+                            continue
+                        values = [_import_value(table, column, raw_row) for column in columns]
+                        placeholders = ", ".join("?" for _ in columns)
+                        connection.execute(
+                            f"""
+                            INSERT INTO {table} ({", ".join(columns)})
+                            VALUES ({placeholders})
+                            """,
+                            values,
+                        )
+                        imported += 1
+                    counts[table] = imported
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Export payload violates canonical data constraints.") from exc
         return counts
 
     def _import_graph_export(self, payload: dict[str, object]) -> dict[str, int]:
@@ -218,24 +234,24 @@ class SqliteDataExchange:
             )
             meeting_id = int(cursor.lastrowid)
             evidence_ids: set[str] = set()
+            evidence_id_map: dict[str, str] = {}
             for item in references if isinstance(references, list) else []:
                 if not isinstance(item, dict):
                     continue
-                evidence_id = str(item.get("id") or uuid4())
+                external_id = str(item.get("id") or uuid4())
+                if external_id in evidence_id_map:
+                    continue
+                evidence_id = _available_identifier(
+                    connection,
+                    "evidence_references",
+                    external_id,
+                    evidence_ids,
+                )
+                evidence_id_map[external_id] = evidence_id
                 evidence_ids.add(evidence_id)
-                segment_id = item.get("segment_id") or item.get("source_segment_id")
-                if (
-                    segment_id
-                    and connection.execute(
-                        "SELECT 1 FROM transcript_segments WHERE id = ?",
-                        (str(segment_id),),
-                    ).fetchone()
-                    is None
-                ):
-                    segment_id = None
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO evidence_references (
+                    INSERT INTO evidence_references (
                         id, meeting_id, segment_id, start_seconds, end_seconds,
                         text_preview, confidence, extractor, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -243,7 +259,7 @@ class SqliteDataExchange:
                     (
                         evidence_id,
                         meeting_id,
-                        segment_id,
+                        None,
                         item.get("timestamp_start", item.get("start_time")),
                         item.get("timestamp_end", item.get("end_time")),
                         item.get("text_preview", item.get("source_text_preview")),
@@ -253,13 +269,23 @@ class SqliteDataExchange:
                     ),
                 )
             node_ids: set[str] = set()
+            node_id_map: dict[str, str] = {}
             for item in nodes if isinstance(nodes, list) else []:
                 if not isinstance(item, dict):
                     continue
-                node_id = str(item.get("id") or uuid4())
+                external_id = str(item.get("id") or uuid4())
+                if external_id in node_id_map:
+                    continue
+                node_id = _available_identifier(
+                    connection,
+                    "knowledge_nodes",
+                    external_id,
+                    node_ids,
+                )
+                node_id_map[external_id] = node_id
                 node_ids.add(node_id)
                 attributes = _object(item.get("metadata_json"))
-                evidence_id = _known_id(item.get("source_reference_id"), evidence_ids)
+                evidence_id = evidence_id_map.get(str(item.get("source_reference_id") or ""))
                 title = str(item.get("title") or attributes.get("title") or "")
                 body = str(
                     item.get("text_content")
@@ -270,7 +296,7 @@ class SqliteDataExchange:
                 attributes["review"] = _review(attributes)
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO knowledge_nodes (
+                    INSERT INTO knowledge_nodes (
                         id, meeting_id, kind, title, body, evidence_id,
                         attributes_json, created_at, updated_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -288,26 +314,34 @@ class SqliteDataExchange:
                     ),
                 )
             imported_edges = 0
+            edge_ids: set[str] = set()
             for item in edges if isinstance(edges, list) else []:
                 if not isinstance(item, dict):
                     continue
-                source_id = str(item.get("source_node_id") or "")
-                target_id = str(item.get("target_node_id") or "")
-                if source_id not in node_ids or target_id not in node_ids:
+                source_id = node_id_map.get(str(item.get("source_node_id") or ""))
+                target_id = node_id_map.get(str(item.get("target_node_id") or ""))
+                if source_id is None or target_id is None:
                     continue
+                edge_id = _available_identifier(
+                    connection,
+                    "knowledge_edges",
+                    str(item.get("id") or uuid4()),
+                    edge_ids,
+                )
+                edge_ids.add(edge_id)
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO knowledge_edges (
+                    INSERT INTO knowledge_edges (
                         id, source_id, target_id, kind, evidence_id,
                         confidence, attributes_json, created_at
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
-                        str(item.get("id") or uuid4()),
+                        edge_id,
                         source_id,
                         target_id,
                         _relationship_kind(item.get("edge_type")),
-                        _known_id(item.get("source_reference_id"), evidence_ids),
+                        evidence_id_map.get(str(item.get("source_reference_id") or "")),
                         float(item.get("confidence") or 1.0),
                         json.dumps(_object(item.get("metadata_json")), ensure_ascii=False),
                         item.get("created_at") or now,
@@ -367,66 +401,60 @@ def _select_rows(connection, table: str, meeting_id: MeetingId | None):
     ).fetchall()
 
 
-def _object(value: object) -> dict[str, object]:
-    if isinstance(value, dict):
-        return dict(value)
-    if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except json.JSONDecodeError:
-            return {}
-        return dict(parsed) if isinstance(parsed, dict) else {}
-    return {}
+def _validate_canonical_import(
+    connection: sqlite3.Connection,
+    tables: dict[object, object],
+) -> dict[str, set[object]]:
+    existing_rows: dict[str, set[object]] = {table: set() for table in _TABLE_COLUMNS}
+    conflicts: list[str] = []
+    for table, columns in _TABLE_COLUMNS.items():
+        raw_rows = tables.get(table, [])
+        if not isinstance(raw_rows, list):
+            raise ValueError(f"Export table {table} must be a list.")
+        seen: set[object] = set()
+        for raw_row in raw_rows:
+            if not isinstance(raw_row, dict):
+                raise ValueError(f"Export table {table} contains an invalid row.")
+            identifier = raw_row.get("id")
+            if identifier is None:
+                raise ValueError(f"Export table {table} contains a row without an id.")
+            if identifier in seen:
+                raise ValueError(f"Export table {table} contains duplicate id {identifier!r}.")
+            seen.add(identifier)
+            existing = connection.execute(
+                f"SELECT {', '.join(columns)} FROM {table} WHERE id = ?",
+                (identifier,),
+            ).fetchone()
+            if existing is None:
+                continue
+            incoming = tuple(_raw_import_value(table, column, raw_row) for column in columns)
+            safe_incoming = tuple(_import_value(table, column, raw_row) for column in columns)
+            current = tuple(existing[column] for column in columns)
+            if current != incoming and current != safe_incoming:
+                conflicts.append(f"{table}:{identifier}")
+            else:
+                existing_rows[table].add(identifier)
+    if conflicts:
+        preview = ", ".join(conflicts[:5])
+        raise ValueError(
+            "Export conflicts with existing canonical records"
+            f"{': ' + preview if preview else ''}."
+        )
+    return existing_rows
 
 
-def _import_value(
+def _available_identifier(
+    connection: sqlite3.Connection,
     table: str,
-    column: str,
-    row: dict[str, object],
-) -> object:
-    if column in row:
-        return row[column]
-    defaults: dict[tuple[str, str], object] = {
-        ("recordings", "storage_status"): "managed",
-        ("recordings", "keep_audio"): 0,
-        ("processing_jobs", "retryable"): 0,
-    }
-    return defaults.get((table, column))
-
-
-def _known_id(value: object, known: set[str]) -> str | None:
-    candidate = str(value) if value else None
-    return candidate if candidate in known else None
-
-
-def _review(attributes: dict[str, object]) -> str:
-    current = str(attributes.get("review") or attributes.get("review_status") or "pending")
-    return {"approved": "accepted", "completed": "accepted", "edited": "accepted"}.get(
-        current.casefold(),
-        current.casefold()
-        if current.casefold() in {"pending", "accepted", "rejected"}
-        else "pending",
-    )
-
-
-def _node_kind(value: object) -> str:
-    normalized = str(value or "entity").casefold()
-    if normalized == "session":
-        normalized = "meeting"
-    allowed = {item.value for item in KnowledgeNodeKind}
-    return normalized if normalized in allowed else KnowledgeNodeKind.ENTITY.value
-
-
-def _relationship_kind(value: object) -> str:
-    normalized = str(value or "related_to").casefold()
-    mapping = {
-        "session_has_segment": "contains",
-        "segment_mentions_topic": "mentions",
-        "segment_creates_task": "creates",
-        "segment_supports_decision": "supports",
-        "task_assigned_to_person": "assigned_to",
-        "node_merged_into": "merged_into",
-    }
-    normalized = mapping.get(normalized, normalized)
-    allowed = {item.value for item in RelationshipKind}
-    return normalized if normalized in allowed else RelationshipKind.RELATED_TO.value
+    preferred: str,
+    reserved: set[str],
+) -> str:
+    if table not in {"evidence_references", "knowledge_nodes", "knowledge_edges"}:
+        raise ValueError("Unsupported legacy import identifier table.")
+    candidate = preferred
+    while candidate in reserved or connection.execute(
+        f"SELECT 1 FROM {table} WHERE id = ?",
+        (candidate,),
+    ).fetchone():
+        candidate = str(uuid4())
+    return candidate

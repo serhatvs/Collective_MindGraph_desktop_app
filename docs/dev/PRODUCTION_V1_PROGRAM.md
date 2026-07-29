@@ -14,8 +14,8 @@ remain runnable and reversible after each merge.
 | 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Merged in PR [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24) (`2c85c5c`) |
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`d563aba`) |
 | 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`a53a840`) |
-| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | In review |
-| 8 | `feat/desktop-product-polish` | Themes, virtualized UI, capture/review/accessibility polish | Planned |
+| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Merged in PR [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27) (`22c29c8`) |
+| 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | In review |
 | 9 | `feat/knowledge-canvas-retrieval` | Native graph canvas, FTS5 and local ANN/RRF retrieval | Planned |
 | 10 | `feat/audio-model-quality` | Signed model manager and evidence-based audio/retrieval gates | Planned |
 | 11 | `build/signed-msix-release` | Signed MSIX/App Installer and deployable self-host stack | Planned |
@@ -128,6 +128,28 @@ writing at once both keep their record.
 - `/api/v2/collaboration` adds four paths and changes no `/api/v1` path.
 - All of this is local storage. Local-only use still needs no account, and a
   test asserts the surface works with nobody signed in.
+
+## Delivered theme and telemetry contract
+
+Stage 8 delivers the theme layer and the privacy contract. The remaining
+stage-8 items in the original plan — virtualized list models, the capture and
+review polish, and the PySide6 presentation deferred from stage 7 — are not in
+this stage and stay open.
+
+- Every colour the shell paints comes from a palette. A test asserts the
+  rendered stylesheet contains no hex outside the active palette, so a hardcoded
+  colour cannot survive a theme switch.
+- Light and dark palettes are checked against WCAG 2.2 AA on every declared
+  pairing: 4.5:1 for normal text, 3:1 for large text and non-text. This is a
+  release gate, and a separate test proves the gate rejects an unreadable
+  palette rather than passing vacuously.
+- Two border colours failed the first measurement and were corrected from
+  measured values rather than adjusted by eye.
+- Telemetry is off until the user decides, and enabling it without a recorded
+  decision raises. Withdrawal takes effect immediately.
+- Redaction keeps only declared fields with declared types and drops everything
+  else, so an undeclared field cannot leak by being forgotten. A test asserts
+  the declared list contains no content-bearing name.
 
 ## Release gates
 

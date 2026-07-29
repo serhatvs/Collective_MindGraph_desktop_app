@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}Collective MindGraph administration{% endblock %}</title>
+</head>
+<body>
+<header>
+<h1>Collective MindGraph administration</h1>
+<p>Signed in as {{ session.subject }}. This surface shows membership, devices,
+quota, and audit metadata only; it can never show meeting content.</p>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

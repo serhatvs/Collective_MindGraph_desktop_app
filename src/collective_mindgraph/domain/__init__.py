@@ -43,6 +43,14 @@ from .knowledge import (
 )
 from .meetings import Meeting, MeetingStatus
 from .sync import SyncIdentity, SyncOperation, SyncOperationState, Workspace, WorkspaceKind
+from .synchronization import (
+    ConflictRecord,
+    ConflictResolution,
+    OutboxEntry,
+    SyncCursor,
+    SyncPhase,
+    SyncStatus,
+)
 from .transcripts import Recording, RecordingStorageStatus, Transcript, TranscriptSegment
 
 __all__ = [
@@ -52,6 +60,8 @@ __all__ = [
     "ActivityEventId",
     "CommentId",
     "ConflictId",
+    "ConflictRecord",
+    "ConflictResolution",
     "ContentBinding",
     "DeviceId",
     "DeviceKey",
@@ -75,6 +85,7 @@ __all__ = [
     "MeetingId",
     "MeetingStatus",
     "OperationId",
+    "OutboxEntry",
     "ProcessingJob",
     "ProcessingStatus",
     "ProviderHealth",
@@ -85,10 +96,13 @@ __all__ = [
     "RelationshipKind",
     "ReviewDecision",
     "SegmentId",
+    "SyncCursor",
     "SyncId",
     "SyncIdentity",
     "SyncOperation",
     "SyncOperationState",
+    "SyncPhase",
+    "SyncStatus",
     "Transcript",
     "TranscriptId",
     "TranscriptSegment",

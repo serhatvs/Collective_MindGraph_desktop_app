@@ -1,33 +1,111 @@
 {
-  "/api/v1/dashboard": ["get"],
-  "/api/v1/evidence/{evidence_id}": ["get"],
-  "/api/v1/export": ["get"],
-  "/api/v1/health": ["get"],
-  "/api/v1/import": ["post"],
-  "/api/v1/insights": ["get"],
-  "/api/v1/insights/{insight_id}/review": ["patch"],
-  "/api/v1/jobs": ["get"],
-  "/api/v1/jobs/{job_id}": ["get"],
-  "/api/v1/jobs/{job_id}/cancel": ["post"],
-  "/api/v1/jobs/{job_id}/retry": ["post"],
-  "/api/v1/knowledge/edges": ["get"],
-  "/api/v1/knowledge/nodes": ["get"],
-  "/api/v1/meetings": ["get", "post"],
-  "/api/v1/meetings/{meeting_id}": ["delete", "get", "patch"],
-  "/api/v1/meetings/{meeting_id}/evidence": ["get"],
-  "/api/v1/meetings/{meeting_id}/recordings": ["post"],
-  "/api/v1/meetings/{meeting_id}/transcript": ["get"],
-  "/api/v1/memory/ask": ["get"],
-  "/api/v1/memory/search": ["get"],
-  "/api/v1/settings": ["get", "put"],
-  "/api/v1/transcript-segments/{segment_id}": ["patch"],
-  "/health": ["get"],
-  "/jobs": ["get"],
-  "/memory/ask": ["get"],
-  "/quality/{conversation_id}": ["get"],
-  "/query": ["get"],
-  "/reason": ["get"],
-  "/summary/{conversation_id}": ["get"],
-  "/transcribe/file": ["post"],
-  "/transcript/{conversation_id}": ["get"]
+  "/api/v1/dashboard": [
+    "get"
+  ],
+  "/api/v1/evidence/{evidence_id}": [
+    "get"
+  ],
+  "/api/v1/export": [
+    "get"
+  ],
+  "/api/v1/health": [
+    "get"
+  ],
+  "/api/v1/import": [
+    "post"
+  ],
+  "/api/v1/insights": [
+    "get"
+  ],
+  "/api/v1/insights/{insight_id}/review": [
+    "patch"
+  ],
+  "/api/v1/jobs": [
+    "get"
+  ],
+  "/api/v1/jobs/{job_id}": [
+    "get"
+  ],
+  "/api/v1/jobs/{job_id}/cancel": [
+    "post"
+  ],
+  "/api/v1/jobs/{job_id}/retry": [
+    "post"
+  ],
+  "/api/v1/knowledge/edges": [
+    "get"
+  ],
+  "/api/v1/knowledge/nodes": [
+    "get"
+  ],
+  "/api/v1/meetings": [
+    "get",
+    "post"
+  ],
+  "/api/v1/meetings/{meeting_id}": [
+    "delete",
+    "get",
+    "patch"
+  ],
+  "/api/v1/meetings/{meeting_id}/evidence": [
+    "get"
+  ],
+  "/api/v1/meetings/{meeting_id}/recordings": [
+    "post"
+  ],
+  "/api/v1/meetings/{meeting_id}/transcript": [
+    "get"
+  ],
+  "/api/v1/memory/ask": [
+    "get"
+  ],
+  "/api/v1/memory/search": [
+    "get"
+  ],
+  "/api/v1/settings": [
+    "get",
+    "put"
+  ],
+  "/api/v1/transcript-segments/{segment_id}": [
+    "patch"
+  ],
+  "/api/v2/sync/conflicts/{conflict_id}/resolve": [
+    "post"
+  ],
+  "/api/v2/sync/{workspace_id}/conflicts": [
+    "get"
+  ],
+  "/api/v2/sync/{workspace_id}/run": [
+    "post"
+  ],
+  "/api/v2/sync/{workspace_id}/status": [
+    "get"
+  ],
+  "/health": [
+    "get"
+  ],
+  "/jobs": [
+    "get"
+  ],
+  "/memory/ask": [
+    "get"
+  ],
+  "/quality/{conversation_id}": [
+    "get"
+  ],
+  "/query": [
+    "get"
+  ],
+  "/reason": [
+    "get"
+  ],
+  "/summary/{conversation_id}": [
+    "get"
+  ],
+  "/transcribe/file": [
+    "post"
+  ],
+  "/transcript/{conversation_id}": [
+    "get"
+  ]
 }

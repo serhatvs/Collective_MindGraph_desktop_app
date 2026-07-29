@@ -8,7 +8,10 @@ from collections.abc import Mapping
 from collective_mindgraph.domain import MeetingId
 
 from .data_exchange_mapping import raw_import_value, safe_import_value
-from .sync_identity import validate_export_sync_identity
+from .sync_identity import (
+    validate_export_sync_identity,
+    validate_workspace_reference,
+)
 
 FORMAT_VERSION = 5
 SUPPORTED_CANONICAL_VERSIONS = frozenset({3, 4, FORMAT_VERSION})
@@ -261,6 +264,7 @@ def validate_import_rows(
 ) -> dict[str, set[object]]:
     existing_rows: dict[str, set[object]] = {table: set() for table in table_columns}
     conflicts: list[str] = []
+    known_workspace_ids = _known_workspace_ids(connection, tables)
     for table, columns in table_columns.items():
         raw_rows = tables.get(table, [])
         if not isinstance(raw_rows, list):
@@ -275,6 +279,12 @@ def validate_import_rows(
             if identifier in seen:
                 raise ValueError(f"Export table {table} contains duplicate id {identifier!r}.")
             validate_export_sync_identity(table, columns, raw_row)
+            validate_workspace_reference(
+                table,
+                columns,
+                raw_row,
+                known_workspace_ids,
+            )
             seen.add(identifier)
             existing = connection.execute(
                 f"SELECT {', '.join(columns)} FROM {table} WHERE id = ?",
@@ -295,3 +305,18 @@ def validate_import_rows(
             f"Export conflicts with existing canonical records{': ' + preview if preview else ''}."
         )
     return existing_rows
+
+
+def _known_workspace_ids(
+    connection: sqlite3.Connection,
+    tables: Mapping[object, object],
+) -> set[str]:
+    known = {str(row[0]) for row in connection.execute("SELECT id FROM workspaces")}
+    workspace_rows = tables.get("workspaces", [])
+    if isinstance(workspace_rows, list):
+        known.update(
+            str(row["id"])
+            for row in workspace_rows
+            if isinstance(row, dict) and row.get("id") is not None
+        )
+    return known

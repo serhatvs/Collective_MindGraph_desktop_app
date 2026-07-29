@@ -354,6 +354,7 @@ def test_canonical_import_rejects_malformed_rows_duplicates_and_constraints(tmp_
     [
         ("sync_id", "not-a-uuid", "invalid sync_id"),
         ("workspace_id", None, "invalid workspace_id"),
+        ("workspace_id", str(uuid4()), "unknown workspace_id"),
         ("updated_by_device", "not-a-uuid", "invalid updated_by_device"),
         ("local_revision", 0, "invalid local_revision"),
         ("sync_revision", -1, "invalid sync_revision"),
@@ -584,8 +585,8 @@ def test_identity_validation_and_missing_local_workspace_are_detected(tmp_path):
     )
     with database.connect() as connection:
         connection.execute(
-            "UPDATE meetings SET updated_by_device = NULL WHERE id = ?",
-            (int(meeting.id),),
+            "UPDATE meetings SET workspace_id = ? WHERE id = ?",
+            (str(uuid4()), int(meeting.id)),
         )
         connection.execute("UPDATE workspaces SET sync_id = 'invalid' WHERE is_local = 1")
         assert sync_identity_violations(connection) == {

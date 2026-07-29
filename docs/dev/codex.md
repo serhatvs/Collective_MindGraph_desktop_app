@@ -82,6 +82,9 @@
 - Canonical export `format_version` is 5; v3/v4 and legacy graph imports remain
   accepted. User backups default to authenticated AES-256-GCM `.cmgbackup`
   archives derived from a user passphrase with scrypt.
+- V5 import and migration activation validate UUID/revision metadata and reject
+  synchronized rows whose workspace does not exist in the local database or
+  import payload, preventing orphaned workspace data in ALTER-upgraded tables.
 - Migration always uses backup plus sibling `.migrating` preparation,
   integrity/foreign-key/count/source-hash validation, and atomic activation.
   Legacy sources are never deleted.

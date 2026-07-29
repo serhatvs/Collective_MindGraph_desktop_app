@@ -25,6 +25,7 @@ def sync_identity_violations(connection: sqlite3.Connection) -> dict[str, int]:
     """Count invalid UUID or revision metadata without loading whole tables."""
 
     violations: dict[str, int] = {}
+    workspace_ids = {str(row[0]) for row in connection.execute("SELECT id FROM workspaces")}
     for table in SYNC_ENTITY_KEYS:
         invalid = sum(
             1
@@ -35,7 +36,7 @@ def sync_identity_violations(connection: sqlite3.Connection) -> dict[str, int]:
                 FROM {table}
                 """
             )
-            if not _valid_identity_row(row)
+            if not _valid_identity_row(row) or str(row["workspace_id"]) not in workspace_ids
         )
         if invalid:
             violations[table] = invalid
@@ -81,6 +82,16 @@ def validate_export_sync_identity(
             raise ValueError(f"Export table {table} contains an invalid sync_revision.")
 
 
+def validate_workspace_reference(
+    table: str,
+    columns: Collection[str],
+    row: Mapping[object, object],
+    known_workspace_ids: Collection[str],
+) -> None:
+    if "workspace_id" in columns and str(row.get("workspace_id")) not in known_workspace_ids:
+        raise ValueError(f"Export table {table} contains an unknown workspace_id.")
+
+
 def _valid_identity_row(row: sqlite3.Row) -> bool:
     return (
         _is_uuid(row["workspace_id"])
@@ -105,4 +116,5 @@ __all__ = [
     "SYNC_ENTITY_KEYS",
     "sync_identity_violations",
     "validate_export_sync_identity",
+    "validate_workspace_reference",
 ]

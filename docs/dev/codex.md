@@ -15,27 +15,28 @@
 
 ## Current State
 
-- Stages 1 to 6 were squash-merged through PRs
+- Stages 1 to 7 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
   [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24),
   [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25),
+  [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26),
   and
-  [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26);
+  [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27);
   remote `main` is now
-  `a53a840 feat: add the engine-owned synchronization client`.
-- Active branch: `feat/collaboration-experience`, created directly from that
-  updated `origin/main`. It is stage 7 of the twelve-PR program documented in
+  `119d916 feat: add comments, mentions, and workspace activity`.
+- Active branch: `feat/desktop-product-polish`, created directly from that
+  updated `origin/main`. It is stage 8 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 80.92% branch-inclusive coverage and 298
-  existing strict-mypy errors across the full production package. Stage 7
-  changed-line coverage is 99%. CI rejects coverage below 75%, changed
+- Current quality measurements are 81.10% branch-inclusive coverage and 295
+  existing strict-mypy errors across the full production package. Stage 8
+  changed-line coverage is 100%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
   transition exceptions after stage 2 split canonical data exchange.
@@ -147,6 +148,39 @@
 - Everything here is local storage; local-only use still requires no account and
   a test asserts the surface works with nobody signed in.
 
+## Theme and Telemetry
+
+- `desktop/ui/theme.py` holds every colour the shell paints. `design_tokens.py`
+  is gone; a test asserts the rendered stylesheet contains no hex outside the
+  active palette, so a hardcoded colour cannot survive a theme switch.
+- Light and dark palettes are checked against WCAG 2.2 AA on every declared
+  pairing. This is a release gate, and a separate test proves the gate rejects
+  an unreadable palette rather than passing vacuously. Two border colours failed
+  the first measurement and were corrected from measured values.
+- `resolve(ThemeMode.SYSTEM, ...)` reads the platform palette; explicit light or
+  dark overrides it. `apply_theme` repaints at runtime.
+- `desktop/telemetry.py` is off until the user decides. Enabling without a
+  recorded decision raises, withdrawal is immediate, and redaction keeps only
+  declared fields with declared types, dropping everything else rather than
+  sanitising it.
+- Still open from stage 8's original scope: virtualized list models, capture and
+  review polish, and the PySide6 presentation deferred from stage 7.
+
+## Security Gate Availability
+
+- The repository is private and GitHub reports Advanced Security as not
+  purchased. CodeQL cannot upload results and dependency review cannot read the
+  dependency graph; both jobs probe for the capability and skip with an explicit
+  notice instead of failing or falsely passing.
+- Bandit is the enforcing Python security gate, and `pip-audit` over every
+  locked extra is the enforcing dependency gate, while those two are degraded.
+- Secret scanning no longer uses the gitleaks Action, which reports through the
+  GitHub API and cannot on this plan. It runs the pinned released binary over
+  the full history instead, so it works regardless of the plan.
+- These gates passed for stages 3 to 7, so the entitlement lapsed rather than
+  never existing. Restoring it is a release-gate prerequisite: a scanner that
+  cannot run has not found nothing.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -226,9 +260,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 7: `494 passed, 4 skipped`; skips require
+- Latest full automated run on stage 8: `516 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 80.92%; stage-7 changed production lines: 99%.
+- Branch-inclusive coverage: 81.10%; stage-8 changed production lines: 100%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -258,12 +292,14 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-7 hosted quality matrix, review, and squash PR.
-- Stage 7 delivered the collaboration data layer and localhost surface. The
-  PySide6 presentation for it, the workspace switcher, and the conflict centre
-  are still to build, and belong with the stage-8 desktop polish work.
-- Stages 8 to 12 remain: desktop polish and themes, the knowledge canvas and
-  retrieval work, audio and model quality gates, the signed MSIX release, and
-  1.0.0 hardening.
+- Finish the stage-8 hosted quality matrix, review, and squash PR.
+- Stage 9 is next: the native `QGraphicsScene` knowledge canvas, FTS5 keyword
+  search, and the local ANN plus reciprocal-rank-fusion retrieval work.
+- Stages 10 to 12 depend on inputs this repository cannot supply. The model
+  manager, packaging configuration, and load harness can all be built, but the
+  WER/DER numbers need consented Turkish recordings, a signed MSIX needs a
+  code-signing certificate, and the release gate needs EU infrastructure and an
+  independent cryptography review. Those must not be reported as met until the
+  inputs exist.
 - Keep the sync server free of any ability to decrypt: it stores sealed bytes,
   routing metadata, and audit records only.

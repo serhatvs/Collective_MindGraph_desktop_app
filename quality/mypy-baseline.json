@@ -2,10 +2,8 @@
   "schema_version": 1,
   "strict": true,
   "scope": "src/collective_mindgraph",
-  "total_errors": 298,
+  "total_errors": 295,
   "errors": {
-    "src/collective_mindgraph/desktop/app.py|attr-defined": 2,
-    "src/collective_mindgraph/desktop/app.py|return-value": 1,
     "src/collective_mindgraph/desktop/audio_capture.py|arg-type": 1,
     "src/collective_mindgraph/desktop/audio_capture.py|no-untyped-def": 1,
     "src/collective_mindgraph/desktop/audio_capture.py|return-value": 1,

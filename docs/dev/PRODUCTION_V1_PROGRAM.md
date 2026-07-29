@@ -10,12 +10,12 @@ remain runnable and reversible after each merge.
 | --- | --- | --- | --- |
 | 1 | `chore/production-quality-baseline` | Locked dependencies, CI, quality/security ratchets, SBOM and package smoke | Merged in PR [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15) (`4ee7949`) |
 | 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Merged in PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) (`1762b93`) |
-| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Merged in PR [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23) (`883dfdb`) |
-| 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Merged in PR [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24) (`2c85c5c`) |
-| 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`d563aba`) |
-| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`a53a840`) |
-| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | In review |
-| 8 | `feat/desktop-product-polish` | Themes, virtualized UI, capture/review/accessibility polish | Planned |
+| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Merged in PR [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23) (`f067c37`) |
+| 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Merged in PR [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24) (`a5172ec`) |
+| 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`4bc49d3`) |
+| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`88939d6`) |
+| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Merged in PR [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27) (`119d916`) |
+| 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | In review |
 | 9 | `feat/knowledge-canvas-retrieval` | Native graph canvas, FTS5 and local ANN/RRF retrieval | Planned |
 | 10 | `feat/audio-model-quality` | Signed model manager and evidence-based audio/retrieval gates | Planned |
 | 11 | `build/signed-msix-release` | Signed MSIX/App Installer and deployable self-host stack | Planned |
@@ -129,6 +129,28 @@ writing at once both keep their record.
 - All of this is local storage. Local-only use still needs no account, and a
   test asserts the surface works with nobody signed in.
 
+## Delivered theme and telemetry contract
+
+Stage 8 delivers the theme layer and the privacy contract. The remaining
+stage-8 items in the original plan — virtualized list models, the capture and
+review polish, and the PySide6 presentation deferred from stage 7 — are not in
+this stage and stay open.
+
+- Every colour the shell paints comes from a palette. A test asserts the
+  rendered stylesheet contains no hex outside the active palette, so a hardcoded
+  colour cannot survive a theme switch.
+- Light and dark palettes are checked against WCAG 2.2 AA on every declared
+  pairing: 4.5:1 for normal text, 3:1 for large text and non-text. This is a
+  release gate, and a separate test proves the gate rejects an unreadable
+  palette rather than passing vacuously.
+- Two border colours failed the first measurement and were corrected from
+  measured values rather than adjusted by eye.
+- Telemetry is off until the user decides, and enabling it without a recorded
+  decision raises. Withdrawal takes effect immediately.
+- Redaction keeps only declared fields with declared types and drops everything
+  else, so an undeclared field cannot leak by being forgotten. A test asserts
+  the declared list contains no content-bearing name.
+
 ## Release gates
 
 - Windows 10 22H2 and Windows 11 install, update, repair, rollback, migration,
@@ -147,6 +169,25 @@ writing at once both keep their record.
 - Public release is blocked by any P0/P1 defect, high/critical dependency
   vulnerability, known data-loss path, unresolved security finding, or
   independent cryptography-review finding.
+
+## Degraded security gates
+
+This repository is private and GitHub reports that Advanced Security has not
+been purchased, so two gates that previously ran cannot report:
+
+- **CodeQL code scanning** cannot upload results. Bandit in the quality job is
+  the enforcing Python security gate meanwhile.
+- **Dependency review** cannot read the dependency graph. `pip-audit` over every
+  locked extra is the enforcing dependency gate meanwhile.
+
+Both jobs now detect the missing capability and skip with an explicit notice
+rather than failing the build or reporting a pass they did not earn. Secret
+scanning was moved off the API-dependent Action onto the released gitleaks
+binary, so it keeps running on any plan.
+
+Restoring Advanced Security, or moving the repository to public, is a
+prerequisite for the `1.0.0` release gate that forbids unresolved security
+findings: a scanner that cannot run has not found nothing.
 
 External release inputs remain required: a code-signing certificate/HSM,
 provider OIDC registrations, EU PostgreSQL/S3/SMTP infrastructure, two clean

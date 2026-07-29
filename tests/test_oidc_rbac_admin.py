@@ -704,6 +704,34 @@ def test_admin_can_change_roles_and_revoke_devices(
     assert "revoked" in admin_client.get(f"/admin/workspaces/{workspace_id}").text
 
 
+def test_admin_routes_reject_identifiers_that_are_not_uuids(admin_client: TestClient):
+    """Request input never reaches a redirect target or a query value."""
+
+    _sign_in(admin_client)
+    csrf = _csrf(admin_client)
+    assert admin_client.get("/admin/workspaces/not-a-uuid").status_code == 403
+    # A slash-bearing identifier never even reaches a handler.
+    escaped = admin_client.get("/admin/workspaces/..%2F..%2Fevil", follow_redirects=False)
+    assert escaped.status_code == 404
+    assert "location" not in escaped.headers
+
+    forged = admin_client.post(
+        "/admin/workspaces/evil.example/raw-audio",
+        data={"enabled": "on", "csrf_token": csrf},
+        follow_redirects=False,
+    )
+    assert forged.status_code == 403
+    assert "location" not in forged.headers
+
+    workspace_id = str(uuid4())
+    bad_device = admin_client.post(
+        f"/admin/workspaces/{workspace_id}/devices/not-a-uuid/revoke",
+        data={"csrf_token": csrf},
+        follow_redirects=False,
+    )
+    assert bad_device.status_code == 403
+
+
 def test_non_members_cannot_open_a_workspace_page(admin_client: TestClient, signing_key: object):
     workspace_id = admin_client.post(
         "/sync/v1/workspaces",

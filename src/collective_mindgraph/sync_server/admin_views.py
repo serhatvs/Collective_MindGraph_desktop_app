@@ -8,6 +8,7 @@ surface cannot leak content even if a future query returned it.
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Form, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -96,6 +97,7 @@ async def workspace_detail(request: Request, workspace_id: str) -> Response:
     """Show members, devices, quota, and content-free audit records."""
 
     service, session = _admin(request)
+    workspace_id = _identifier(workspace_id)
     async with service.database.begin() as connection:
         principal = await _principal_for(service, connection, session)
         role = await service.members.require_role(
@@ -203,6 +205,7 @@ async def update_member(
 
     service, session = _admin(request)
     require_csrf(session, csrf_token)
+    workspace_id = _identifier(workspace_id)
     async with service.database.begin() as connection:
         principal = await _principal_for(service, connection, session)
         await service.members.require_role(
@@ -238,7 +241,7 @@ async def update_member(
             kind=kind,
             principal=principal,
         )
-    return _redirect(f"/admin/workspaces/{workspace_id}")
+    return _workspace_redirect(workspace_id)
 
 
 @router.post("/workspaces/{workspace_id}/devices/{device_id}/revoke")
@@ -252,6 +255,7 @@ async def revoke_device(
 
     service, session = _admin(request)
     require_csrf(session, csrf_token)
+    workspace_id = _identifier(workspace_id)
     async with service.database.begin() as connection:
         principal = await _principal_for(service, connection, session)
         await service.members.require_role(
@@ -263,7 +267,7 @@ async def revoke_device(
         await service.members.revoke_device(
             connection,
             workspace_id=workspace_id,
-            device_id=device_id,
+            device_id=_identifier(device_id),
         )
         await service.members.record_audit(
             connection,
@@ -272,7 +276,7 @@ async def revoke_device(
             principal=principal,
             device_id=device_id,
         )
-    return _redirect(f"/admin/workspaces/{workspace_id}")
+    return _workspace_redirect(workspace_id)
 
 
 @router.post("/workspaces/{workspace_id}/raw-audio")
@@ -286,6 +290,7 @@ async def toggle_raw_audio(
 
     service, session = _admin(request)
     require_csrf(session, csrf_token)
+    workspace_id = _identifier(workspace_id)
     async with service.database.begin() as connection:
         principal = await _principal_for(service, connection, session)
     await service.set_raw_audio(
@@ -293,7 +298,7 @@ async def toggle_raw_audio(
         workspace_id=workspace_id,
         enabled=enabled == "on",
     )
-    return _redirect(f"/admin/workspaces/{workspace_id}")
+    return _workspace_redirect(workspace_id)
 
 
 async def _principal_for(service: SyncService, connection: Any, session: AdminSession) -> Any:
@@ -312,8 +317,27 @@ async def _principal_for(service: SyncService, connection: Any, session: AdminSe
     )
 
 
-def _redirect(location: str) -> RedirectResponse:
-    return RedirectResponse(location, status_code=303, headers=dict(SECURITY_HEADERS))
+def _identifier(value: str) -> str:
+    """Return a canonical UUID, rejecting anything else.
+
+    Workspace and device identifiers are always UUIDs. Validating them here
+    keeps request input out of redirect targets and query values entirely,
+    rather than relying on the surrounding path to make an injected value
+    harmless.
+    """
+
+    try:
+        return str(UUID(value))
+    except (TypeError, ValueError) as error:
+        raise AdminSecurityError("The requested identifier is not valid.") from error
+
+
+def _workspace_redirect(workspace_id: str) -> RedirectResponse:
+    return RedirectResponse(
+        f"/admin/workspaces/{_identifier(workspace_id)}",
+        status_code=303,
+        headers=dict(SECURITY_HEADERS),
+    )
 
 
 __all__ = ["AUDIT_PAGE_SIZE", "router"]

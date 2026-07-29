@@ -41,7 +41,7 @@ jobs:
           sudo apt-get install --yes
           libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install locked test environment
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --extra dev --extra sync-server
       - name: Run automated suite
         run: uv run pytest -q
 
@@ -62,7 +62,7 @@ jobs:
           sudo apt-get install --yes
           libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
       - name: Install locked quality environment
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --extra dev --extra sync-server
       - name: Check formatting
         run: uv run ruff format --check .
       - name: Lint and complexity
@@ -97,6 +97,42 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
           retention-days: 14
+
+  sync-service:
+    name: Sync service on PostgreSQL
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: mindgraph
+          POSTGRES_PASSWORD: mindgraph
+          POSTGRES_DB: mindgraph_sync
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mindgraph"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CMG_SYNC_TEST_DATABASE_URL: postgresql+asyncpg://mindgraph:mindgraph@localhost:5432/mindgraph_sync
+      CMG_SYNC_DATABASE_URL: postgresql+asyncpg://mindgraph:mindgraph@localhost:5432/mindgraph_sync
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install locked service environment
+        run: uv sync --frozen --extra dev --extra sync-server
+      - name: Apply migrations against PostgreSQL
+        run: >-
+          uv run alembic
+          -c src/collective_mindgraph/sync_server/migrations/alembic.ini
+          upgrade head
+      - name: Run the service suite against PostgreSQL
+        run: uv run pytest -q tests/test_sync_service_core.py
 
   package-smoke:
     name: Windows package smoke

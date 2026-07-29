@@ -15,28 +15,29 @@
 
 ## Current State
 
-- Stages 1 to 7 were squash-merged through PRs
+- Stages 1 to 8 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
   [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24),
   [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25),
   [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26),
+  [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27),
   and
-  [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27);
+  [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28);
   remote `main` is now
-  `119d916 feat: add comments, mentions, and workspace activity`.
-- Active branch: `feat/desktop-product-polish`, created directly from that
-  updated `origin/main`. It is stage 8 of the twelve-PR program documented in
+  `832c106 feat: add the theme layer, contrast gate, and opt-in telemetry`.
+- Active branch: `feat/knowledge-canvas-retrieval`, created directly from that
+  updated `origin/main`. It is stage 9 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 81.10% branch-inclusive coverage and 295
-  existing strict-mypy errors across the full production package. Stage 8
-  changed-line coverage is 100%. CI rejects coverage below 75%, changed
+- Current quality measurements are 81.41% branch-inclusive coverage and 295
+  existing strict-mypy errors across the full production package. Stage 9
+  changed-line coverage is 98%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
   transition exceptions after stage 2 split canonical data exchange.
@@ -181,6 +182,28 @@
   never existing. Restoring it is a release-gate prerequisite: a scanner that
   cannot run has not found nothing.
 
+## Search and Retrieval
+
+- Keyword search is FTS5 with BM25 ordering, replacing `LIKE` substring scans.
+  The `/api/v1` page contract is unchanged: ordering stays as it was, and
+  relevance ranking is exposed on `/api/v2/knowledge/search` instead.
+- `unicode61 remove_diacritics 2` folds ü, ö, ç, ş, ğ but **not** Turkish `ı`
+  and `İ`, which are separate letters rather than accented forms. Both the
+  index and the query fold them to plain `i`; a test pins this because without
+  it "farkli" never reaches "farklı".
+- Every query token is quoted, so user punctuation cannot become FTS5 syntax,
+  and a term-free query matches nothing rather than everything.
+- The index is a mirror kept current by triggers and rebuildable from the
+  table, so a corrupt index is repaired rather than migrated.
+- Hybrid retrieval fuses by rank, not score. With embeddings absent it degrades
+  to keyword-only. Ties break on identifier so ordering is reproducible.
+- Subgraph expansion is breadth-first, bounded by depth and by a 500-node cap
+  the caller cannot raise, and reports truncation instead of hiding it.
+- Layout is a pure function of node identifiers and edges, so the same graph
+  always draws identically and pinned nodes never move.
+- Still open from stage 9's scope: the native `QGraphicsScene` canvas widget
+  and the USearch ANN adapter.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -260,9 +283,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 8: `516 passed, 4 skipped`; skips require
+- Latest full automated run on stage 9: `544 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 81.10%; stage-8 changed production lines: 100%.
+- Branch-inclusive coverage: 81.41%; stage-9 changed production lines: 98%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -292,9 +315,7 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-8 hosted quality matrix, review, and squash PR.
-- Stage 9 is next: the native `QGraphicsScene` knowledge canvas, FTS5 keyword
-  search, and the local ANN plus reciprocal-rank-fusion retrieval work.
+- Finish the stage-9 hosted quality matrix, review, and squash PR.
 - Stages 10 to 12 depend on inputs this repository cannot supply. The model
   manager, packaging configuration, and load harness can all be built, but the
   WER/DER numbers need consented Turkish recordings, a signed MSIX needs a

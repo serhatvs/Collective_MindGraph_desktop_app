@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import UTC, datetime
 
+from .search_schema import install_search_index
 from .sqlite_database import SqliteDatabase
 from .sync_schema import upgrade_to_workspace_schema
 
@@ -215,6 +216,7 @@ def initialize_schema(database: SqliteDatabase) -> None:
         connection.executescript(SCHEMA_SQL)
         _upgrade_to_version_2(connection)
         upgrade_to_workspace_schema(connection)
+        install_search_index(connection)
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, applied_at),

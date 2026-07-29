@@ -15,8 +15,8 @@ remain runnable and reversible after each merge.
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`4bc49d3`) |
 | 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`88939d6`) |
 | 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Merged in PR [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27) (`119d916`) |
-| 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | In review |
-| 9 | `feat/knowledge-canvas-retrieval` | Native graph canvas, FTS5 and local ANN/RRF retrieval | Planned |
+| 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | Merged in PR [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28) (`832c106`) |
+| 9 | `feat/knowledge-canvas-retrieval` | FTS5, rank fusion, bounded subgraph and deterministic layout | In review |
 | 10 | `feat/audio-model-quality` | Signed model manager and evidence-based audio/retrieval gates | Planned |
 | 11 | `build/signed-msix-release` | Signed MSIX/App Installer and deployable self-host stack | Planned |
 | 12 | `release/production-v1-hardening` | Scale, clean-machine, restore, security and 1.0.0 gates | Planned |
@@ -150,6 +150,30 @@ this stage and stay open.
 - Redaction keeps only declared fields with declared types and drops everything
   else, so an undeclared field cannot leak by being forgotten. A test asserts
   the declared list contains no content-bearing name.
+
+## Delivered retrieval contract
+
+Stage 9 delivers the engine side of the canvas and retrieval work. The native
+`QGraphicsScene` view and the USearch ANN adapter are **not** in this stage and
+stay open; everything the canvas needs from the engine is here.
+
+- Keyword search moved from `LIKE` substring scans to FTS5 with BM25 ordering.
+- `unicode61` folds ü, ö, ç, ş, and ğ, but Turkish dotless `ı` and dotted `İ`
+  are letters rather than accented forms, so it leaves them alone. Both the
+  index and the query fold them to plain `i`; without that, a search for
+  "farkli" would never reach "farklı" in a Turkish-first product.
+- Every query token is quoted, so punctuation a user typed cannot become FTS5
+  syntax. A query with no searchable term matches nothing rather than
+  everything.
+- The index is a mirror, never a source of truth: triggers keep it current and
+  it rebuilds from the table, so a corrupt index is repaired, not migrated.
+- Hybrid retrieval fuses by rank, not score, so a keyword engine and a vector
+  engine contribute comparably. With embeddings absent it degrades to keyword
+  only rather than failing.
+- Subgraph expansion is breadth-first and bounded twice, by depth and by a
+  500-node cap the caller cannot raise. Truncation is reported, not hidden.
+- Layout is a pure function of identifiers and edges, so the same graph always
+  draws the same picture and a bug report is reproducible.
 
 ## Release gates
 

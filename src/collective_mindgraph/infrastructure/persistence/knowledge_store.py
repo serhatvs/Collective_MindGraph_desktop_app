@@ -21,6 +21,7 @@ from collective_mindgraph.domain import (
 )
 
 from .row_mapping import dump_json, load_object, parse_timestamp
+from .search_schema import node_match_clause
 from .sqlite_database import SqliteDatabase
 from .sqlite_pagination import decode_offset, encode_offset
 
@@ -42,8 +43,13 @@ class SqliteKnowledgeGraphStore:
         parameters: list[object] = []
         normalized = query.strip()
         if normalized:
-            clauses.append("(title LIKE ? OR body LIKE ?)")
-            parameters.extend((f"%{normalized}%", f"%{normalized}%"))
+            # FTS5 matches prefixes and folds Turkish letters, so "karar"
+            # reaches "kararı" where a LIKE substring scan could not. Ordering
+            # is unchanged, so the v1 page contract still holds; relevance
+            # ranking is exposed on the v2 search endpoint instead.
+            clause, values = node_match_clause(normalized)
+            clauses.append(clause)
+            parameters.extend(values)
         if meeting_id is not None:
             clauses.append("meeting_id = ?")
             parameters.append(int(meeting_id))

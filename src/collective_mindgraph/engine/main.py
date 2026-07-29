@@ -21,7 +21,7 @@ from collective_mindgraph.engine.logging import configure_logging
 
 from .api.routes import router as compatibility_router
 from .api.v1 import router as product_router
-from .api.v2 import collaboration_router, sync_router
+from .api.v2 import collaboration_router, knowledge_router, sync_router
 from .api.ws import router as compatibility_websocket_router
 from .context import build_engine_context
 from .settings import EngineSettings, get_engine_settings
@@ -60,6 +60,7 @@ def create_app(settings: EngineSettings | None = None) -> FastAPI:
     application.include_router(product_router)
     application.include_router(sync_router)
     application.include_router(collaboration_router)
+    application.include_router(knowledge_router)
     application.include_router(compatibility_router)
     application.include_router(compatibility_websocket_router)
 

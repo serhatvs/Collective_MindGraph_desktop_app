@@ -82,6 +82,12 @@
   "/api/v2/collaboration/{workspace_id}/mentions": [
     "get"
   ],
+  "/api/v2/knowledge/search": [
+    "get"
+  ],
+  "/api/v2/knowledge/subgraph/{root_id}": [
+    "get"
+  ],
   "/api/v2/sync/conflicts/{conflict_id}/resolve": [
     "post"
   ],

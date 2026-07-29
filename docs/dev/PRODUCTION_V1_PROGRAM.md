@@ -9,8 +9,8 @@ remain runnable and reversible after each merge.
 | Stage | Branch | Outcome | Status |
 | --- | --- | --- | --- |
 | 1 | `chore/production-quality-baseline` | Locked dependencies, CI, quality/security ratchets, SBOM and package smoke | Merged in PR [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15) (`4ee7949`) |
-| 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) |
-| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Planned |
+| 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Merged in PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) (`1762b93`) |
+| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | In review |
 | 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Planned |
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Planned |
 | 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Planned |
@@ -34,6 +34,24 @@ remain runnable and reversible after each merge.
   integrity/foreign-key/count validation, and atomic activation.
 - Raw-audio sync and content-free telemetry are separately opt-in and default
   to off. Model downloads always require explicit approval.
+
+## Delivered cryptography contract
+
+Stage 3 fixes the encryption contract every later stage depends on. Details and
+the independent-reviewer checklist live in `CRYPTO_THREAT_MODEL.md`.
+
+- Content uses AES-256-GCM. Associated data binds workspace, object type,
+  object UUID, revision, and key version with length-prefixed fields.
+- Workspace keys are wrapped per recipient with ephemeral X25519 and
+  HKDF-SHA256; the derivation info also authenticates the envelope.
+- Recovery uses a 256-bit Crockford base32 code with a checksum and scrypt
+  derivation. The code is displayed once and never persisted.
+- Device private keys live in a `DeviceSecretStore` outside SQLite, sealed with
+  Windows DPAPI under the current user account.
+- Removing a device revokes its envelopes and rotates the key. Rotation
+  protects future content only and cannot recall already decrypted content.
+- Primitive behaviour is pinned by RFC 7748, RFC 5869, and published AES-GCM
+  specification vectors.
 
 ## Release gates
 

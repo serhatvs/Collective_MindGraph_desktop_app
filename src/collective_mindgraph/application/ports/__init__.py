@@ -1,6 +1,7 @@
 """Dependency ports implemented by infrastructure adapters."""
 
 from .audio import PcmAudioNormalizer
+from .crypto import ContentCipher, DeviceSecretStore, KeyEnvelopeStore, KeyWrapper
 from .embedding_store import EmbeddingMatch, EmbeddingStore
 from .job_store import JobStore
 from .knowledge_store import InsightStore, KnowledgeGraphStore
@@ -12,10 +13,14 @@ from .transcription_configuration import TranscriptionConfiguration
 from .workspace_store import SyncIdentityStore, WorkspaceStore
 
 __all__ = [
+    "ContentCipher",
+    "DeviceSecretStore",
     "EmbeddingMatch",
     "EmbeddingStore",
     "InsightStore",
     "JobStore",
+    "KeyEnvelopeStore",
+    "KeyWrapper",
     "KnowledgeGraphStore",
     "LocalLanguageModel",
     "MeetingStore",

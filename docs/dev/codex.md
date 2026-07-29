@@ -132,7 +132,7 @@
 
 ## Verification
 
-- Latest full automated run on stage 2: `323 passed, 4 skipped`; skips require
+- Latest full automated run on stage 2: `324 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
 - Branch-inclusive coverage: 76.66%; stage-2 changed production lines: 99%.
 - Ruff format/lint, complexity ratchet, 400-line architecture policy,

@@ -16,6 +16,7 @@ from .knowledge_store import SqliteKnowledgeGraphStore
 from .legacy_migration import LegacyDataMigrator, MigrationReport
 from .legacy_source_discovery import LegacySourceCandidates, discover_legacy_sources
 from .meeting_store import SqliteMeetingStore
+from .outbox_store import SqliteOutboxStore
 from .recording_store import SqliteRecordingStore
 from .sqlite_database import SqliteDatabase
 from .transcript_store import SqliteTranscriptStore
@@ -41,6 +42,7 @@ __all__ = [
     "SqliteKeyEnvelopeStore",
     "SqliteKnowledgeGraphStore",
     "SqliteMeetingStore",
+    "SqliteOutboxStore",
     "SqliteRecordingStore",
     "SqliteTranscriptStore",
     "SqliteWorkspaceStore",

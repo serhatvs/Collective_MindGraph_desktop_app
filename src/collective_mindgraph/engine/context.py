@@ -16,6 +16,7 @@ from collective_mindgraph.application import (
     UpdateTranscriptSegment,
 )
 from collective_mindgraph.application.security import WorkspaceKeyService
+from collective_mindgraph.application.sync import SyncAgent
 from collective_mindgraph.application.transcription.build_quality_report import (
     BuildTranscriptQualityReport,
 )
@@ -41,6 +42,7 @@ from collective_mindgraph.infrastructure.persistence import (
     SqliteKeyEnvelopeStore,
     SqliteKnowledgeGraphStore,
     SqliteMeetingStore,
+    SqliteOutboxStore,
     SqliteRecordingStore,
     SqliteTranscriptStore,
     SqliteWorkspaceStore,
@@ -78,6 +80,8 @@ class EngineContext:
     workspaces: SqliteWorkspaceStore
     key_envelopes: SqliteKeyEnvelopeStore
     workspace_keys: WorkspaceKeyService
+    outbox: SqliteOutboxStore
+    sync_agent: SyncAgent | None
     create_meeting: CreateMeeting
     get_meeting: GetMeeting
     list_meetings: ListMeetings
@@ -151,6 +155,7 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
     )
     workspaces = SqliteWorkspaceStore(database)
     key_envelopes = SqliteKeyEnvelopeStore(database)
+    outbox = SqliteOutboxStore(database)
     workspace_keys = WorkspaceKeyService(
         envelopes=key_envelopes,
         device_secrets=create_device_secret_store(settings.data_dir / "device_secrets"),
@@ -198,6 +203,10 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         workspaces=workspaces,
         key_envelopes=key_envelopes,
         workspace_keys=workspace_keys,
+        outbox=outbox,
+        # The agent is installed once a workspace is signed in; local-only use
+        # never needs one and must not be blocked by its absence.
+        sync_agent=None,
         create_meeting=CreateMeeting(meetings),
         get_meeting=GetMeeting(meetings),
         list_meetings=ListMeetings(meetings),

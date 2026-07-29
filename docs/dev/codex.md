@@ -15,25 +15,26 @@
 
 ## Current State
 
-- Stages 1 to 4 were squash-merged through PRs
+- Stages 1 to 5 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
+  [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24),
   and
-  [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24);
+  [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25);
   remote `main` is now
-  `2c85c5c feat: add the content-free synchronization service`.
-- Active branch: `feat/oidc-rbac-admin`, created directly from that updated
-  `origin/main`. It is stage 5 of the twelve-PR program documented in
+  `d563aba feat: make identity provider-independent OIDC and add the admin surface`.
+- Active branch: `feat/desktop-sync-client`, created directly from that updated
+  `origin/main`. It is stage 6 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 80.12% branch-inclusive coverage and 298
-  existing strict-mypy errors across the full production package. Stage 5
-  changed-line coverage is 97%. CI rejects coverage below 75%, changed
+- Current quality measurements are 80.67% branch-inclusive coverage and 298
+  existing strict-mypy errors across the full production package. Stage 6
+  changed-line coverage is 98%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
   transition exceptions after stage 2 split canonical data exchange.
@@ -114,6 +115,25 @@
   Repository behaviour is therefore asserted by async tests on the test's own
   event loop, with the HTTP module covering the wire contract.
 
+## Desktop Synchronization Client
+
+- Stage 6 puts the sync agent inside the engine. The desktop reaches the cloud
+  only through localhost `/api/v2/sync` and owns no cursor or queue.
+- `SqliteOutboxStore` is a transactional outbox that survives restart.
+  Enqueueing uses `INSERT OR IGNORE`, so a retry after a crash cannot duplicate
+  work through either the operation id or the revision constraint.
+- A pass pushes everything queued, then pulls one page. A rejected change opens
+  a conflict instead of overwriting, and the rejected operation leaves the queue
+  for the conflict inbox.
+- Resolutions are local, remote, or merged. Local and merged re-queue on top of
+  the revision the service reported; remote just closes the conflict.
+- Transient failures back off and never drop queued work; a refusal such as a
+  removed membership is surfaced with its reason instead of stalling silently.
+  When an error is recorded the status reports `offline` even with work queued,
+  because reporting `pushing` would imply progress that is not happening.
+- `/api/v2/sync` added exactly four OpenAPI paths; no `/api/v1` path changed,
+  and `tests/fixtures/golden/openapi_surface.json` records the difference.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -193,9 +213,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 5: `454 passed, 4 skipped`; skips require
+- Latest full automated run on stage 6: `481 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 80.12%; stage-5 changed production lines: 97%.
+- Branch-inclusive coverage: 80.67%; stage-6 changed production lines: 98%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -225,11 +245,11 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-5 hosted quality matrix, review, and squash PR.
-- After stage 5 merges, start `feat/desktop-sync-client` from the new `main`:
-  the engine-owned sync agent, transactional outbox push, cursor pull,
-  WebSocket invalidation with bounded polling, backoff, and the conflict inbox.
-- Stages 6 to 12 remain: collaboration UX, desktop polish and themes, the
+- Finish the stage-6 hosted quality matrix, review, and squash PR.
+- The agent is wired into the engine context as `sync_agent = None`; stage 7
+  installs a real one once a workspace is signed in, and adds the desktop
+  workspace switcher, activity feed, comments, and conflict centre.
+- Stages 7 to 12 remain: collaboration UX, desktop polish and themes, the
   knowledge canvas and retrieval work, audio and model quality gates, the
   signed MSIX release, and 1.0.0 hardening.
 - Keep the sync server free of any ability to decrypt: it stores sealed bytes,

@@ -69,11 +69,12 @@ analysis = Analysis(
     noarchive=False,
 )
 pyz = PYZ(analysis.pure)
+# A one-file build unpacks to a temporary directory on every launch, which is
+# slow and leaves an update with nothing stable to replace. MSIX wants a
+# directory it can swap atomically, so the bundle is onedir.
 exe = EXE(
     pyz,
     analysis.scripts,
-    analysis.binaries,
-    analysis.datas,
     [],
     name="CollectiveMindGraph",
     debug=False,
@@ -89,4 +90,15 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=None,
+)
+
+# The onedir bundle is the unit MSIX packages and App Installer replaces.
+collection = COLLECT(
+    exe,
+    analysis.binaries,
+    analysis.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="CollectiveMindGraph",
 )

@@ -15,7 +15,7 @@
 
 ## Current State
 
-- Stages 1 to 9 were squash-merged through PRs
+- Stages 1 to 10 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
@@ -24,12 +24,13 @@
   [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26),
   [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27),
   [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28),
+  [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29),
   and
-  [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29);
+  [#30](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/30);
   remote `main` is now
-  `89966d4 feat: add FTS5 search, rank fusion, bounded subgraphs, and deterministic layout`.
-- Active branch: `feat/audio-model-quality`, created directly from that updated
-  `origin/main`. It is stage 10 of the twelve-PR program documented in
+  `6d8f2b5 feat: add the signed model manager and evidence-based release gates`.
+- Active branch: `build/signed-msix-release`, created directly from that updated
+  `origin/main`. It is stage 11 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
@@ -225,6 +226,21 @@
 - The measured WER, DER, and retrieval numbers themselves cannot be produced
   here: they need the consented Turkish corpus listed as an external input.
 
+## Release Packaging
+
+- The bundle is **onedir**, documented in `docs/dev/RELEASE_PACKAGING.md`. The
+  Windows smoke now runs `dist/CollectiveMindGraph/CollectiveMindGraph.exe`.
+- `scripts/packaging/generate_release_manifests.py` renders `AppxManifest.xml`,
+  the App Installer 2021 feed, and `SHA256SUMS` from the project version so the
+  three cannot drift apart. Stable and beta are separate feeds.
+- The generator prints `UNSIGNED` every run and a test asserts it. Signing needs
+  a certificate this repository does not hold, and the manifest publisher must
+  equal the certificate subject exactly or Windows refuses to install.
+- Still open: signing, the Helm chart, OpenTelemetry, PITR and restore runbooks,
+  and the EULA, privacy policy, DPA, and NOTICE, which need legal review.
+- `SECURITY.md` states the reporting route, the deliberate non-goals, and the
+  current gaps, including that CodeQL and dependency review cannot run here.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -304,9 +320,10 @@
 
 ## Verification
 
-- Latest full automated run on stage 10: `566 passed, 4 skipped`; skips require
+- Latest full automated run on stage 11: `579 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 81.73%; stage-10 changed production lines: 98%.
+- Branch-inclusive coverage: measured on the coverage job; stage-11 changed
+  production lines are reported by the PR.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.

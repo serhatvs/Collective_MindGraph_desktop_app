@@ -9,7 +9,7 @@ remain runnable and reversible after each merge.
 | Stage | Branch | Outcome | Status |
 | --- | --- | --- | --- |
 | 1 | `chore/production-quality-baseline` | Locked dependencies, CI, quality/security ratchets, SBOM and package smoke | Merged in PR [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15) (`4ee7949`) |
-| 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Active |
+| 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Draft PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) |
 | 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Planned |
 | 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Planned |
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Planned |

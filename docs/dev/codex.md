@@ -21,6 +21,10 @@
 - Active branch: `refactor/workspace-sync-identities`, created directly from
   that updated `origin/main`. It is stage 2 of the twelve-PR program documented
   in `docs/dev/PRODUCTION_V1_PROGRAM.md`.
+- Draft delivery
+  [PR #21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21)
+  targets `main`; hosted validation and review must be clean before it is
+  marked ready and squash-merged.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,

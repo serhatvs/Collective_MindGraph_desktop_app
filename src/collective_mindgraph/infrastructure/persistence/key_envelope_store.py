@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 
 from collective_mindgraph.domain import DeviceKey, DeviceTrust, KeyEnvelope
 from collective_mindgraph.domain.identifiers import DeviceId, EnvelopeId, WorkspaceId
@@ -23,6 +23,7 @@ class SqliteKeyEnvelopeStore:
     def register_device(self, device: DeviceKey) -> None:
         """Insert or update one device identity without touching current-ness."""
 
+        updated_at = datetime.now(tz=UTC).isoformat()
         with self._database.connect() as connection:
             connection.execute(
                 """
@@ -46,7 +47,7 @@ class SqliteKeyEnvelopeStore:
                     device.trust.value,
                     device.revoked_at.isoformat() if device.revoked_at else None,
                     device.created_at.isoformat(),
-                    device.created_at.isoformat(),
+                    updated_at,
                 ),
             )
 

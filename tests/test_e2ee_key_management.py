@@ -742,7 +742,15 @@ def test_store_persists_devices_without_disturbing_current_device(database: Sqli
     renamed = store.get_device(current)
     assert renamed is not None
     assert renamed.name == "Renamed device"
+    # Upserting preserves the enrollment time and advances the update time.
+    assert renamed.created_at == stored.created_at
     assert store.current_device_id() == current
+    with database.connect() as connection:
+        row = connection.execute(
+            "SELECT created_at, updated_at FROM devices WHERE id = ?",
+            (str(current),),
+        ).fetchone()
+    assert row["updated_at"] > row["created_at"]
 
 
 def test_store_replaces_envelopes_and_tracks_revocation(database: SqliteDatabase):

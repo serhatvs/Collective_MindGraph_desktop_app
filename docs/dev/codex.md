@@ -15,24 +15,25 @@
 
 ## Current State
 
-- Stages 1 to 3 were squash-merged through PRs
+- Stages 1 to 4 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
+  [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
   and
-  [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23);
+  [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24);
   remote `main` is now
-  `883dfdb feat: add end-to-end workspace key management`.
-- Active branch: `feat/sync-service-core`, created directly from that updated
-  `origin/main`. It is stage 4 of the twelve-PR program documented in
+  `2c85c5c feat: add the content-free synchronization service`.
+- Active branch: `feat/oidc-rbac-admin`, created directly from that updated
+  `origin/main`. It is stage 5 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 77.72% branch-inclusive coverage and 298
-  existing strict-mypy errors across the full production package. Stage 3
-  changed-line coverage is 99%. CI rejects coverage below 75%, changed
+- Current quality measurements are 80.12% branch-inclusive coverage and 298
+  existing strict-mypy errors across the full production package. Stage 5
+  changed-line coverage is 97%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
   transition exceptions after stage 2 split canonical data exchange.
@@ -95,8 +96,17 @@
   react by pulling through the authorized path.
 - Raw-audio blobs are opt-in per workspace, chunked, resumable, and verified per
   chunk and again on reassembly against the client-declared digest.
-- Identity is a documented bootstrap bearer-token resolver until stage 5 brings
-  OIDC. Roles are already enforced on every route.
+- Identity is provider-independent OIDC. Tokens are verified against the
+  provider JWKS, issuer, and audience, and only asymmetric algorithms are
+  accepted, so `alg: none` and symmetric tokens are refused. The bootstrap
+  token resolver survives for self-host first run and tests only; without OIDC
+  the service warns at startup and admin sign-in returns 401.
+- The desktop signs in through the system browser with PKCE S256 and a
+  loopback redirect on a request-time port, per RFC 8252 and RFC 7636.
+- `/admin` renders membership, device, quota, and audit metadata only. It
+  completes its code flow server-side, uses signed HttpOnly session cookies,
+  CSRF tokens, and per-identity rate limits, and ships no JavaScript, which
+  allows a `default-src 'none'` policy instead of the planned vendored HTMX.
 - Alembic revision scripts are omitted from coverage because Alembic loads them
   through `exec()`; `tests/test_sync_operations_cli.py` runs a real upgrade and
   downgrade instead, and CI repeats the migration on PostgreSQL.
@@ -183,10 +193,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 4: `414 passed, 4 skipped`; skips require
+- Latest full automated run on stage 5: `454 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 79.40%; stage-4 changed production lines: 99%.
-  The `sync_server` package alone measures 94.7%.
+- Branch-inclusive coverage: 80.12%; stage-5 changed production lines: 97%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -216,9 +225,12 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-4 hosted quality matrix, review, and squash PR.
-- After stage 4 merges, start `feat/oidc-rbac-admin` from the new `main`:
-  replace the bootstrap token resolver with Authorization Code + PKCE S256 over
-  a loopback callback, and add the content-free Jinja/HTMX admin surface.
+- Finish the stage-5 hosted quality matrix, review, and squash PR.
+- After stage 5 merges, start `feat/desktop-sync-client` from the new `main`:
+  the engine-owned sync agent, transactional outbox push, cursor pull,
+  WebSocket invalidation with bounded polling, backoff, and the conflict inbox.
+- Stages 6 to 12 remain: collaboration UX, desktop polish and themes, the
+  knowledge canvas and retrieval work, audio and model quality gates, the
+  signed MSIX release, and 1.0.0 hardening.
 - Keep the sync server free of any ability to decrypt: it stores sealed bytes,
   routing metadata, and audit records only.

@@ -619,6 +619,8 @@ local-ai = [
 sync-server = [
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "jinja2" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "sqlalchemy", extra = ["asyncio"] },
 ]
 transcription = [
@@ -646,12 +648,14 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "huggingface-hub", marker = "extra == 'transcription'", specifier = ">=1.5,<2.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.135,<7.0" },
+    { name = "jinja2", marker = "extra == 'sync-server'", specifier = ">=3.1,<4.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.15,<2.0" },
     { name = "numpy", specifier = ">=1.26,<2.4" },
     { name = "pip-audit", marker = "extra == 'dev'", specifier = ">=2.9,<3.0" },
     { name = "pyannote-audio", marker = "extra == 'transcription'", specifier = ">=3.3,<4.0" },
     { name = "pydantic", specifier = ">=2.11,<3.0" },
     { name = "pyinstaller", marker = "extra == 'build'", specifier = ">=6.12,<7.0" },
+    { name = "pyjwt", extras = ["crypto"], marker = "extra == 'sync-server'", specifier = ">=2.10,<3.0" },
     { name = "pyside6", specifier = ">=6.8,<6.9" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3,<10.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=1.0,<2.0" },
@@ -3497,6 +3501,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/94/5b/c9fe0db5e83ee1c39b2258fa21d23b15e1a60786b6c5990ee5074ead8bb6/pyinstaller_hooks_contrib-2026.6.tar.gz", hash = "sha256:bef5002c32f4f50bd55b005da12cff64eca8783e7eaf86a06a62410164bab725", size = 173354, upload-time = "2026-06-08T22:37:16.152Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/31/f2d7343d8ed5f7c4678377886f6ce533e6eaaa131b252ce950114c2a7efa/pyinstaller_hooks_contrib-2026.6-py3-none-any.whl", hash = "sha256:fd13b8ac126b35361175edacd41a0d97080b75dd5f4b594ecefefff969509dd3", size = 457159, upload-time = "2026-06-08T22:37:14.722Z" },
+]
+
+[[package]]
+name = "pyjwt"
+version = "2.13.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
+]
+
+[package.optional-dependencies]
+crypto = [
+    { name = "cryptography" },
 ]
 
 [[package]]

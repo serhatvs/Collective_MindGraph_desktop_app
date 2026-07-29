@@ -1,0 +1,56 @@
+# Self-host example. Supply real secrets through your own secret manager;
+# the values below are placeholders and must not be used in production.
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mindgraph
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: mindgraph_sync
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mindgraph"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: deploy/sync-server/Dockerfile
+    entrypoint:
+      - alembic
+      - -c
+      - /usr/local/lib/python3.13/site-packages/collective_mindgraph/sync_server/migrations/alembic.ini
+      - upgrade
+      - head
+    environment:
+      CMG_SYNC_DATABASE_URL: postgresql+asyncpg://mindgraph:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/mindgraph_sync
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  sync:
+    build:
+      context: ../..
+      dockerfile: deploy/sync-server/Dockerfile
+    environment:
+      CMG_SYNC_DATABASE_URL: postgresql+asyncpg://mindgraph:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/mindgraph_sync
+      CMG_SYNC_BLOB_ROOT: /var/lib/mindgraph/blobs
+      # Bootstrap credentials only. Replace with OIDC before public use.
+      CMG_SYNC_BOOTSTRAP_TOKENS: ${CMG_SYNC_BOOTSTRAP_TOKENS:?set CMG_SYNC_BOOTSTRAP_TOKENS}
+      CMG_SYNC_LOG_LEVEL: info
+    volumes:
+      - blob-data:/var/lib/mindgraph/blobs
+    ports:
+      - "127.0.0.1:8443:8443"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  blob-data:

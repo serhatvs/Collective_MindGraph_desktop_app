@@ -10,8 +10,8 @@ remain runnable and reversible after each merge.
 | --- | --- | --- | --- |
 | 1 | `chore/production-quality-baseline` | Locked dependencies, CI, quality/security ratchets, SBOM and package smoke | Merged in PR [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15) (`4ee7949`) |
 | 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Merged in PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) (`1762b93`) |
-| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | In review |
-| 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Planned |
+| 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Merged in PR [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23) (`883dfdb`) |
+| 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | In review |
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Planned |
 | 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Planned |
 | 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Planned |
@@ -52,6 +52,25 @@ the independent-reviewer checklist live in `CRYPTO_THREAT_MODEL.md`.
   protects future content only and cannot recall already decrypted content.
 - Primitive behaviour is pinned by RFC 7748, RFC 5869, and published AES-GCM
   specification vectors.
+
+## Delivered service contract
+
+Stage 4 adds `collective_mindgraph.sync_server`, a separate deployable that the
+architecture rules forbid from importing the desktop, the local engine, or local
+persistence. Details live in `SYNC_SERVICE.md`.
+
+- Push batches are capped at 500 operations and 4 MiB, applied in one
+  transaction, and made idempotent by client-generated operation identifiers.
+- Writes are optimistic: a stale `base_revision` becomes a reported conflict,
+  never a silent overwrite, and a replayed conflict returns the same answer.
+- Pull is ordered by a per-workspace cursor claimed under a row lock.
+- WebSocket invalidations carry a workspace identifier and a cursor only.
+- Raw-audio blobs stay opt-in per workspace, upload in resumable chunks, and are
+  verified per chunk and again on reassembly against the declared digest.
+- Retention is enforced by `mindgraph-admin purge`: content 30 days, audit and
+  tombstone metadata 90 days, encrypted backup and PITR data 35 days.
+- Identity is a documented bootstrap resolver until stage 5 introduces OIDC;
+  roles are already enforced on every route.
 
 ## Release gates
 

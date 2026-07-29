@@ -46,6 +46,8 @@ Collective-MindGraph-2/
 | Workspace key lifecycle use cases | `src/collective_mindgraph/application/security/` |
 | Content cipher, key wrapping, and device secrets | `src/collective_mindgraph/infrastructure/security/` |
 | Composition, settings, FastAPI, and engine CLI | `src/collective_mindgraph/engine/` |
+| Content-free synchronization service and its CLIs | `src/collective_mindgraph/sync_server/` |
+| Self-host image and Compose example | `deploy/sync-server/` |
 | Typed engine client and PySide6 product shell | `src/collective_mindgraph/desktop/` |
 | Annotation dataset, experiments, export, and UI | `src/collective_mindgraph/tooling/transcript_annotation/` |
 | Reference WER/CER and domain-term evaluation | `src/collective_mindgraph/application/transcription/evaluation/` |

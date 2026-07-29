@@ -15,7 +15,7 @@
 
 ## Current State
 
-- Stages 1 to 10 were squash-merged through PRs
+- Stages 1 to 11 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
@@ -25,13 +25,14 @@
   [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27),
   [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28),
   [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29),
+  [#30](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/30),
   and
-  [#30](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/30);
+  [#31](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/31);
   remote `main` is now
-  `6d8f2b5 feat: add the signed model manager and evidence-based release gates`.
-- Active branch: `build/signed-msix-release`, created directly from that updated
-  `origin/main`. It is stage 11 of the twelve-PR program documented in
-  `docs/dev/PRODUCTION_V1_PROGRAM.md`.
+  `53e12b5 build: package as a onedir bundle with generated MSIX manifests`.
+- Active branch: `release/production-v1-hardening`, created directly from that
+  updated `origin/main`. It is stage 12, the final stage of the twelve-PR
+  program documented in `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
@@ -241,6 +242,23 @@
 - `SECURITY.md` states the reporting route, the deliberate non-goals, and the
   current gaps, including that CodeQL and dependency review cannot run here.
 
+## Rollout and Release Readiness
+
+- Flags follow the fixed order schema, crypto, sync, collaboration, graph,
+  telemetry. Each rolls back on its own, and rolling back a dependency takes its
+  dependants with it. Graph and telemetry do not depend on the cloud.
+- Migration sits outside the flag set and a test asserts the schema module never
+  consults one; otherwise a rollback would leave the database ahead of the code.
+- `application/release/readiness.py` decides whether `1.0.0` may ship. It
+  refuses on anything unmeasured, unsigned, unreviewed, or unavailable, and
+  separates internal blockers from external ones.
+- **Running it today returns 18 blockers: 8 internal, 10 external.** Seven
+  quality gates unevaluated, five performance budgets unmeasured, scanners
+  unavailable, artefacts unsigned, four external inputs absent. Do not report
+  the release as ready; report this list.
+- Keyword search p95 is genuinely measured against its 200 ms budget over 2,000
+  indexed nodes. The other budgets need a running deployment or a GUI.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -320,7 +338,7 @@
 
 ## Verification
 
-- Latest full automated run on stage 11: `579 passed, 4 skipped`; skips require
+- Latest full automated run on stage 12: `593 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
 - Branch-inclusive coverage: measured on the coverage job; stage-11 changed
   production lines are reported by the PR.
@@ -353,7 +371,8 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-9 hosted quality matrix, review, and squash PR.
+- Finish the stage-12 hosted quality matrix, review, and squash PR. That
+  completes the twelve-PR programme as far as this repository can take it.
 - Stages 10 to 12 depend on inputs this repository cannot supply. The model
   manager, packaging configuration, and load harness can all be built, but the
   WER/DER numbers need consented Turkish recordings, a signed MSIX needs a

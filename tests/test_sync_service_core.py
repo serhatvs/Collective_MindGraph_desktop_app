@@ -227,7 +227,7 @@ def test_unauthenticated_requests_are_rejected(client: TestClient):
 def test_health_reports_limits_without_tenant_detail(client: TestClient):
     payload = client.get("/sync/v1/health").json()
     assert payload["status"] == "ok"
-    assert payload["database"] == "sqlite"
+    assert payload["database"] == ("postgresql" if POSTGRES_URL else "sqlite")
     assert payload["push_operation_limit"] == 500
     assert payload["push_byte_limit"] == 4 * 1024 * 1024
     assert payload["blob_chunk_bytes"] == 8 * 1024 * 1024

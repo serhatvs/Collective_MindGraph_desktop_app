@@ -46,9 +46,21 @@ def test_dependency_direction_is_enforced():
             "collective_mindgraph.engine",
             "collective_mindgraph.desktop",
         ),
-        "infrastructure": ("collective_mindgraph.engine", "collective_mindgraph.desktop"),
-        "engine": ("collective_mindgraph.desktop",),
-        "desktop": ("collective_mindgraph.engine",),
+        "infrastructure": (
+            "collective_mindgraph.engine",
+            "collective_mindgraph.desktop",
+            "collective_mindgraph.sync_server",
+        ),
+        "engine": ("collective_mindgraph.desktop", "collective_mindgraph.sync_server"),
+        "desktop": ("collective_mindgraph.engine", "collective_mindgraph.sync_server"),
+        # The service is a separate deployable. It must never import the
+        # desktop, the local engine, or local persistence adapters, so that it
+        # cannot acquire the ability to read plaintext.
+        "sync_server": (
+            "collective_mindgraph.desktop",
+            "collective_mindgraph.engine",
+            "collective_mindgraph.infrastructure",
+        ),
     }
     violations: list[str] = []
     for layer, prefixes in forbidden.items():

@@ -15,14 +15,15 @@
 
 ## Current State
 
-- Stages 1 and 2 were squash-merged through
-  [PR #15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
+- Stages 1 to 3 were squash-merged through PRs
+  [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
+  [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   and
-  [PR #21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21);
+  [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23);
   remote `main` is now
-  `1762b93 refactor: establish workspace sync identities`.
-- Active branch: `feat/e2ee-key-management`, created directly from that updated
-  `origin/main`. It is stage 3 of the twelve-PR program documented in
+  `883dfdb feat: add end-to-end workspace key management`.
+- Active branch: `feat/sync-service-core`, created directly from that updated
+  `origin/main`. It is stage 4 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
@@ -74,6 +75,34 @@
   `HOME` for the whole session. Without it, any test constructing
   `EngineSettings` without an explicit `database_path` reads and writes the
   developer's installed database.
+
+## Synchronization Service
+
+- Stage 4 adds `collective_mindgraph.sync_server`, documented in
+  `docs/dev/SYNC_SERVICE.md`. It is a separate deployable, and the architecture
+  rules forbid it from importing desktop, engine, or local persistence code so
+  that it cannot acquire the ability to read plaintext.
+- Storage is SQLAlchemy 2.x Core over PostgreSQL (asyncpg) with Alembic. Tests
+  run against SQLite by default; setting `CMG_SYNC_TEST_DATABASE_URL` points the
+  same suite at PostgreSQL, which the dedicated CI job does after migrating.
+- Push is optimistic and idempotent: batches cap at 500 operations and 4 MiB,
+  a client-generated `operation_id` makes replays return the original outcome,
+  and a stale `base_revision` becomes a reported conflict rather than an
+  overwrite. A batch is one transaction; mixed outcomes are expected.
+- Pull is ordered by a per-workspace cursor row claimed under a row lock, so the
+  counter row is created with the workspace instead of racing on first push.
+- WebSocket invalidations carry `{workspace_id, cursor}` only; clients always
+  react by pulling through the authorized path.
+- Raw-audio blobs are opt-in per workspace, chunked, resumable, and verified per
+  chunk and again on reassembly against the client-declared digest.
+- Identity is a documented bootstrap bearer-token resolver until stage 5 brings
+  OIDC. Roles are already enforced on every route.
+- Alembic revision scripts are omitted from coverage because Alembic loads them
+  through `exec()`; `tests/test_sync_operations_cli.py` runs a real upgrade and
+  downgrade instead, and CI repeats the migration on PostgreSQL.
+- Coverage does not trace code executed inside the `TestClient` portal thread.
+  Repository behaviour is therefore asserted by async tests on the test's own
+  event loop, with the HTTP module covering the wire contract.
 
 ## Architecture and Runtime
 
@@ -154,11 +183,10 @@
 
 ## Verification
 
-- Latest full automated run on stage 3: `361 passed, 4 skipped`; skips require
+- Latest full automated run on stage 4: `414 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 77.72%; stage-3 changed production lines: 99%.
-  The single uncovered changed line is the POSIX permission call, which the
-  Linux coverage job exercises instead.
+- Branch-inclusive coverage: 79.40%; stage-4 changed production lines: 99%.
+  The `sync_server` package alone measures 94.7%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -188,9 +216,9 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-3 hosted quality matrix, review, and squash PR.
-- After stage 3 merges, start `feat/sync-service-core` from the new `main`:
-  the opaque PostgreSQL/S3 sync runtime, cursor push/pull, blob manifests,
-  and the retention windows already fixed by the program document.
+- Finish the stage-4 hosted quality matrix, review, and squash PR.
+- After stage 4 merges, start `feat/oidc-rbac-admin` from the new `main`:
+  replace the bootstrap token resolver with Authorization Code + PKCE S256 over
+  a loopback callback, and add the content-free Jinja/HTMX admin surface.
 - Keep the sync server free of any ability to decrypt: it stores sealed bytes,
   routing metadata, and audit records only.

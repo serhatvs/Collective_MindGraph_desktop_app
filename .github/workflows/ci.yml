@@ -131,8 +131,15 @@ jobs:
           uv run alembic
           -c src/collective_mindgraph/sync_server/migrations/alembic.ini
           upgrade head
+      # The service must run headless. Disabling the Qt plugin keeps this job
+      # free of any GUI toolkit, so a missing Qt runtime would be a real
+      # failure rather than something the job installs around.
       - name: Run the service suite against PostgreSQL
-        run: uv run pytest -q tests/test_sync_service_core.py
+        run: >-
+          uv run pytest -q -p no:qt
+          tests/test_sync_service_core.py
+          tests/test_sync_repositories.py
+          tests/test_sync_operations_cli.py
 
   package-smoke:
     name: Windows package smoke

@@ -17,7 +17,7 @@ jobs:
     name: Python analysis
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # Code scanning results can only be uploaded from a private repository
       # that has Advanced Security. Without it the analysis cannot report, so
       # the job says so rather than failing the build or claiming a clean scan.

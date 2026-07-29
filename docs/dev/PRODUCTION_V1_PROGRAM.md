@@ -17,8 +17,8 @@ remain runnable and reversible after each merge.
 | 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Merged in PR [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27) (`119d916`) |
 | 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | Merged in PR [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28) (`832c106`) |
 | 9 | `feat/knowledge-canvas-retrieval` | FTS5, rank fusion, bounded subgraph and deterministic layout | Merged in PR [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29) (`89966d4`) |
-| 10 | `feat/audio-model-quality` | Signed model manager and evidence-based quality gates | In review |
-| 11 | `build/signed-msix-release` | Signed MSIX/App Installer and deployable self-host stack | Planned |
+| 10 | `feat/audio-model-quality` | Signed model manager and evidence-based quality gates | Merged in PR [#30](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/30) (`6d8f2b5`) |
+| 11 | `build/signed-msix-release` | onedir bundle, MSIX/App Installer manifests and checksums | In review |
 | 12 | `release/production-v1-hardening` | Scale, clean-machine, restore, security and 1.0.0 gates | Planned |
 
 ## Non-negotiable boundaries
@@ -197,6 +197,23 @@ need the consented Turkish corpus listed under external inputs.
   rather than counting, and anything not positively met blocks the release.
   With no evidence at all the report blocks with seven unevaluated gates, which
   is the honest answer.
+
+## Delivered packaging contract
+
+Stage 11 delivers the packaging shape and the manifests. It cannot deliver a
+**signed** package: that needs a certificate this repository does not hold, and
+`docs/dev/RELEASE_PACKAGING.md` records what remains.
+
+- The bundle is onedir, so MSIX has a directory it can swap atomically instead
+  of a one-file archive that unpacks on every launch.
+- `AppxManifest.xml`, the App Installer 2021 feed, and `SHA256SUMS` are all
+  generated from the project version, so the three cannot drift apart.
+- Stable and beta produce separate feeds and package URIs from one generator.
+- The generator prints `UNSIGNED` on every run and a test asserts it, so an
+  unsigned build cannot be mistaken for a signed one.
+- Still open and recorded as such: signing, the Helm chart, OpenTelemetry, the
+  PITR and restore runbooks, and the EULA, privacy policy, DPA, and NOTICE,
+  which need legal review rather than drafting here.
 
 ## Release gates
 

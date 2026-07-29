@@ -154,5 +154,13 @@ jobs:
         run: uv sync --frozen --extra dev --extra build
       - name: Build executable
         run: uv run pyinstaller --noconfirm --clean CollectiveMindGraph.spec
+      # The bundle is onedir now, so the executable lives inside the directory
+      # that MSIX packages and App Installer replaces.
       - name: Start packaged engine and verify health
-        run: uv run python scripts/validation/smoke_packaged_engine.py dist/CollectiveMindGraph.exe
+        run: >-
+          uv run python scripts/validation/smoke_packaged_engine.py
+          dist/CollectiveMindGraph/CollectiveMindGraph.exe
+      - name: Generate release manifests
+        run: >-
+          uv run python scripts/packaging/generate_release_manifests.py
+          --output dist/release

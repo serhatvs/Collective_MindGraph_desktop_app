@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Workspaces</h2>
+{% if workspaces %}
+<table>
+<thead><tr><th>Name</th><th>Your role</th><th>Raw audio</th></tr></thead>
+<tbody>
+{% for workspace in workspaces %}
+<tr>
+<td><a href="/admin/workspaces/{{ workspace.id }}">{{ workspace.name }}</a></td>
+<td>{{ workspace.role }}</td>
+<td>{{ "enabled" if workspace.raw_audio_enabled else "disabled" }}</td>
+</tr>
+{% endfor %}
+</tbody>
+</table>
+{% else %}
+<p>You are not a member of any workspace.</p>
+{% endif %}
+{% endblock %}

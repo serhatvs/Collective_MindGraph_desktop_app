@@ -7,6 +7,7 @@ from base64 import b64decode, b64encode
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from .admin_security import AdminSecurityError
 from .blob_repository import BlobManifest
 from .contracts import (
     AccessDeniedError,
@@ -58,6 +59,10 @@ def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(IdentityError)
     async def _unauthenticated(_: Request, error: Exception) -> JSONResponse:
         return JSONResponse(status_code=401, content={"detail": str(error)})
+
+    @app.exception_handler(AdminSecurityError)
+    async def _admin_rejected(_: Request, error: Exception) -> JSONResponse:
+        return JSONResponse(status_code=403, content={"detail": str(error)})
 
 
 def manifest_response(manifest: BlobManifest) -> BlobManifestResponse:

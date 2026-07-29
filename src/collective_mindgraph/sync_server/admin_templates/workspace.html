@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ workspace.name }} administration{% endblock %}
+{% block content %}
+<p><a href="/admin/">Back to workspaces</a></p>
+<h2>{{ workspace.name }}</h2>
+<p>Your role: {{ role }}</p>
+
+<h3>Quota</h3>
+<ul>
+<li>Synchronized objects: {{ usage.object_count }}</li>
+<li>Ciphertext bytes: {{ usage.ciphertext_bytes }}</li>
+<li>Encrypted blob bytes: {{ usage.blob_bytes }}</li>
+</ul>
+
+<h3>Raw audio</h3>
+<p>Raw-audio sync is currently
+{{ "enabled" if workspace.raw_audio_enabled else "disabled" }}.
+It is opt-in and defaults to off.</p>
+{% if may_administer %}
+<form method="post" action="/admin/workspaces/{{ workspace.id }}/raw-audio">
+<input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+<label><input type="checkbox" name="enabled"
+{% if workspace.raw_audio_enabled %}checked{% endif %}> Enable raw-audio sync</label>
+<button type="submit">Save</button>
+</form>
+{% endif %}
+
+<h3>Members</h3>
+<table>
+<thead><tr><th>Subject</th><th>Issuer</th><th>Role</th><th>State</th>
+{% if may_administer %}<th>Change</th>{% endif %}</tr></thead>
+<tbody>
+{% for member in members %}
+<tr>
+<td>{{ member.subject }}</td>
+<td>{{ member.issuer }}</td>
+<td>{{ member.role }}</td>
+<td>{{ "removed" if member.removed else "active" }}</td>
+{% if may_administer %}
+<td>
+<form method="post" action="/admin/workspaces/{{ workspace.id }}/members">
+<input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+<input type="hidden" name="subject" value="{{ member.subject }}">
+<input type="hidden" name="issuer" value="{{ member.issuer }}">
+<select name="role">
+{% for option in roles %}
+<option value="{{ option }}"{% if option == member.role %} selected{% endif %}>{{ option }}</option>
+{% endfor %}
+<option value="remove">remove</option>
+</select>
+<button type="submit">Apply</button>
+</form>
+</td>
+{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+
+<h3>Devices</h3>
+<table>
+<thead><tr><th>Name</th><th>Trust</th><th>Enrolled</th>
+{% if may_administer %}<th>Action</th>{% endif %}</tr></thead>
+<tbody>
+{% for device in devices %}
+<tr>
+<td>{{ device.name }}</td>
+<td>{{ device.trust }}</td>
+<td>{{ device.created_at }}</td>
+{% if may_administer %}
+<td>
+{% if device.trust != "revoked" %}
+<form method="post"
+action="/admin/workspaces/{{ workspace.id }}/devices/{{ device.id }}/revoke">
+<input type="hidden" name="csrf_token" value="{{ session.csrf_token }}">
+<button type="submit">Revoke</button>
+</form>
+{% else %}revoked{% endif %}
+</td>
+{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+</table>
+<p>Revoking a device stops future access. It cannot recall content the device
+already downloaded and decrypted.</p>
+
+<h3>Recent activity</h3>
+<table>
+<thead><tr><th>When</th><th>Event</th><th>Detail</th></tr></thead>
+<tbody>
+{% for entry in audit %}
+<tr><td>{{ entry.created_at }}</td><td>{{ entry.kind }}</td><td>{{ entry.detail }}</td></tr>
+{% endfor %}
+</tbody>
+</table>
+{% endblock %}

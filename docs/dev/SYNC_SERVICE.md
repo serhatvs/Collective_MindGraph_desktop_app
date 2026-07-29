@@ -71,10 +71,35 @@ removed. `mindgraph-admin show-retention` prints the configured windows.
 
 ## Identity
 
-Stage 4 ships a bootstrap bearer-token resolver so that membership and roles are
-enforced end to end today. It is not an identity provider. Stage 5 replaces it
-with provider-independent OIDC, and deployments must configure OIDC before
-public use.
+Identity is provider-independent OIDC. Every request is authenticated by
+verifying a signed access token against the provider's published JWKS, its
+issuer, and this deployment's audience. Only asymmetric algorithms are
+accepted, so an `alg: none` or symmetric token is refused before any signature
+check. Keys are cached and refreshed once when a token presents an unknown key
+id, so provider rotation does not require a restart.
+
+The bootstrap bearer-token resolver from stage 4 remains for self-host first
+run and for tests. It is not an identity provider: when OIDC is unconfigured
+the service logs a warning at startup and the admin sign-in returns 401 rather
+than degrading to something weaker.
+
+## Administration surface
+
+`/admin` renders membership, device, quota, and content-free audit metadata.
+It cannot reach ciphertext, and its templates have no field that could render
+it.
+
+- Sign-in completes the authorization-code flow **on the server**, so no token
+  is ever exposed to a page. PKCE is applied even though the flow is
+  confidential.
+- The session is a signed, `HttpOnly`, `SameSite=Lax` cookie with an eight-hour
+  lifetime, `Secure` whenever the request arrived over HTTPS.
+- Every state-changing form carries a CSRF token bound to the session.
+- Requests are rate limited per identity.
+- The surface is plain server-rendered HTML with **no JavaScript**, so the
+  Content-Security-Policy is `default-src 'none'` with `form-action 'self'`.
+  The programme sketched a vendored HTMX layer; dropping it removes the need
+  for `script-src` entirely, and the surface loses nothing it needed.
 
 ## Configuration
 
@@ -83,6 +108,14 @@ public use.
 | `CMG_SYNC_DATABASE_URL` | yes | `postgresql+asyncpg://` or `sqlite+aiosqlite://` |
 | `CMG_SYNC_BLOB_ROOT` | yes | Root for sealed blob chunks |
 | `CMG_SYNC_BOOTSTRAP_TOKENS` | bootstrap only | `token=subject` pairs |
+| `CMG_SYNC_OIDC_ISSUER` | public use | HTTPS issuer; enables OIDC when set |
+| `CMG_SYNC_OIDC_AUDIENCE` | with OIDC | Audience this deployment accepts |
+| `CMG_SYNC_OIDC_JWKS_URI` | with OIDC | HTTPS JWKS document |
+| `CMG_SYNC_OIDC_CLIENT_ID` | with OIDC | Client identifier |
+| `CMG_SYNC_OIDC_AUTHORIZATION_ENDPOINT` | admin surface | Browser sign-in endpoint |
+| `CMG_SYNC_OIDC_TOKEN_ENDPOINT` | admin surface | Code exchange endpoint |
+| `CMG_SYNC_OIDC_ALGORITHMS` | no | Defaults to the asymmetric set |
+| `CMG_SYNC_ADMIN_SESSION_SECRET` | admin surface | At least 32 bytes; shared across replicas |
 | `CMG_SYNC_PUSH_OPERATION_LIMIT` | no | Default 500 |
 | `CMG_SYNC_PUSH_BYTE_LIMIT` | no | Default 4 MiB |
 | `CMG_SYNC_BLOB_CHUNK_BYTES` | no | Default 8 MiB |

@@ -43,6 +43,13 @@ from .knowledge import (
     RelationshipKind,
 )
 from .meetings import Meeting, MeetingStatus
+from .model_catalog import (
+    InstalledModel,
+    ModelConsentError,
+    ModelEntry,
+    ModelStatus,
+    ModelVerificationError,
+)
 from .sync import SyncIdentity, SyncOperation, SyncOperationState, Workspace, WorkspaceKind
 from .synchronization import (
     ConflictRecord,
@@ -76,6 +83,7 @@ __all__ = [
     "EnvelopeId",
     "EvidenceId",
     "EvidenceReference",
+    "InstalledModel",
     "Insight",
     "InsightId",
     "InsightKind",
@@ -88,6 +96,10 @@ __all__ = [
     "Meeting",
     "MeetingId",
     "MeetingStatus",
+    "ModelConsentError",
+    "ModelEntry",
+    "ModelStatus",
+    "ModelVerificationError",
     "OperationId",
     "OutboxEntry",
     "ProcessingJob",

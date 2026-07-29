@@ -15,7 +15,7 @@
 
 ## Current State
 
-- Stages 1 to 8 were squash-merged through PRs
+- Stages 1 to 9 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
@@ -23,20 +23,21 @@
   [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25),
   [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26),
   [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27),
+  [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28),
   and
-  [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28);
+  [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29);
   remote `main` is now
-  `832c106 feat: add the theme layer, contrast gate, and opt-in telemetry`.
-- Active branch: `feat/knowledge-canvas-retrieval`, created directly from that
-  updated `origin/main`. It is stage 9 of the twelve-PR program documented in
+  `89966d4 feat: add FTS5 search, rank fusion, bounded subgraphs, and deterministic layout`.
+- Active branch: `feat/audio-model-quality`, created directly from that updated
+  `origin/main`. It is stage 10 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 81.41% branch-inclusive coverage and 295
-  existing strict-mypy errors across the full production package. Stage 9
+- Current quality measurements are 81.73% branch-inclusive coverage and 295
+  existing strict-mypy errors across the full production package. Stage 10
   changed-line coverage is 98%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
@@ -204,6 +205,26 @@
 - Still open from stage 9's scope: the native `QGraphicsScene` canvas widget
   and the USearch ANN adapter.
 
+## Models and Release Gates
+
+- The model catalogue is Ed25519 signed over a canonical encoding, so a
+  reformatted catalogue still verifies while a changed field does not. Unsigned,
+  foreign-signed, and tampered catalogues are refused.
+- Digests are normalised to lowercase on entry. Accepting an uppercase digest
+  without normalising would have failed verification for a correct file; a test
+  pins this.
+- Installing requires consent recorded against the exact version **and** its
+  licence, because a new version may carry different terms. Downloads resume,
+  and a bad digest or size deletes the partial rather than keeping it. Versions
+  live side by side outside the application version so rollback works, and a
+  pin blocks removal.
+- Quality gates have three outcomes: met, not met, **unevaluated**. A number
+  measured on too small or unconsented a corpus stays unevaluated, and anything
+  not positively met blocks release. With no evidence the report blocks with
+  seven unevaluated gates.
+- The measured WER, DER, and retrieval numbers themselves cannot be produced
+  here: they need the consented Turkish corpus listed as an external input.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -283,9 +304,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 9: `544 passed, 4 skipped`; skips require
+- Latest full automated run on stage 10: `566 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 81.41%; stage-9 changed production lines: 98%.
+- Branch-inclusive coverage: 81.73%; stage-10 changed production lines: 98%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.

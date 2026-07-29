@@ -1,5 +1,17 @@
 """Pure domain contracts for Collective MindGraph."""
 
+from .crypto import (
+    CONTENT_NONCE_BYTES,
+    PUBLIC_KEY_BYTES,
+    WORKSPACE_KEY_BYTES,
+    ContentBinding,
+    DeviceKey,
+    DeviceTrust,
+    EncryptedObject,
+    KeyEnvelope,
+    RecoveryBundle,
+    WorkspaceKey,
+)
 from .health import EngineHealth, ProviderHealth
 from .identifiers import (
     ActivityEventId,
@@ -7,6 +19,7 @@ from .identifiers import (
     ConflictId,
     DeviceId,
     EdgeId,
+    EnvelopeId,
     EvidenceId,
     InsightId,
     JobId,
@@ -33,12 +46,20 @@ from .sync import SyncIdentity, SyncOperation, SyncOperationState, Workspace, Wo
 from .transcripts import Recording, RecordingStorageStatus, Transcript, TranscriptSegment
 
 __all__ = [
+    "CONTENT_NONCE_BYTES",
+    "PUBLIC_KEY_BYTES",
+    "WORKSPACE_KEY_BYTES",
     "ActivityEventId",
     "CommentId",
     "ConflictId",
+    "ContentBinding",
     "DeviceId",
+    "DeviceKey",
+    "DeviceTrust",
     "EdgeId",
+    "EncryptedObject",
     "EngineHealth",
+    "EnvelopeId",
     "EvidenceId",
     "EvidenceReference",
     "Insight",
@@ -47,6 +68,7 @@ __all__ = [
     "JobId",
     "KnowledgeEdge",
     "KnowledgeNode",
+    "KeyEnvelope",
     "KnowledgeNodeId",
     "KnowledgeNodeKind",
     "Meeting",
@@ -59,6 +81,7 @@ __all__ = [
     "Recording",
     "RecordingId",
     "RecordingStorageStatus",
+    "RecoveryBundle",
     "RelationshipKind",
     "ReviewDecision",
     "SegmentId",
@@ -71,5 +94,6 @@ __all__ = [
     "TranscriptSegment",
     "Workspace",
     "WorkspaceId",
+    "WorkspaceKey",
     "WorkspaceKind",
 ]

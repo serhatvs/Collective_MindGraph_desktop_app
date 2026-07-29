@@ -15,6 +15,7 @@ from collective_mindgraph.application import (
     ReviewInsight,
     UpdateTranscriptSegment,
 )
+from collective_mindgraph.application.security import WorkspaceKeyService
 from collective_mindgraph.application.transcription.build_quality_report import (
     BuildTranscriptQualityReport,
 )
@@ -37,12 +38,20 @@ from collective_mindgraph.infrastructure.persistence import (
     SqliteEmbeddingStore,
     SqliteInsightStore,
     SqliteJobStore,
+    SqliteKeyEnvelopeStore,
     SqliteKnowledgeGraphStore,
     SqliteMeetingStore,
     SqliteRecordingStore,
     SqliteTranscriptStore,
     SqliteWorkspaceStore,
     discover_legacy_sources,
+)
+from collective_mindgraph.infrastructure.security import (
+    AesGcmContentCipher,
+    ChecksummedRecoveryCodeFactory,
+    X25519DeviceKeyFactory,
+    X25519KeyWrapper,
+    create_device_secret_store,
 )
 from collective_mindgraph.infrastructure.settings import EnginePreferenceStore
 
@@ -67,6 +76,8 @@ class EngineContext:
     embeddings: SqliteEmbeddingStore
     jobs: SqliteJobStore
     workspaces: SqliteWorkspaceStore
+    key_envelopes: SqliteKeyEnvelopeStore
+    workspace_keys: WorkspaceKeyService
     create_meeting: CreateMeeting
     get_meeting: GetMeeting
     list_meetings: ListMeetings
@@ -139,6 +150,15 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         expected_dimension=settings.embedding_dimension,
     )
     workspaces = SqliteWorkspaceStore(database)
+    key_envelopes = SqliteKeyEnvelopeStore(database)
+    workspace_keys = WorkspaceKeyService(
+        envelopes=key_envelopes,
+        device_secrets=create_device_secret_store(settings.data_dir / "device_secrets"),
+        wrapper=X25519KeyWrapper(),
+        cipher=AesGcmContentCipher(),
+        device_keys=X25519DeviceKeyFactory(),
+        recovery_codes=ChecksummedRecoveryCodeFactory(),
+    )
     result_archive = CanonicalTranscriptionResultArchive(
         meetings,
         recordings,
@@ -176,6 +196,8 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         embeddings=embeddings,
         jobs=jobs,
         workspaces=workspaces,
+        key_envelopes=key_envelopes,
+        workspace_keys=workspace_keys,
         create_meeting=CreateMeeting(meetings),
         get_meeting=GetMeeting(meetings),
         list_meetings=ListMeetings(meetings),

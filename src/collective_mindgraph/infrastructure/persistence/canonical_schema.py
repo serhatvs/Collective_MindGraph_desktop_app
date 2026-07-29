@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 
 from .sqlite_database import SqliteDatabase
+from .sync_schema import upgrade_to_workspace_schema
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -212,13 +214,14 @@ def initialize_schema(database: SqliteDatabase) -> None:
         connection.execute("PRAGMA journal_mode = WAL")
         connection.executescript(SCHEMA_SQL)
         _upgrade_to_version_2(connection)
+        upgrade_to_workspace_schema(connection)
         connection.execute(
             "INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (?, ?)",
             (SCHEMA_VERSION, applied_at),
         )
 
 
-def _upgrade_to_version_2(connection) -> None:
+def _upgrade_to_version_2(connection: sqlite3.Connection) -> None:
     recording_columns = _column_names(connection, "recordings")
     for definition in (
         "storage_status TEXT NOT NULL DEFAULT 'managed'",
@@ -245,5 +248,5 @@ def _upgrade_to_version_2(connection) -> None:
     )
 
 
-def _column_names(connection, table: str) -> set[str]:
+def _column_names(connection: sqlite3.Connection, table: str) -> set[str]:
     return {str(row[1]) for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}

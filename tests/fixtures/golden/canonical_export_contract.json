@@ -1,6 +1,6 @@
 {
   "format": "collective_mindgraph",
-  "format_version": 4,
+  "format_version": 5,
   "top_level_keys": [
     "exported_at",
     "format",
@@ -9,6 +9,8 @@
     "tables"
   ],
   "table_keys": [
+    "activity_events",
+    "comments",
     "embeddings",
     "evidence_references",
     "insights",
@@ -18,6 +20,7 @@
     "processing_jobs",
     "recordings",
     "transcript_segments",
-    "transcripts"
+    "transcripts",
+    "workspaces"
   ]
 }

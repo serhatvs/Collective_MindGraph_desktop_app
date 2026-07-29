@@ -18,8 +18,8 @@ remain runnable and reversible after each merge.
 | 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | Merged in PR [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28) (`832c106`) |
 | 9 | `feat/knowledge-canvas-retrieval` | FTS5, rank fusion, bounded subgraph and deterministic layout | Merged in PR [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29) (`89966d4`) |
 | 10 | `feat/audio-model-quality` | Signed model manager and evidence-based quality gates | Merged in PR [#30](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/30) (`6d8f2b5`) |
-| 11 | `build/signed-msix-release` | onedir bundle, MSIX/App Installer manifests and checksums | In review |
-| 12 | `release/production-v1-hardening` | Scale, clean-machine, restore, security and 1.0.0 gates | Planned |
+| 11 | `build/signed-msix-release` | onedir bundle, MSIX/App Installer manifests and checksums | Merged in PR [#31](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/31) (`53e12b5`) |
+| 12 | `release/production-v1-hardening` | Rollout flags and the 1.0.0 readiness decision | In review |
 
 ## Non-negotiable boundaries
 
@@ -214,6 +214,36 @@ Stage 11 delivers the packaging shape and the manifests. It cannot deliver a
 - Still open and recorded as such: signing, the Helm chart, OpenTelemetry, the
   PITR and restore runbooks, and the EULA, privacy policy, DPA, and NOTICE,
   which need legal review rather than drafting here.
+
+## Delivered hardening contract
+
+Stage 12 delivers the rollout flags and the readiness decision. It does not
+declare the release ready, because it is not.
+
+- Flags follow the fixed order and each rolls back on its own. Rolling back a
+  dependency takes its dependants with it, because leaving a dependant running
+  over a rolled-back dependency is a state nobody tested. Graph and telemetry
+  do not wait on the cloud.
+- Migration is deliberately outside the flag set, and a test asserts the schema
+  module never consults one. If migration waited on a flag, rolling that flag
+  back would leave the database ahead of the code that reads it.
+- `build_readiness_report` answers one question without optimism: may this ship?
+  It refuses on anything unmeasured, unsigned, unreviewed, or unavailable, names
+  each reason, and separates what can be fixed here from what cannot. A test
+  proves it can also say yes, because a gate that can only refuse proves
+  nothing.
+- Keyword search latency is measured against its 200 ms budget by a real test
+  over 2,000 indexed nodes. The other four budgets are unmeasured and therefore
+  blocking.
+
+### Where `1.0.0` actually stands
+
+Running the report against this repository today returns **18 blockers**: 8 to
+resolve here and 10 needing external inputs. Seven quality gates are
+unevaluated, five performance budgets unmeasured, code scanning and dependency
+review cannot run on this plan, artefacts are unsigned, and four external
+inputs are absent. That is the honest position, and it is what the tooling
+reports rather than something softer.
 
 ## Release gates
 

@@ -32,13 +32,15 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     pyproject_path = repo_root / "pyproject.toml"
 
-    print(textwrap.dedent(f"""\
+    print(
+        textwrap.dedent(f"""\
         ================================================
         Collective MindGraph -- Friend Alpha Setup
         ================================================
         Python executable : {sys.executable}
         Repo root         : {repo_root}
-    """))
+    """)
+    )
 
     if not pyproject_path.exists():
         print(f"[CMG] ERROR: Missing project file: {pyproject_path}", file=sys.stderr)

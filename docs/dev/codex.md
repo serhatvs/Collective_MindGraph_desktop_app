@@ -3,130 +3,145 @@
 ## Project
 
 - Collective MindGraph is a Windows-first, local-first meeting-memory desktop
-  application for one local user.
-- Primary stack: Python 3.11+, PySide6, FastAPI, SQLite, Faster-Whisper, and
-  optional local language/embedding providers.
+  application built with Python 3.11+, PySide6, FastAPI, and SQLite.
+- Production code lives under
+  `src/collective_mindgraph/{domain,application,infrastructure,engine,desktop,tooling}`.
+- The localhost engine is the only processing and persistent-data owner. The
+  desktop uses typed HTTP/WebSocket clients.
 - Code and technical identifiers are English. The desktop supports Turkish and
   English with immediate language switching.
-- Claims stay evidence-bound: speaker separation is experimental, confidence
-  estimates are not WER/CER, and model features require configured local
-  adapters.
+- Claims remain evidence-bound. Confidence is not WER/CER; optional model and
+  speaker features must report unavailable/experimental states honestly.
 
 ## Current State
 
-- Active branch: `refactor/product-architecture-rework`, based on
-  `refactor/engineering-cleanup` at `f5b9791`.
-- Delivery PR
-  [#14](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/14)
-  targets `main`. Review fixes remain as normal feature-branch commits; the
-  accepted delivery strategy is one squash commit on `main` while retaining
-  the remote feature branch.
-- Runtime code is consolidated under
-  `src/collective_mindgraph/{domain,application,infrastructure,engine,desktop,tooling}`.
-  Former backend, desktop, service, and tool package roots are removed without
-  internal import shims.
-- The localhost engine is the only processing and persistent-data owner. The
-  PySide6 desktop communicates through typed HTTP/WebSocket clients.
-- The desktop contains Home, Capture, Meetings, Memory, Knowledge, and Settings
-  workspaces with Turkish/English catalogs and shared state/design components.
-- All production modules are at or below 500 lines; the line-limit allowlist is
-  empty.
+- Remote `main` starts the public-production-v1 program at squash commit
+  `f1e0305 refactor: complete product architecture rework`.
+- Active branch: `chore/production-quality-baseline`, created directly from
+  `origin/main`. It is stage 1 of the twelve-PR program documented in
+  `docs/dev/PRODUCTION_V1_PROGRAM.md`.
+- Merge-ready delivery PR
+  [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
+  targets `main`; the stage will be squash-merged only after hosted gates and
+  review are clean.
+- Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
+  Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
+  ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
+  secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
+  packaged-engine smoke.
+- Quality measurements: 75.59% branch-inclusive coverage, 79% statement
+  coverage, and 304 existing strict-mypy errors across the full production
+  package. CI rejects coverage below 75%, changed production lines below 90%,
+  or any new/increased module/error-code type debt.
+- The production module limit is now 400 lines with sixteen exact documented
+  transition exceptions. Complexity is 12 with explicit existing exceptions.
+- The isolated locked test environment exposed and fixed test-owned SQLite
+  connection leakage and deterministic missing-path handling for the optional
+  embedding adapter.
+- The desktop-owned engine process now continuously drains a bounded
+  diagnostic-output tail, preventing an unattended QProcess pipe from
+  blocking and making startup failures observable across platforms. Source
+  launch preserves the virtual-environment interpreter path on POSIX instead
+  of resolving its symlink to an environment-less base Python.
+- The first hosted run exposed environment-only CI issues: Ubuntu lacked the
+  Qt/EGL runtime required for offscreen PySide6 imports, and repository
+  dependency alerts were disabled. The workflow now installs the minimal
+  Linux Qt runtime, and GitHub vulnerability alerts/dependency graph support
+  are enabled instead of bypassing dependency review. Hosted actions use
+  current Node 24-compatible releases; setup-uv is pinned to its verified
+  8.1.0 commit.
 
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
-- `application`: feature use cases and resource ports.
-- `infrastructure`: SQLite, migration, audio, transcription, local AI,
-  preferences, and safety adapters.
+- `application`: use cases and resource ports.
+- `infrastructure`: SQLite/migration, audio/transcription, local AI, settings,
+  and security adapters.
 - `engine`: composition root, runtime manager, background coordinator, FastAPI,
   settings, and CLI.
-- `desktop`: PySide6 shell, QSettings preferences, typed engine client, live
-  audio/WebSocket capture, i18n, and engine lifecycle.
+- `desktop`: PySide6 shell, preferences, typed client, live capture, i18n, and
+  engine lifecycle.
 - `tooling`: transcript annotation, experiment, evaluation, and export tools.
-- `EngineRuntimeManager` validates and atomically swaps immutable adapter
-  bundles. Running jobs retain their starting snapshot.
-- `RecordingJobCoordinator` owns actual tasks, cancellation, retry lineage,
-  restart recovery, progress, knowledge indexing, and raw-audio retention.
+- `EngineRuntimeManager` atomically swaps adapter bundles; queued/running jobs
+  retain their enqueue-time snapshot.
+- `RecordingJobCoordinator` owns task execution, cancellation, retry lineage,
+  restart recovery, progress, indexing, and raw-audio retention.
 
 ## Data and Compatibility
 
 - Canonical database:
   `%LOCALAPPDATA%\CollectiveMindGraph\collective_mindgraph.sqlite3`.
-- Schema version 2 stores recording retention and explicit job relationships.
-- Migration discovers environment overrides, former repository-local engine
-  data, executable-side data, and canonical transcript archives in a stable
-  order.
-- Every install/upgrade/import builds a sibling `.migrating` database. Existing
-  canonical data is backed up, copied, supplemented, validated, and atomically
-  replaced. Already-current/idempotent startup does not create redundant
-  backups.
-- Desktop corrections win conflicts; engine sources only supplement missing
-  graph, job, and diagnostics data. Legacy sources are never deleted.
-- Exports use `format_version: 4`; older canonical payloads and
-  `v2_production_graph` imports remain supported.
-- Established HTTP/WebSocket payloads remain compatibility adapters. Old
-  internal Python imports are intentionally unsupported.
+- Current schema version is 2 and export `format_version` is 4.
+- Migration always uses backup plus sibling `.migrating` preparation,
+  integrity/foreign-key/count/source-hash validation, and atomic activation.
+  Legacy sources are never deleted.
+- Desktop corrections win legacy conflicts. Engine sources only supplement
+  missing graph, job, and diagnostics data.
+- Legacy HTTP/WebSocket and `/api/v1` golden contracts remain compatibility
+  boundaries throughout production v1.
 
 ## Product Behavior
 
-- Recording upload returns `202` with a real `ProcessingJob`; progress,
-  cancellation, retry, restart failure recovery, and audio retention are
-  persisted.
-- Successful audio is deleted by default; failed/cancelled audio is retained
-  for retry. Users can enable permanent retention.
-- Live capture uses `QAudioSource` and typed `QWebSocket`, shows partial
-  transcript/progress, and uploads a local spool file if finalization fails.
-- New transcripts create meeting, segment, insight and person/entity knowledge
-  nodes with evidence-backed `contains`, `derived_from`, `mentions`, and
-  `assigned_to` relationships.
-- Semantic-only search fails honestly when embeddings are unavailable; hybrid
-  mode falls back with a warning. Enabling embeddings schedules reindexing.
-- Memory answers validate known evidence IDs and sentence-level citations.
-  Malformed or unsupported model output falls back to evidence-only answers.
-- Review queues include pending and `needs_review`; transcript corrections
-  preserve raw text and mark derived accepted content for re-review.
+- Current workspaces are Home, Capture, Meetings, Memory, Knowledge, and
+  Settings.
+- Recording upload creates real background jobs with progress, cancel, retry,
+  restart recovery, and configurable raw-audio retention.
+- Raw and corrected transcripts remain separate. Corrections preserve derived
+  content and mark it for re-review.
+- Knowledge and memory results remain evidence-backed. Semantic-only search
+  fails honestly without embeddings; malformed/unsupported model answers fall
+  back to evidence-only output.
+
+## Public Production V1 Decisions
+
+- Delivery is twelve separate squash PRs; every branch starts from the latest
+  `main`, and `main` stays runnable/reversible.
+- Local-only functionality remains complete with no account. Optional cloud
+  sync is SaaS/self-host compatible and end-to-end encrypted; servers cannot
+  read content.
+- Identity is provider-independent OIDC. Roles are Owner, Admin, Editor,
+  Reviewer, and Viewer.
+- New device recovery uses a one-time recovery code or approved existing
+  member/device. Removing a member rotates future keys but cannot revoke
+  already downloaded plaintext.
+- Desktop is the full client. Web is a small content-free administration
+  surface. Collaboration is near-real-time sync, not live co-editing.
+- Raw-audio sync is workspace opt-in and default off. Content-free telemetry is
+  explicit opt-in and default off.
+- Dark/system themes and a bounded native graph canvas are in scope.
+- First SaaS region is EU; other residency is self-host. Billing/checkout is
+  excluded, while quota and usage metering are required.
+- Public distribution is proprietary, signed MSIX + App Installer. Models are
+  downloaded only with approval from a signed catalog and live outside the
+  application version.
+- Retention defaults: deleted encrypted content 30 days, audit/tombstone
+  metadata 90 days, encrypted backup/PITR data 35 days.
 
 ## Verification
 
-- Latest full suite: `289 passed, 4 skipped`; skipped cases require optional
-  real models/audio/hardware.
-- The original 407-test characterization target is recorded in
-  `tests/legacy_test_replacements.json`; every removed legacy test module has an
-  explained canonical replacement.
-- Ruff and the empty 500-line allowlist pass. Strict mypy covers domain and
-  application.
-- Ruff, strict domain/application mypy, compileall, architecture/line-limit,
-  import timing, source-engine lifecycle, and the full automated suite pass.
-- The Windows one-file executable was rebuilt without optional semantic-model
-  packages and its embedded engine passed the isolated packaged-health smoke
-  check. Build output remains ignored.
-- The complete `main...HEAD` change was reviewed for migration safety,
-  localhost/path containment, runtime snapshots, cancellation/retry,
-  compatibility contracts, memory grounding, desktop lifecycle, and
-  packaging boundaries.
-- Review fixes harden atomic migration/import behavior, meeting and recording
-  lifecycle races, grounded memory retrieval, streaming desktop upload/error
-  handling, live-spool cleanup, and enqueue-time runtime snapshots.
-- Documentation, diff whitespace, ignored-artifact boundaries, and Git scope
-  were reviewed for the squash delivery.
+- Latest automated run on stage 1: `301 passed, 4 skipped`; skips require real
+  local models, audio fixtures, or hardware.
+- Branch-inclusive coverage: 75.59%; changed production lines: 96%.
+- Ruff format/lint, complexity ratchet, 400-line architecture policy,
+  strict-mypy ratchet, compileall, high-confidence/high-severity Bandit, and
+  runtime dependency audit pass locally.
+- Audit of core, development, build, transcription, and local-AI dependency
+  extras reports no known vulnerabilities. The baseline explicitly requires
+  `transformers>=5.5` and current Hugging Face Hub compatibility.
+- The original 407-test characterization target remains mapped in
+  `tests/legacy_test_replacements.json`.
 
-## Durable Decisions
+## External Release Gates
 
-- Keep PySide6 and a separately managed loopback engine process.
-- Keep the canonical language `Meeting`, `Recording`, `Transcript`,
-  `TranscriptSegment`, `Insight`, `EvidenceReference`, `KnowledgeNode`,
-  `KnowledgeEdge`, `ProcessingJob`, and `EngineHealth`.
-- Review values remain pending/accepted/rejected; edit and re-review audit state
-  is separate.
-- Preserve raw/corrected transcript material separately.
-- Keep wake phrase, unvalidated speaker separation, and expert ASR clearly
-  experimental.
-- Do not add graph canvas, multi-user sync, cloud services, or dark theme in
-  this cutover.
-- Never delete user models, datasets, recordings, databases, ignored legacy
-  environments, or transcript archives.
+- Code-signing certificate/HSM, OIDC registrations, EU PostgreSQL/S3/SMTP,
+  two clean Windows profiles, independent security/cryptography review, and
+  consented/licensed Turkish reference recordings must be supplied before
+  public `1.0.0`.
+- Release-candidate hardware/model/clean-machine validations may not skip.
 
 ## Next Likely Tasks
 
-- Validate optional Turkish meeting-room fixtures and target hardware on a
-  clean Windows machine.
+- Squash-merge PR #15 and verify remote `main`.
+- Start `refactor/workspace-sync-identities` from the updated remote `main`.
+- Introduce schema v3 workspace/global identities while preserving local
+  integer IDs, backup-first migration, and every golden contract.

@@ -437,8 +437,7 @@ def _validate_canonical_import(
     if conflicts:
         preview = ", ".join(conflicts[:5])
         raise ValueError(
-            "Export conflicts with existing canonical records"
-            f"{': ' + preview if preview else ''}."
+            f"Export conflicts with existing canonical records{': ' + preview if preview else ''}."
         )
     return existing_rows
 
@@ -452,9 +451,12 @@ def _available_identifier(
     if table not in {"evidence_references", "knowledge_nodes", "knowledge_edges"}:
         raise ValueError("Unsupported legacy import identifier table.")
     candidate = preferred
-    while candidate in reserved or connection.execute(
-        f"SELECT 1 FROM {table} WHERE id = ?",
-        (candidate,),
-    ).fetchone():
+    while (
+        candidate in reserved
+        or connection.execute(
+            f"SELECT 1 FROM {table} WHERE id = ?",
+            (candidate,),
+        ).fetchone()
+    ):
         candidate = str(uuid4())
     return candidate

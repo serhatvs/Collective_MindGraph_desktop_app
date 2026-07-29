@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QProcess
+from PySide6.QtCore import QByteArray, QProcess
 
 from collective_mindgraph.desktop.engine_runtime import (
     LocalEngineManager,
@@ -17,7 +17,7 @@ def test_source_engine_launch_spec_uses_canonical_module():
     spec = build_local_engine_launch_spec("http://127.0.0.1:9090")
 
     assert spec is not None
-    assert Path(spec.program) == Path(sys.executable).resolve()
+    assert Path(spec.program) == Path(sys.executable).absolute()
     assert spec.arguments == [
         "-m",
         "collective_mindgraph.engine",
@@ -64,6 +64,9 @@ def test_engine_manager_stops_owned_process(qapp):
             events.append(f"wait:{timeout}")
             return True
 
+        def readAllStandardOutput(self):  # noqa: N802 - Qt test double
+            return QByteArray()
+
         def deleteLater(self):  # noqa: N802 - Qt test double
             events.append("delete")
 
@@ -75,6 +78,18 @@ def test_engine_manager_stops_owned_process(qapp):
     assert qapp is not None
     assert events == ["terminate", "wait:3000", "delete"]
     assert manager.started_by_app is False
+
+
+def test_engine_manager_bounds_recent_diagnostic_output(qapp):
+    class FakeOutputProcess:
+        def readAllStandardOutput(self):  # noqa: N802 - Qt test double
+            return QByteArray(b"x" * 20_000)
+
+    manager = LocalEngineManager()
+    manager._collect_output(FakeOutputProcess())  # type: ignore[arg-type]
+
+    assert qapp is not None
+    assert manager.recent_output == "x" * 16_384
 
 
 def test_engine_manager_autostarts_and_stops_real_source_engine(tmp_path):
@@ -108,6 +123,7 @@ try:
     assert manager.ensure_running(url)
     deadline = time.monotonic() + 12
     while time.monotonic() < deadline:
+        application.processEvents()
         try:
             with urllib.request.urlopen(url + "/api/v1/health", timeout=1) as response:
                 payload = json.load(response)
@@ -115,7 +131,10 @@ try:
         except OSError:
             time.sleep(0.1)
     else:
-        raise AssertionError("Desktop-owned source engine did not become healthy.")
+        raise AssertionError(
+            "Desktop-owned source engine did not become healthy. "
+            f"Engine output: {{manager.recent_output}}"
+        )
     assert manager.started_by_app
 finally:
     manager.shutdown()
@@ -127,10 +146,11 @@ print(json.dumps({{"payload": payload, "started": manager.started_by_app}}))
         env=environment,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
         timeout=20,
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
+    assert completed.returncode == 0, completed.stderr
     result = json.loads(completed.stdout.strip())
 
     assert result["payload"]["database_path"] == str(database_path)

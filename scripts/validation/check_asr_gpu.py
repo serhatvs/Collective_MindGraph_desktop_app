@@ -24,9 +24,15 @@ from collective_mindgraph.infrastructure.transcription.asr_runtime_config import
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Check whether CMG ASR loads Faster-Whisper on GPU.")
-    parser.add_argument("--audio", type=Path, help="Optional audio file to transcribe after model load.")
-    parser.add_argument("--profile", choices=["cpu", "gpu_asr"], help="Override CMG_RUNTIME_PROFILE for this run.")
+    parser = argparse.ArgumentParser(
+        description="Check whether CMG ASR loads Faster-Whisper on GPU."
+    )
+    parser.add_argument(
+        "--audio", type=Path, help="Optional audio file to transcribe after model load."
+    )
+    parser.add_argument(
+        "--profile", choices=["cpu", "gpu_asr"], help="Override CMG_RUNTIME_PROFILE for this run."
+    )
     parser.add_argument(
         "--observation-seconds",
         type=int,
@@ -78,11 +84,15 @@ def main() -> int:
         print("Raw transcript:")
         print(raw_transcript or "[empty]")
 
-    if getattr(asr, "asr_status", None) == ASR_STATUS_MOCK_FALLBACK or getattr(asr, "mock_fallback_used", False):
+    if getattr(asr, "asr_status", None) == ASR_STATUS_MOCK_FALLBACK or getattr(
+        asr, "mock_fallback_used", False
+    ):
         print(f"Invalid ASR smoke output: {ASR_STATUS_MOCK_FALLBACK}")
         return 2
     if getattr(asr, "gpu_requested", False) and not getattr(asr, "gpu_loaded", False):
-        print(f"GPU requested but ASR did not load on CUDA. Reason: {getattr(asr, 'gpu_fallback_reason', None)}")
+        print(
+            f"GPU requested but ASR did not load on CUDA. Reason: {getattr(asr, 'gpu_fallback_reason', None)}"
+        )
         return 2
     return 0
 

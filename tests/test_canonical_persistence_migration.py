@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,7 @@ from collective_mindgraph.infrastructure.persistence import (
 
 
 def _legacy_desktop_database(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE sessions (
@@ -127,7 +128,7 @@ def _backend_archive(path: Path) -> None:
 
 
 def _backend_database(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.executescript(
             """
             CREATE TABLE v2_jobs (
@@ -157,7 +158,7 @@ def test_empty_store_initializes_canonical_schema(tmp_path):
 
     assert report.migrated
     assert report.backup_path is None
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         tables = {
             row[0]
             for row in connection.execute(
@@ -241,7 +242,7 @@ def test_backend_only_database_imports_diagnostics_without_desktop_data(tmp_path
     assert report.migrated
     assert report.imported_sources == (backend_path.resolve(),)
     assert report.counts["jobs"] == 1
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         job = connection.execute("SELECT id, status, progress FROM processing_jobs").fetchone()
         source_count = connection.execute("SELECT COUNT(*) FROM migration_sources").fetchone()[0]
     assert job == ("legacy-job", "succeeded", 100)
@@ -355,7 +356,7 @@ def test_existing_canonical_database_is_supplemented_through_migrating_copy(tmp_
     assert report.migrated
     assert report.backup_path is not None and report.backup_path.exists()
     assert not database_path.with_suffix(".sqlite3.migrating").exists()
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM meetings").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM processing_jobs").fetchone()[0] == 1
         assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 2

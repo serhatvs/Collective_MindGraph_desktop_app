@@ -50,7 +50,9 @@ async def run_stream(config: StreamClientConfig) -> None:
             raise RuntimeError(f"Unexpected first websocket event: {ready_message}")
         _validate_server_audio_format(ready_message, config)
 
-        sender = asyncio.create_task(_send_audio(websocket, queue, stop_capture, config.flush_interval_seconds))
+        sender = asyncio.create_task(
+            _send_audio(websocket, queue, stop_capture, config.flush_interval_seconds)
+        )
         receiver = asyncio.create_task(_receive_events(websocket, final_event))
 
         stream = sd.RawInputStream(

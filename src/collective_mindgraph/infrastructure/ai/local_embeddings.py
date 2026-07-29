@@ -2,6 +2,7 @@
 
 import logging
 import os
+from typing import Any, cast
 
 from collective_mindgraph.application.ports import TextEmbeddingModel
 
@@ -20,37 +21,42 @@ class SentenceTransformerEmbeddingModel(TextEmbeddingModel):
         dimension: int = 384,
         allow_download: bool = False,
         device: str = "cpu",
-    ):
+    ) -> None:
         self._model_path = model_path
         self._dimension = dimension
         self._allow_download = allow_download
         self._device = device
-        self._model = None
+        self._model: Any | None = None
 
         if not allow_download and not os.path.exists(model_path):
             logger.warning(
-                f"Embedding model path does not exist and download is disabled: {model_path}"
+                "Embedding model path does not exist and download is disabled: %s",
+                model_path,
             )
 
-    def _load_model(self):
+    def _load_model(self) -> None:
         if self._model is not None:
             return
+        if not self._allow_download and not os.path.exists(self._model_path):
+            raise RuntimeError(
+                f"Failed to load local embedding model at {self._model_path}: "
+                "the configured path does not exist and downloads are disabled."
+            )
 
         try:
             from sentence_transformers import SentenceTransformer
 
-            # If allow_download is False, it will fail if path doesn't exist
             self._model = SentenceTransformer(
                 self._model_path, local_files_only=not self._allow_download, device=self._device
             )
-        except ImportError:
+        except ImportError as error:
             raise RuntimeError(
                 "Library 'sentence-transformers' is not installed. Run 'pip install sentence-transformers'."
-            )
-        except Exception as e:
+            ) from error
+        except Exception as error:
             raise RuntimeError(
-                f"Failed to load local embedding model at {self._model_path}: {str(e)}"
-            )
+                f"Failed to load local embedding model at {self._model_path}: {error}"
+            ) from error
 
     @property
     def dimension(self) -> int:
@@ -63,13 +69,16 @@ class SentenceTransformerEmbeddingModel(TextEmbeddingModel):
 
     def embed_text(self, text: str) -> list[float]:
         self._load_model()
-        vector = self._model.encode(text, convert_to_numpy=True).tolist()
-        return vector
+        model = cast(Any, self._model)
+        return cast(list[float], model.encode(text, convert_to_numpy=True).tolist())
 
     def embed_chunks(self, chunks: list[str]) -> list[list[float]]:
         self._load_model()
-        vectors = self._model.encode(chunks, convert_to_numpy=True).tolist()
-        return vectors
+        model = cast(Any, self._model)
+        return cast(
+            list[list[float]],
+            model.encode(chunks, convert_to_numpy=True).tolist(),
+        )
 
 
 class DeterministicEmbeddingModel(TextEmbeddingModel):
@@ -78,7 +87,7 @@ class DeterministicEmbeddingModel(TextEmbeddingModel):
     without requiring a real local LLM to be downloaded yet.
     """
 
-    def __init__(self, dim: int = 384):
+    def __init__(self, dim: int = 384) -> None:
         self._dim = dim
 
     @property

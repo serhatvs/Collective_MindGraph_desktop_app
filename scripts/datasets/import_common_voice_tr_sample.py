@@ -16,22 +16,34 @@ BASE_FIXTURE_DIR = Path("tests/transcription/fixtures")
 AUDIO_TARGET_DIR = BASE_FIXTURE_DIR / "audio" / "common_voice_tr"
 MANIFEST_PATH = BASE_FIXTURE_DIR / "expected" / "common_voice_tr_manifest.json"
 
+
 def convert_to_wav(source: Path, target: Path):
     """Convert audio to standard WAV format using ffmpeg."""
     command = [
-        "ffmpeg", "-y", "-i", str(source),
-        "-ar", "16000", "-ac", "1", "-sample_fmt", "s16",
-        str(target)
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(source),
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        "-sample_fmt",
+        "s16",
+        str(target),
     ]
     subprocess.run(command, capture_output=True, check=True)
 
+
 def main():
     parser = argparse.ArgumentParser(description="Import Common Voice Turkish samples.")
-    parser.add_argument("cv_path", type=Path, help="Path to Common Voice Turkish root (e.g., cv-corpus-25.0/tr)")
+    parser.add_argument(
+        "cv_path", type=Path, help="Path to Common Voice Turkish root (e.g., cv-corpus-25.0/tr)"
+    )
     parser.add_argument("--num-samples", type=int, default=20)
     parser.add_argument("--split", default="test", choices=["test", "validated", "dev", "train"])
     parser.add_argument("--seed", type=int, default=42)
-    
+
     args = parser.parse_args()
     random.seed(args.seed)
 
@@ -64,7 +76,7 @@ def main():
     # Filter for interesting samples (containing Turkish characters)
     tr_chars = set("çğışöüÇĞİŞÖÜ")
     with_tr = [r for r in all_rows if any(c in r["sentence"] for c in tr_chars)]
-    
+
     # Prioritize those, otherwise fallback to any
     pool = with_tr if len(with_tr) >= args.num_samples else all_rows
     selected_rows = random.sample(pool, min(len(pool), args.num_samples))
@@ -74,19 +86,21 @@ def main():
         source_clip = clips_dir / row["path"]
         target_name = f"cv_tr_{i:03d}.wav"
         target_path = AUDIO_TARGET_DIR / target_name
-        
-        print(f"📦 [{i+1}/{len(selected_rows)}] Converting {row['path']} -> {target_name}")
+
+        print(f"📦 [{i + 1}/{len(selected_rows)}] Converting {row['path']} -> {target_name}")
         try:
             convert_to_wav(source_clip, target_path)
-            
-            manifest_samples.append({
-                "id": f"cv_tr_{i:03d}",
-                "audio_path": str(Path("audio/common_voice_tr") / target_name),
-                "expected_sentence": row["sentence"],
-                "source_split": args.split,
-                "original_path": row["path"],
-                "license": "CC0-1.0"
-            })
+
+            manifest_samples.append(
+                {
+                    "id": f"cv_tr_{i:03d}",
+                    "audio_path": str(Path("audio/common_voice_tr") / target_name),
+                    "expected_sentence": row["sentence"],
+                    "source_split": args.split,
+                    "original_path": row["path"],
+                    "license": "CC0-1.0",
+                }
+            )
         except Exception as exc:
             print(f"  ❌ Failed to convert {row['path']}: {exc}")
 
@@ -99,7 +113,7 @@ def main():
         "imported_count": len(manifest_samples),
         "created_at": datetime.now(tz=UTC).isoformat(),
         "notes": "Imported for local ASR quality regression testing.",
-        "samples": manifest_samples
+        "samples": manifest_samples,
     }
 
     with MANIFEST_PATH.open("w", encoding="utf-8") as f:
@@ -108,6 +122,7 @@ def main():
     print(f"\n✅ Imported {len(manifest_samples)} samples.")
     print(f"📄 Manifest written to: {MANIFEST_PATH}")
     print(f"🎵 Audio files stored in: {AUDIO_TARGET_DIR}")
+
 
 if __name__ == "__main__":
     main()

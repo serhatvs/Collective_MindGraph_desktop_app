@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  QT_QPA_PLATFORM: offscreen
+  UV_LINK_MODE: copy
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+        python:
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python }}
+      - name: Install Linux Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install --yes
+          libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install locked test environment
+        run: uv sync --frozen --extra dev
+      - name: Run automated suite
+        run: uv run pytest -q
+
+  quality:
+    name: Quality, contracts, and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install Linux Qt runtime libraries
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install --yes
+          libegl1 libgl1 libpulse0 libxkbcommon-x11-0 libxcb-cursor0
+      - name: Install locked quality environment
+        run: uv sync --frozen --extra dev
+      - name: Check formatting
+        run: uv run ruff format --check .
+      - name: Lint and complexity
+        run: uv run ruff check .
+      - name: Enforce strict mypy ratchet
+        run: uv run python scripts/quality/check_mypy_baseline.py
+      - name: Check architecture and golden contracts
+        run: >-
+          uv run pytest -q
+          tests/test_architecture_rules.py
+          tests/test_golden_contracts.py
+          tests/test_import_safety.py
+          tests/test_source_engine_smoke.py
+          tests/test_quality_gates.py
+      - name: Compile production modules
+        run: uv run python -m compileall -q src/collective_mindgraph
+      - name: Measure total and changed-line coverage
+        run: >-
+          uv run pytest -q
+          --cov=collective_mindgraph
+          --cov-report=term
+          --cov-report=xml
+      - name: Enforce changed-line coverage
+        if: github.event_name == 'pull_request'
+        run: uv run diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=90
+      - name: Scan production code
+        run: uv run bandit -q -lll -iii -c pyproject.toml -r src
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-python-3.13
+          path: coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  package-smoke:
+    name: Windows package smoke
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          python-version: "3.11"
+      - name: Install locked build environment
+        run: uv sync --frozen --extra dev --extra build
+      - name: Build executable
+        run: uv run pyinstaller --noconfirm --clean CollectiveMindGraph.spec
+      - name: Start packaged engine and verify health
+        run: uv run python scripts/validation/smoke_packaged_engine.py dist/CollectiveMindGraph.exe

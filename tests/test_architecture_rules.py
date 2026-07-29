@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "src" / "collective_mindgraph"
 
 
-def _python_files(directory: Path):
+def _python_files(directory: Path) -> tuple[Path, ...]:
     return tuple(path for path in directory.rglob("*.py") if "__pycache__" not in path.parts)
 
 
@@ -83,12 +83,22 @@ def test_production_module_size_limit_and_documented_allowlist():
     policy = configuration["tool"]["collective-mindgraph"]["architecture"]
     limit = int(policy["line_limit"])
     allowlist = set(policy["line_limit_allowlist"])
+    reasons = policy["line_limit_exception_reasons"]
     oversized = {
         path.relative_to(PACKAGE).as_posix()
         for path in _python_files(PACKAGE)
         if len(path.read_text(encoding="utf-8").splitlines()) > limit
     }
     assert oversized == allowlist
+    assert set(reasons) == allowlist
+    assert all(str(reason).strip() for reason in reasons.values())
+
+
+def test_line_limit_is_ratcheted_toward_production_target():
+    configuration = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    policy = configuration["tool"]["collective-mindgraph"]["architecture"]
+
+    assert int(policy["line_limit"]) <= 400
 
 
 def test_no_runtime_path_injection():

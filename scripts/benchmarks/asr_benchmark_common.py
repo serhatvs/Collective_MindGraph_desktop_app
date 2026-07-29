@@ -105,7 +105,9 @@ async def run_cmg_pipeline(
         run.actual_vad_provider = runtime.vad_provider or settings.vad_provider
         run.diagnostics = runtime.diagnostics()
         if vad_provider == "silero" and run.actual_vad_provider != "silero":
-            run.warnings.append("Silero VAD was requested but did not load; ASR continued with fallback VAD.")
+            run.warnings.append(
+                "Silero VAD was requested but did not load; ASR continued with fallback VAD."
+            )
 
         start_transcribe = time.perf_counter()
         try:
@@ -129,7 +131,9 @@ async def run_cmg_pipeline(
         run.speech_regions = [(region.start, region.end) for region in transcript.debug.vad_regions]
     run.segment_count = len(transcript.segments)
     run.raw_transcript = "\n".join(segment.raw_text for segment in transcript.segments).strip()
-    run.cleaned_transcript = "\n".join(segment.corrected_text for segment in transcript.segments).strip()
+    run.cleaned_transcript = "\n".join(
+        segment.corrected_text for segment in transcript.segments
+    ).strip()
     run.warnings.extend(str(item) for item in run.metadata.get("warnings", []) if item)
     if duration and run.transcription_time_seconds is not None:
         run.real_time_factor = run.transcription_time_seconds / duration
@@ -216,4 +220,6 @@ def format_run_summary(run: PipelineRun) -> str:
 
 
 def diagnostics_block(run: PipelineRun) -> str:
-    return format_asr_diagnostics(run.diagnostics) if run.diagnostics else "[diagnostics unavailable]"
+    return (
+        format_asr_diagnostics(run.diagnostics) if run.diagnostics else "[diagnostics unavailable]"
+    )

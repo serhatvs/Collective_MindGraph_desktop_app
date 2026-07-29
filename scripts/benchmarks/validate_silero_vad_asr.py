@@ -27,7 +27,9 @@ except ModuleNotFoundError:  # Direct file execution from this directory.
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Validate EnergyVAD, SileroVAD, and no-VAD ASR paths.")
+    parser = argparse.ArgumentParser(
+        description="Validate EnergyVAD, SileroVAD, and no-VAD ASR paths."
+    )
     parser.add_argument("--audio", type=Path, required=True)
     parser.add_argument("--model", default="small")
     parser.add_argument("--profile", choices=["cpu", "gpu_asr"], default="gpu_asr")
@@ -161,19 +163,22 @@ def _format_regions(regions: list[tuple[float, float]]) -> str:
 
 
 def _not_run_report(audio_path: Path, model: str) -> str:
-    return "\n".join(
-        [
-            "# Silero VAD ASR Validation Report",
-            "",
-            f"Date: {datetime.now(tz=UTC).date().isoformat()}",
-            "Status: `SILERO_VAD_ASR_VALIDATION_NOT_RUN_NO_AUDIO`",
-            "",
-            f"Audio path: `{audio_path}`",
-            f"Model: `{model}`",
-            "",
-            "No validation was run because the audio file was not found.",
-        ]
-    ) + "\n"
+    return (
+        "\n".join(
+            [
+                "# Silero VAD ASR Validation Report",
+                "",
+                f"Date: {datetime.now(tz=UTC).date().isoformat()}",
+                "Status: `SILERO_VAD_ASR_VALIDATION_NOT_RUN_NO_AUDIO`",
+                "",
+                f"Audio path: `{audio_path}`",
+                f"Model: `{model}`",
+                "",
+                "No validation was run because the audio file was not found.",
+            ]
+        )
+        + "\n"
+    )
 
 
 def _resolve_repo_path(path: Path) -> Path:

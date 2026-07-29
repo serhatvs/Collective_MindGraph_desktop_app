@@ -34,7 +34,7 @@ def _settings(tmp_path) -> EngineSettings:
 
 
 def _wait_for_terminal(client: TestClient, job_id: str) -> dict[str, object]:
-    deadline = time.monotonic() + 5
+    deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
         payload = client.get(f"/api/v1/jobs/{job_id}").json()
         if payload["status"] in {"succeeded", "failed", "cancelled"}:

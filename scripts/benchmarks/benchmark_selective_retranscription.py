@@ -81,8 +81,12 @@ async def main() -> int:
 
     runs: list[BenchmarkRun] = []
     for audio_path in audio_paths:
-        reference_path = resolve_reference(audio_path, args.reference, single_audio=len(audio_paths) == 1)
-        reference_text = reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        reference_path = resolve_reference(
+            audio_path, args.reference, single_audio=len(audio_paths) == 1
+        )
+        reference_text = (
+            reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        )
         domain_terms = resolve_domain_terms(glossary_path)
         configurations = [
             ("first_pass_only", args.first_pass_profile, False),
@@ -159,7 +163,9 @@ async def run_configuration(
             debug=False,
         )
         run.raw_text = "\n".join(segment.raw_text for segment in transcript.segments).strip()
-        run.selected_text = "\n".join(segment.corrected_text for segment in transcript.segments).strip()
+        run.selected_text = "\n".join(
+            segment.corrected_text for segment in transcript.segments
+        ).strip()
         metadata = dict(transcript.metadata)
         if metadata.get("mock_fallback_used"):
             raise RuntimeError("ASR_STATUS=MOCK_FALLBACK invalidates this benchmark run")
@@ -170,7 +176,9 @@ async def run_configuration(
             run.audio_duration_seconds = _optional_float(audio_metadata.get("duration_seconds"))
         selective_metadata = metadata.get("selective_retranscription")
         if isinstance(selective_metadata, dict):
-            run.retranscribed_regions = int(selective_metadata.get("number_of_second_pass_regions") or 0)
+            run.retranscribed_regions = int(
+                selective_metadata.get("number_of_second_pass_regions") or 0
+            )
             run.percentage_audio_retranscribed = float(
                 selective_metadata.get("percentage_of_audio_retranscribed") or 0.0
             )
@@ -208,10 +216,16 @@ def discover_audio(path: Path) -> list[Path]:
         return [resolved]
     if not resolved.is_dir():
         return []
-    return sorted(item for item in resolved.rglob("*") if item.is_file() and item.suffix.lower() in AUDIO_EXTENSIONS)
+    return sorted(
+        item
+        for item in resolved.rglob("*")
+        if item.is_file() and item.suffix.lower() in AUDIO_EXTENSIONS
+    )
 
 
-def resolve_reference(audio_path: Path, reference: Path | None, *, single_audio: bool) -> Path | None:
+def resolve_reference(
+    audio_path: Path, reference: Path | None, *, single_audio: bool
+) -> Path | None:
     if reference is not None:
         resolved = reference.expanduser().resolve()
         if resolved.is_file() and single_audio:
@@ -235,7 +249,9 @@ def resolve_domain_terms(glossary_path: Path | None) -> list[str]:
     return list(resolved.terms)
 
 
-def calculate_domain_term_accuracy(reference: str, hypothesis: str, terms: list[str]) -> float | None:
+def calculate_domain_term_accuracy(
+    reference: str, hypothesis: str, terms: list[str]
+) -> float | None:
     result = evaluate_domain_terms(reference, hypothesis, terms)
     return result.accuracy if result else None
 

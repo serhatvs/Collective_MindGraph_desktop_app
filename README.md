@@ -31,18 +31,16 @@ restart.
 Python 3.11 or newer is required.
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[transcription,local-ai,dev]"
-mindgraph
+uv sync --frozen --extra dev --extra transcription --extra local-ai
+uv run mindgraph
 ```
 
 `mindgraph` opens the desktop and starts the local engine when necessary.
 Individual entry points are also available:
 
 ```powershell
-mindgraph-engine
-mindgraph-annotate --help
+uv run mindgraph-engine
+uv run mindgraph-annotate --help
 ```
 
 For repository launchers and operational scripts, see
@@ -71,9 +69,11 @@ Permanent raw-audio retention is an explicit Privacy/Storage preference.
 ## Validation
 
 ```powershell
-python -m pytest -q
-python -m ruff check src tests scripts
-python -m mypy
+uv run pytest -q
+uv run ruff format --check .
+uv run ruff check .
+uv run python scripts/quality/check_mypy_baseline.py
+uv run pytest -q --cov=collective_mindgraph --cov-report=term
 ```
 
 Hardware and real-model checks are marked separately and skip when their local
@@ -85,6 +85,7 @@ WER/CER or real meeting-room accuracy.
 - [Architecture](docs/dev/ARCHITECTURE.md)
 - [Repository structure](docs/dev/REPOSITORY_STRUCTURE.md)
 - [Developer setup](docs/dev/SETUP.md)
+- [Production v1 program](docs/dev/PRODUCTION_V1_PROGRAM.md)
 - [Product status](docs/product/STATUS.md)
 - [Demo flow](docs/demo/DEMO_FLOW.md)
 - [Documentation index](docs/README.md)

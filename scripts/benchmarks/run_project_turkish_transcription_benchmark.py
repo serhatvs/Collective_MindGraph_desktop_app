@@ -76,9 +76,15 @@ def parse_args() -> argparse.Namespace:
         description="Benchmark local Faster-Whisper Turkish transcription on project audio."
     )
     parser.add_argument("--audio", type=Path, help="Path to one local Turkish audio file.")
-    parser.add_argument("--dataset-root", type=Path, help="External dataset root to scan for Turkish audio.")
-    parser.add_argument("--max-files", type=int, default=5, help="Maximum dataset files to benchmark.")
-    parser.add_argument("--dataset-name", default="project_turkish", help="Dataset label for report output.")
+    parser.add_argument(
+        "--dataset-root", type=Path, help="External dataset root to scan for Turkish audio."
+    )
+    parser.add_argument(
+        "--max-files", type=int, default=5, help="Maximum dataset files to benchmark."
+    )
+    parser.add_argument(
+        "--dataset-name", default="project_turkish", help="Dataset label for report output."
+    )
     parser.add_argument("--reference", type=Path, help="Optional human reference transcript.")
     parser.add_argument(
         "--output",
@@ -97,7 +103,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default=os.getenv("CMG_RT_ASR_DEVICE", "cuda"))
     parser.add_argument("--compute-type", default=os.getenv("CMG_RT_ASR_COMPUTE_TYPE", "float16"))
     parser.add_argument("--vad-provider", default="silero")
-    parser.add_argument("--fail-fast", action="store_true", help="Stop after the first failed config.")
+    parser.add_argument(
+        "--fail-fast", action="store_true", help="Stop after the first failed config."
+    )
     return parser.parse_args()
 
 
@@ -122,7 +130,9 @@ async def main() -> int:
         samples = all_samples[: max(args.max_files, 0)]
         if not samples:
             raise SystemExit(f"No supported audio files found under dataset root: {dataset_root}")
-        default_output = Path("docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md")
+        default_output = Path(
+            "docs/reports/2026-06-30/transcription-benchmarks/MEDIASPEECH_TR_TRANSCRIPTION_BENCHMARK.md"
+        )
         default_audio_kind = args.audio_kind if args.audio_kind != "unknown" else "test_speech"
     else:
         audio_path = args.audio.resolve()
@@ -131,7 +141,9 @@ async def main() -> int:
             raise SystemExit(f"Audio file not found: {audio_path}")
         if reference_path and not reference_path.exists():
             raise SystemExit(f"Reference transcript not found: {reference_path}")
-        reference_text = reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        reference_text = (
+            reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        )
         samples = [
             BenchmarkSample(
                 sample_id=audio_path.stem,
@@ -140,7 +152,9 @@ async def main() -> int:
                 reference_text=reference_text,
             )
         ]
-        default_output = Path("docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md")
+        default_output = Path(
+            "docs/reports/2026-06-30/transcription-benchmarks/PROJECT_TURKISH_TRANSCRIPTION_BENCHMARK.md"
+        )
         default_audio_kind = args.audio_kind
 
     output_arg = args.output or default_output
@@ -191,7 +205,9 @@ async def main() -> int:
         results=results,
     )
     print(f"Benchmark report written to {output_path}")
-    if any(result.mock_fallback_used or result.asr_status == MOCK_FALLBACK_STATUS for result in results):
+    if any(
+        result.mock_fallback_used or result.asr_status == MOCK_FALLBACK_STATUS for result in results
+    ):
         return 2
     if any(result.error and MOCK_FALLBACK_STATUS in result.error for result in results):
         return 2
@@ -246,7 +262,9 @@ async def run_single_config(
         raise RuntimeError(f"Invalid benchmark output: {MOCK_FALLBACK_STATUS}")
 
     raw_transcript = "\n".join(segment.raw_text for segment in transcript.segments).strip()
-    cleaned_transcript = "\n".join(segment.corrected_text for segment in transcript.segments).strip()
+    cleaned_transcript = "\n".join(
+        segment.corrected_text for segment in transcript.segments
+    ).strip()
 
     return BenchmarkResult(
         sample_id=sample.sample_id,
@@ -265,8 +283,12 @@ async def run_single_config(
         raw_transcript=raw_transcript,
         cleaned_transcript=cleaned_transcript,
         metadata=metadata,
-        raw_metrics=compare_to_reference(sample.reference_text, raw_transcript) if sample.reference_text else None,
-        cleaned_metrics=compare_to_reference(sample.reference_text, cleaned_transcript) if sample.reference_text else None,
+        raw_metrics=compare_to_reference(sample.reference_text, raw_transcript)
+        if sample.reference_text
+        else None,
+        cleaned_metrics=compare_to_reference(sample.reference_text, cleaned_transcript)
+        if sample.reference_text
+        else None,
         turkish_chars=check_turkish_characters(raw_transcript, cleaned_transcript),
         technical_terms=check_technical_terms(raw_transcript, cleaned_transcript),
         vad_clipping_notes=build_vad_clipping_notes(transcript, metadata),
@@ -282,7 +304,9 @@ def discover_dataset_samples(dataset_root: Path) -> list[BenchmarkSample]:
     samples: list[BenchmarkSample] = []
     for audio_path in audio_files:
         reference_path = find_reference_for_audio(audio_path)
-        reference_text = reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        reference_text = (
+            reference_path.read_text(encoding="utf-8").strip() if reference_path else None
+        )
         try:
             sample_id = str(audio_path.relative_to(dataset_root).with_suffix(""))
         except ValueError:
@@ -380,7 +404,9 @@ def build_vad_clipping_notes(transcript: Any, metadata: dict[str, Any]) -> list[
     first_region = vad_regions[0]
     last_region = vad_regions[-1]
     if first_region.start > 0.5:
-        notes.append(f"First VAD region starts at {first_region.start:.2f}s; verify no opening word was clipped.")
+        notes.append(
+            f"First VAD region starts at {first_region.start:.2f}s; verify no opening word was clipped."
+        )
     if duration is not None and duration - last_region.end > 0.5:
         notes.append(
             f"Last VAD region ends {duration - last_region.end:.2f}s before audio end; verify no closing word was clipped."
@@ -388,7 +414,9 @@ def build_vad_clipping_notes(transcript: Any, metadata: dict[str, Any]) -> list[
     if len(vad_regions) > 20:
         notes.append(f"VAD produced {len(vad_regions)} regions; inspect for over-segmentation.")
     if not notes:
-        notes.append("No obvious clipping signal from simple VAD boundary heuristics; manual listening still required.")
+        notes.append(
+            "No obvious clipping signal from simple VAD boundary heuristics; manual listening still required."
+        )
     return notes
 
 
@@ -425,7 +453,11 @@ def build_report(
 ) -> str:
     reference_count = sum(1 for sample in samples if sample.reference_text)
     reference_exists = reference_count > 0
-    status = "BENCHMARK_RUN" if results and any(not result.error for result in results) else "BENCHMARK_ATTEMPTED_WITH_ERRORS"
+    status = (
+        "BENCHMARK_RUN"
+        if results and any(not result.error for result in results)
+        else "BENCHMARK_ATTEMPTED_WITH_ERRORS"
+    )
     best_config = choose_recommended_config(results, reference_exists)
     lines = [
         f"# {dataset_name} Turkish Transcription Benchmark",
@@ -434,7 +466,9 @@ def build_report(
         "",
         f"Status: {status}",
         "",
-        f"Dataset root path: `{dataset_root}`" if dataset_root else "Dataset root path: single-file mode",
+        f"Dataset root path: `{dataset_root}`"
+        if dataset_root
+        else "Dataset root path: single-file mode",
         f"Files discovered: {dataset_audio_count}",
         f"Files tested: {len(samples)}",
         f"Audio type: `{audio_kind}`",
@@ -446,7 +480,11 @@ def build_report(
     for sample in samples:
         lines.append(
             f"- `{sample.audio_path}`"
-            + (f" -> `{sample.reference_path}`" if sample.reference_path else " -> reference not found")
+            + (
+                f" -> `{sample.reference_path}`"
+                if sample.reference_path
+                else " -> reference not found"
+            )
         )
     lines.extend(
         [
@@ -532,7 +570,9 @@ def render_result(result: BenchmarkResult) -> list[str]:
         f"### {result.sample_id} / {result.model_name} + {result.profile}",
         "",
         f"- Audio path: `{result.audio_path}`",
-        f"- Reference path: `{result.reference_path}`" if result.reference_path else "- Reference path: not found",
+        f"- Reference path: `{result.reference_path}`"
+        if result.reference_path
+        else "- Reference path: not found",
         f"- ASR status: `{result.asr_status}`",
         f"- Mock fallback used: `{result.mock_fallback_used}`",
         f"- Preprocessing status: `{result.preprocessing_status}`",
@@ -662,7 +702,9 @@ def aggregate_config_rows(results: list[BenchmarkResult]) -> list[dict[str, Any]
                 "valid": len(valid),
                 "errors": len([item for item in items if item.error]),
                 "avg_time": _average(
-                    item.processing_time_seconds for item in valid if item.processing_time_seconds is not None
+                    item.processing_time_seconds
+                    for item in valid
+                    if item.processing_time_seconds is not None
                 ),
                 "avg_wer": _average(item.cleaned_metrics["wer"] for item in metric_items),
                 "avg_cer": _average(item.cleaned_metrics["cer"] for item in metric_items),
@@ -671,7 +713,9 @@ def aggregate_config_rows(results: list[BenchmarkResult]) -> list[dict[str, Any]
     return rows
 
 
-def choose_recommended_config(results: list[BenchmarkResult], reference_exists: bool) -> dict[str, Any] | None:
+def choose_recommended_config(
+    results: list[BenchmarkResult], reference_exists: bool
+) -> dict[str, Any] | None:
     rows = [row for row in aggregate_config_rows(results) if row["valid"] > 0]
     if not rows:
         return None
@@ -743,8 +787,7 @@ def _load_configure_logging() -> Any:
             logging.basicConfig(level=getattr(logging, level.upper(), logging.INFO))
 
         print(
-            "Warning: using fallback logging because engine logging import failed: "
-            f"{exc}",
+            f"Warning: using fallback logging because engine logging import failed: {exc}",
             file=sys.stderr,
         )
         return configure_logging_fallback

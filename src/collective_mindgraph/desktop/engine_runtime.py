@@ -47,7 +47,9 @@ def build_local_engine_launch_spec(base_url: str) -> EngineLaunchSpec | None:
             },
         )
     return EngineLaunchSpec(
-        program=str(Path(sys.executable).resolve()),
+        # Preserve the virtual-environment executable on POSIX. Resolving the
+        # symlink would launch the base interpreter without the installed app.
+        program=str(Path(sys.executable).absolute()),
         arguments=[
             "-m",
             "collective_mindgraph.engine",
@@ -68,10 +70,17 @@ class LocalEngineManager(QObject):
         super().__init__(parent)
         self._process: QProcess | None = None
         self._started_by_app = False
+        self._recent_output = ""
 
     @property
     def started_by_app(self) -> bool:
         return self._started_by_app
+
+    @property
+    def recent_output(self) -> str:
+        """Return the bounded tail of engine output for diagnostics."""
+
+        return self._recent_output
 
     def can_manage(self, base_url: str) -> bool:
         return build_local_engine_launch_spec(base_url) is not None
@@ -92,6 +101,7 @@ class LocalEngineManager(QObject):
                 environment.insert(key, value)
             process.setProcessEnvironment(environment)
         process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        process.readyReadStandardOutput.connect(lambda: self._collect_output(process))
         process.errorOccurred.connect(
             lambda _error: self.error_occurred.emit(
                 process.errorString() or "Local engine process failed."
@@ -120,7 +130,14 @@ class LocalEngineManager(QObject):
 
     def _finished(self) -> None:
         if self._process is not None:
+            self._collect_output(self._process)
             self._process.deleteLater()
         self._process = None
         self._started_by_app = False
         self.state_changed.emit("Local engine stopped.")
+
+    def _collect_output(self, process: QProcess) -> None:
+        raw_output = process.readAllStandardOutput().data()
+        output = bytes(raw_output).decode("utf-8", errors="replace")
+        if output:
+            self._recent_output = (self._recent_output + output)[-16_384:]

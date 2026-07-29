@@ -4,6 +4,7 @@
 
 - Windows 10/11 is the primary target
 - Python 3.11 or newer
+- `uv` for the locked development and build environment
 - FFmpeg available on `PATH` or configured with `CMG_FFMPEG_EXE`
 - Optional NVIDIA/CUDA runtime for accelerated Faster-Whisper
 
@@ -12,35 +13,32 @@
 From the repository root:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-python -m pip install -e ".[transcription,local-ai,dev,build]"
+uv sync --frozen --extra transcription --extra local-ai --extra dev --extra build
 ```
 
 Use narrower extras when local models or packaging are not needed:
 
 ```powershell
-python -m pip install -e ".[dev]"
-python -m pip install -e ".[transcription,dev]"
+uv sync --frozen --extra dev
+uv sync --frozen --extra transcription --extra dev
 ```
 
-All dependencies are owned by `pyproject.toml`; there is no secondary
-requirements file.
+All dependencies are owned by `pyproject.toml` and resolved in `uv.lock`;
+there is no secondary requirements file.
 
 ## Run
 
 The desktop starts and stops its localhost engine automatically:
 
 ```powershell
-mindgraph
+uv run mindgraph
 ```
 
 For separate process debugging:
 
 ```powershell
-mindgraph-engine --host 127.0.0.1 --port 8080
-mindgraph
+uv run mindgraph-engine --host 127.0.0.1 --port 8080
+uv run mindgraph
 ```
 
 Repository launchers are also available:
@@ -91,19 +89,21 @@ sources.
 ## Verification
 
 ```powershell
-python -m pytest -q
-python -m ruff check src tests scripts
-python -m mypy
-python -m compileall -q src scripts
-mindgraph --help
-mindgraph-engine --help
-mindgraph-annotate --help
+uv run pytest -q
+uv run ruff format --check .
+uv run ruff check .
+uv run python scripts/quality/check_mypy_baseline.py
+uv run pytest -q --cov=collective_mindgraph --cov-report=term --cov-report=xml
+uv run python -m compileall -q src scripts
+uv run mindgraph --help
+uv run mindgraph-engine --help
+uv run mindgraph-annotate --help
 ```
 
 Real-model and hardware validations are optional and marked explicitly:
 
 ```powershell
-python -m pytest -m "hardware or local_model" -ra
+uv run pytest -m "hardware or local_model" -ra
 ```
 
 ## Build

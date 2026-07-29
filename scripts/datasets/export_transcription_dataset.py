@@ -17,7 +17,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--output", type=Path)
-    parser.add_argument("--formats", nargs="+", choices=EXPORT_FORMATS, default=list(EXPORT_FORMATS))
+    parser.add_argument(
+        "--formats", nargs="+", choices=EXPORT_FORMATS, default=list(EXPORT_FORMATS)
+    )
     return parser.parse_args()
 
 

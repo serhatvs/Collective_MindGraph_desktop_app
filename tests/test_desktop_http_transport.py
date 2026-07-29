@@ -1,13 +1,21 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
-from collective_mindgraph.desktop.contracts import EngineSettings
+from PySide6.QtCore import QSettings
+
+from collective_mindgraph.desktop.contracts import (
+    EngineSettings,
+    MeetingTranscript,
+    ProcessingJob,
+)
 from collective_mindgraph.desktop.http_transport import (
     EngineClientError,
     LocalHttpTransport,
     is_engine_offline_error,
 )
+from collective_mindgraph.desktop.language_catalog import LanguageCatalog
 from collective_mindgraph.desktop.ui.workspaces.capture import (
     CaptureWorkspace,
     _remove_uploaded_spool,
@@ -88,9 +96,7 @@ def test_only_connection_refusal_is_classified_as_engine_offline():
     assert is_engine_offline_error(
         EngineClientError("engine_offline", "unavailable", retryable=True)
     )
-    assert not is_engine_offline_error(
-        EngineClientError("engine_timeout", "slow", retryable=True)
-    )
+    assert not is_engine_offline_error(EngineClientError("engine_timeout", "slow", retryable=True))
     assert not is_engine_offline_error(
         EngineClientError("validation_error", "invalid", status_code=422)
     )
@@ -124,3 +130,76 @@ def test_live_fallback_marks_only_the_spool_for_cleanup(tmp_path: Path):
     CaptureWorkspace._live_fallback(_Workspace(), str(spool))  # type: ignore[arg-type]
 
     assert calls == [(spool, 17, True)]
+
+
+def test_successful_capture_fallback_upload_cleans_spool_after_transcript_load(
+    qtbot,
+    tmp_path: Path,
+):
+    now = datetime.now(tz=UTC)
+    job = ProcessingJob(
+        id="job-17",
+        meeting_id=17,
+        recording_id="recording-17",
+        parent_job_id=None,
+        result_transcript_id=23,
+        kind="transcription",
+        status="succeeded",
+        progress=100,
+        message="complete",
+        error=None,
+        retryable=False,
+        created_at=now,
+        updated_at=now,
+    )
+    transcript = MeetingTranscript(
+        id=23,
+        meeting_id=17,
+        conversation_id="conversation-17",
+        provider="mock",
+        language="tr",
+        raw_text="ham",
+        corrected_text="düzeltilmiş",
+        segments=(),
+    )
+
+    class _Client:
+        settings = EngineSettings()
+
+        def ingest_recording(self, meeting_id, source, preferences):
+            assert meeting_id == 17
+            assert source.name == "capture.wav"
+            return job
+
+        def wait_for_job(self, job_id):
+            assert job_id == job.id
+            return job
+
+        def get_transcript(self, meeting_id):
+            assert meeting_id == 17
+            return transcript
+
+    class _ImmediatePresenter:
+        def submit(self, operation, *, succeeded, failed):
+            try:
+                result = operation()
+            except Exception as error:
+                failed(error)
+            else:
+                succeeded(result)
+
+    settings = QSettings(str(tmp_path / "ui.ini"), QSettings.Format.IniFormat)
+    catalog = LanguageCatalog(settings)
+    workspace = CaptureWorkspace(
+        _Client(),  # type: ignore[arg-type]
+        catalog,
+        _ImmediatePresenter(),  # type: ignore[arg-type]
+    )
+    qtbot.addWidget(workspace)
+    spool = tmp_path / "capture.wav"
+    spool.write_bytes(b"pcm")
+
+    workspace.process_path(spool, meeting_id=17, cleanup_source_on_success=True)
+
+    assert not spool.exists()
+    assert workspace._transcript.toPlainText() == "düzeltilmiş"

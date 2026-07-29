@@ -54,22 +54,14 @@ class AnswerMemory:
             result
             for result in results
             if result.evidence is not None
-            and (
-                result.evidence.text_preview
-                or result.node.body
-                or result.node.title
-            )
+            and (result.evidence.text_preview or result.node.body or result.node.title)
         )
         if not supported_results:
             return _insufficient_answer(query, mode)
 
         chains = _evidence_chains(supported_results)
         evidence_answer = "; ".join(
-            (
-                result.evidence.text_preview
-                or result.node.body
-                or result.node.title
-            )
+            (result.evidence.text_preview or result.node.body or result.node.title)
             for result in supported_results[:5]
             if result.evidence is not None
         )

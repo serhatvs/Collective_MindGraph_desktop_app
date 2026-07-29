@@ -47,14 +47,16 @@ def main() -> int:
     faster_whisper_available, faster_whisper_error = _check_faster_whisper_available()
     faster_whisper_status = "available" if faster_whisper_available else "missing"
 
-    print(textwrap.dedent(f"""\
+    print(
+        textwrap.dedent(f"""\
         ================================================
         Collective MindGraph -- Alpha Launcher
         ================================================
         Python executable : {sys.executable}
         Repo root         : {repo_root}
         faster_whisper    : {faster_whisper_status}
-    """))
+    """)
+    )
 
     if not faster_whisper_available:
         print(

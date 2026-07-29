@@ -16,6 +16,7 @@ from .legacy_backend_import import import_backend_database, import_transcript_ar
 from .legacy_desktop_import import import_legacy_desktop
 from .migration_support import file_sha256, open_readonly, record_source, table_exists
 from .sqlite_database import SqliteDatabase
+from .sync_identity import sync_identity_violations
 
 
 @dataclass(frozen=True, slots=True)
@@ -371,6 +372,7 @@ class LegacyDataMigrator:
                 table: int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
                 for table in expected_counts
             }
+            identity_violations = sync_identity_violations(connection)
         if integrity.lower() != "ok":
             raise RuntimeError(f"Migrated database failed integrity check: {integrity}")
         if foreign_keys:
@@ -390,6 +392,16 @@ class LegacyDataMigrator:
             "processing_jobs",
             "schema_migrations",
             "migration_sources",
+            "workspaces",
+            "devices",
+            "sync_outbox",
+            "sync_state",
+            "sync_tombstones",
+            "conflict_versions",
+            "key_envelopes",
+            "comments",
+            "activity_events",
+            "model_registry",
         }
         missing_tables = required_tables - actual_tables
         if missing_tables:
@@ -398,6 +410,10 @@ class LegacyDataMigrator:
             )
         if set(imported_hashes) - recorded_hashes:
             raise RuntimeError("Migrated database did not record every imported source hash.")
+        if identity_violations:
+            raise RuntimeError(
+                f"Migrated database contains invalid sync identities: {identity_violations}"
+            )
         decreased = {
             table: (expected, actual_counts[table])
             for table, expected in expected_counts.items()

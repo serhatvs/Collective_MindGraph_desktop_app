@@ -15,26 +15,24 @@
 
 ## Current State
 
-- Remote `main` starts the public-production-v1 program at squash commit
-  `f1e0305 refactor: complete product architecture rework`.
-- Active branch: `chore/production-quality-baseline`, created directly from
-  `origin/main`. It is stage 1 of the twelve-PR program documented in
-  `docs/dev/PRODUCTION_V1_PROGRAM.md`.
-- Merge-ready delivery PR
-  [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
-  targets `main`; the stage will be squash-merged only after hosted gates and
-  review are clean.
+- Stage 1 was squash-merged through
+  [PR #15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15);
+  remote `main` is now `4ee7949 chore: establish production quality baseline`.
+- Active branch: `refactor/workspace-sync-identities`, created directly from
+  that updated `origin/main`. It is stage 2 of the twelve-PR program documented
+  in `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Quality measurements: 75.59% branch-inclusive coverage, 79% statement
-  coverage, and 304 existing strict-mypy errors across the full production
-  package. CI rejects coverage below 75%, changed production lines below 90%,
-  or any new/increased module/error-code type debt.
-- The production module limit is now 400 lines with sixteen exact documented
-  transition exceptions. Complexity is 12 with explicit existing exceptions.
+- Current quality measurements are 76.66% branch-inclusive coverage and 298
+  existing strict-mypy errors across the full production package. Stage 2
+  changed-line coverage is 99%. CI rejects coverage below 75%, changed
+  production lines below 90%, or any new/increased module/error-code type debt.
+- The production module limit is now 400 lines with fifteen exact documented
+  transition exceptions after stage 2 split canonical data exchange.
+  Complexity is 12 with explicit existing exceptions.
 - The isolated locked test environment exposed and fixed test-owned SQLite
   connection leakage and deterministic missing-path handling for the optional
   embedding adapter.
@@ -71,7 +69,15 @@
 
 - Canonical database:
   `%LOCALAPPDATA%\CollectiveMindGraph\collective_mindgraph.sqlite3`.
-- Current schema version is 2 and export `format_version` is 4.
+- Stage 2 advances the schema to version 3. Existing local identifiers remain
+  unchanged while workspaces and synchronized rows receive stable UUID
+  identities, local/sync revisions, and updated-by-device metadata.
+- The local schema includes transactional outbox/state/tombstone/conflict
+  foundations plus device, key-envelope, comment, activity, and model-registry
+  tables. A generated Local Workspace owns all pre-existing rows.
+- Canonical export `format_version` is 5; v3/v4 and legacy graph imports remain
+  accepted. User backups default to authenticated AES-256-GCM `.cmgbackup`
+  archives derived from a user passphrase with scrypt.
 - Migration always uses backup plus sibling `.migrating` preparation,
   integrity/foreign-key/count/source-hash validation, and atomic activation.
   Legacy sources are never deleted.
@@ -119,15 +125,22 @@
 
 ## Verification
 
-- Latest automated run on stage 1: `301 passed, 4 skipped`; skips require real
-  local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 75.59%; changed production lines: 96%.
+- Latest full automated run on stage 2: `323 passed, 4 skipped`; skips require
+  real local models, audio fixtures, or hardware.
+- Branch-inclusive coverage: 76.66%; stage-2 changed production lines: 99%.
 - Ruff format/lint, complexity ratchet, 400-line architecture policy,
   strict-mypy ratchet, compileall, high-confidence/high-severity Bandit, and
   runtime dependency audit pass locally.
 - Audit of core, development, build, transcription, and local-AI dependency
-  extras reports no known vulnerabilities. The baseline explicitly requires
+  extras reports no known vulnerabilities. Authenticated backup support is
+  pinned to `cryptography>=48.0.1,<49` after dependency audit rejected the
+  vulnerable 46.x resolution. The baseline explicitly requires
   `transformers>=5.5` and current Hugging Face Hub compatibility.
+- The Windows package rebuild succeeds with the cryptography runtime included.
+  This workstation now enforces an enterprise signing policy and blocks the
+  newly rebuilt unsigned executable before launch; hosted Windows package
+  smoke remains the authoritative stage-2 execution gate. Signed artifacts
+  remain an external stage-11 input.
 - The original 407-test characterization target remains mapped in
   `tests/legacy_test_replacements.json`.
 
@@ -141,7 +154,8 @@
 
 ## Next Likely Tasks
 
-- Squash-merge PR #15 and verify remote `main`.
-- Start `refactor/workspace-sync-identities` from the updated remote `main`.
-- Introduce schema v3 workspace/global identities while preserving local
-  integer IDs, backup-first migration, and every golden contract.
+- Finish the complete stage-2 quality matrix, hosted review, and squash PR.
+- Keep legacy `/api/v1` contracts byte-compatible while validating schema-v3
+  migration failure recovery, export compatibility, and encrypted backup
+  tamper handling.
+- After stage 2 merges, start `feat/e2ee-key-management` from the new `main`.

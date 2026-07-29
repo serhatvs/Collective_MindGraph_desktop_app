@@ -41,6 +41,7 @@ from collective_mindgraph.infrastructure.persistence import (
     SqliteMeetingStore,
     SqliteRecordingStore,
     SqliteTranscriptStore,
+    SqliteWorkspaceStore,
     discover_legacy_sources,
 )
 from collective_mindgraph.infrastructure.settings import EnginePreferenceStore
@@ -65,6 +66,7 @@ class EngineContext:
     knowledge: SqliteKnowledgeGraphStore
     embeddings: SqliteEmbeddingStore
     jobs: SqliteJobStore
+    workspaces: SqliteWorkspaceStore
     create_meeting: CreateMeeting
     get_meeting: GetMeeting
     list_meetings: ListMeetings
@@ -136,6 +138,7 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         database,
         expected_dimension=settings.embedding_dimension,
     )
+    workspaces = SqliteWorkspaceStore(database)
     result_archive = CanonicalTranscriptionResultArchive(
         meetings,
         recordings,
@@ -172,6 +175,7 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         knowledge=knowledge,
         embeddings=embeddings,
         jobs=jobs,
+        workspaces=workspaces,
         create_meeting=CreateMeeting(meetings),
         get_meeting=GetMeeting(meetings),
         list_meetings=ListMeetings(meetings),

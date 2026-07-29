@@ -204,7 +204,7 @@ def test_job_settings_and_versioned_export_import(tmp_path):
         assert settings.json()["language"] == "en"
 
         exported = client.get("/api/v1/export").json()
-        assert exported["format_version"] == 4
+        assert exported["format_version"] == 5
         assert exported["format"] == "collective_mindgraph"
 
     with TestClient(create_app(_settings(tmp_path, "target"))) as target:

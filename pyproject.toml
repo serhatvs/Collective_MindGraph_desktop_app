@@ -9,6 +9,7 @@ description = "Local-first meeting capture, memory, and knowledge workspace."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "cryptography>=48.0.1,<49",
   "fastapi>=0.115,<1.0",
   "httpx>=0.28,<1.0",
   "numpy>=1.26,<2.4",
@@ -151,7 +152,6 @@ line_limit_allowlist = [
   "engine/api/v1/router.py",
   "engine/settings.py",
   "infrastructure/audio/ffmpeg_processing.py",
-  "infrastructure/persistence/data_exchange.py",
   "infrastructure/persistence/legacy_backend_import.py",
   "infrastructure/persistence/legacy_desktop_import.py",
   "infrastructure/persistence/legacy_migration.py",
@@ -170,7 +170,6 @@ line_limit_allowlist = [
 "engine/api/v1/router.py" = "Separate compatibility handlers while preserving golden v1 contracts."
 "engine/settings.py" = "Separate provider settings when the signed model manager is introduced."
 "infrastructure/audio/ffmpeg_processing.py" = "Separate probing, channel handling, and normalization during audio quality work."
-"infrastructure/persistence/data_exchange.py" = "Separate export validation and import mapping during schema v3 work."
 "infrastructure/persistence/legacy_backend_import.py" = "Separate legacy graph and job readers during schema v3 work."
 "infrastructure/persistence/legacy_desktop_import.py" = "Separate meeting, transcript, and insight readers during schema v3 work."
 "infrastructure/persistence/legacy_migration.py" = "Separate discovery, staging, validation, and activation during schema v3 work."

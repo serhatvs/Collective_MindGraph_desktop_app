@@ -9,6 +9,7 @@ from .meeting_store import MeetingStore
 from .recording_store import RecordingStore
 from .transcript_store import TranscriptStore
 from .transcription_configuration import TranscriptionConfiguration
+from .workspace_store import SyncIdentityStore, WorkspaceStore
 
 __all__ = [
     "EmbeddingMatch",
@@ -20,7 +21,9 @@ __all__ = [
     "MeetingStore",
     "PcmAudioNormalizer",
     "RecordingStore",
+    "SyncIdentityStore",
     "TranscriptStore",
     "TranscriptionConfiguration",
     "TextEmbeddingModel",
+    "WorkspaceStore",
 ]

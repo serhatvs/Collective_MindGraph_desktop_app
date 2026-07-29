@@ -359,7 +359,7 @@ def test_existing_canonical_database_is_supplemented_through_migrating_copy(tmp_
     with closing(sqlite3.connect(database_path)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM meetings").fetchone()[0] == 1
         assert connection.execute("SELECT COUNT(*) FROM processing_jobs").fetchone()[0] == 1
-        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 2
+        assert connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0] == 3
         recording_columns = {row[1] for row in connection.execute("PRAGMA table_info(recordings)")}
         job_columns = {row[1] for row in connection.execute("PRAGMA table_info(processing_jobs)")}
     assert {"storage_status", "keep_audio", "deleted_at"} <= recording_columns

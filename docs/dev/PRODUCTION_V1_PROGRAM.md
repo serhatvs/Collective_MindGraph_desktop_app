@@ -12,8 +12,8 @@ remain runnable and reversible after each merge.
 | 2 | `refactor/workspace-sync-identities` | Schema v3, workspace/global identities, outbox and encrypted backup foundation | Merged in PR [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21) (`1762b93`) |
 | 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Merged in PR [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23) (`883dfdb`) |
 | 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Merged in PR [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24) (`2c85c5c`) |
-| 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | In review |
-| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Planned |
+| 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`d563aba`) |
+| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | In review |
 | 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Planned |
 | 8 | `feat/desktop-product-polish` | Themes, virtualized UI, capture/review/accessibility polish | Planned |
 | 9 | `feat/knowledge-canvas-retrieval` | Native graph canvas, FTS5 and local ANN/RRF retrieval | Planned |
@@ -91,6 +91,27 @@ Stage 5 makes identity provider-independent OIDC. Details live in
   the surface needs no scripting and gains a strictly stronger policy.
 - With OIDC unconfigured the service warns at startup and the admin sign-in
   returns 401 rather than falling back to something weaker.
+
+## Delivered client contract
+
+Stage 6 puts the sync agent inside the engine. The desktop reaches the cloud
+only through localhost `/api/v2/sync`, and it never holds a cursor or an
+outbox of its own.
+
+- Local changes go to a transactional outbox that survives restart. Enqueueing
+  is idempotent, so a retry after a crash cannot duplicate work.
+- A pass pushes everything queued, then pulls one page. A rejected change
+  becomes an open conflict rather than an overwrite, and the rejected operation
+  leaves the queue for the conflict inbox.
+- Resolutions are local, remote, or merged. Local and merged re-queue on top of
+  the revision the service reported; remote simply closes the conflict.
+- Transient failures back off and never drop queued work. A refusal, such as a
+  removed membership, is surfaced with its reason instead of being retried into
+  a silent stall.
+- Active use polls every five seconds on top of invalidation hints; background
+  work waits thirty; a backing-off workspace waits out its deadline.
+- Adding `/api/v2/sync` extends the OpenAPI surface by exactly four paths. No
+  `/api/v1` path changed, and the golden fixture records the difference.
 
 ## Release gates
 

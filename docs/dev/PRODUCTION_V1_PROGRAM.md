@@ -13,8 +13,8 @@ remain runnable and reversible after each merge.
 | 3 | `feat/e2ee-key-management` | Device/workspace keys, recovery and rotation | Merged in PR [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23) (`883dfdb`) |
 | 4 | `feat/sync-service-core` | Opaque PostgreSQL/S3 sync service and retention | Merged in PR [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24) (`2c85c5c`) |
 | 5 | `feat/oidc-rbac-admin` | OIDC PKCE, fixed roles and content-free web admin | Merged in PR [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25) (`d563aba`) |
-| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | In review |
-| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Planned |
+| 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`a53a840`) |
+| 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | In review |
 | 8 | `feat/desktop-product-polish` | Themes, virtualized UI, capture/review/accessibility polish | Planned |
 | 9 | `feat/knowledge-canvas-retrieval` | Native graph canvas, FTS5 and local ANN/RRF retrieval | Planned |
 | 10 | `feat/audio-model-quality` | Signed model manager and evidence-based audio/retrieval gates | Planned |
@@ -112,6 +112,22 @@ outbox of its own.
   work waits thirty; a backing-off workspace waits out its deadline.
 - Adding `/api/v2/sync` extends the OpenAPI surface by exactly four paths. No
   `/api/v1` path changed, and the golden fixture records the difference.
+
+## Delivered collaboration contract
+
+Stage 7 adds the shared layer the desktop renders. Comments and activity are
+append-only, which is why they never reach the conflict inbox: two devices
+writing at once both keep their record.
+
+- Mentions are parsed from the comment body itself, deduplicated, and case
+  folded, so what a member sees matches what the author typed.
+- Every comment records one `comment.added` event plus one `member.mentioned`
+  event per distinct mention.
+- Replies must name an existing parent; an orphan reply is refused rather than
+  silently reparented.
+- `/api/v2/collaboration` adds four paths and changes no `/api/v1` path.
+- All of this is local storage. Local-only use still needs no account, and a
+  test asserts the surface works with nobody signed in.
 
 ## Release gates
 

@@ -1,6 +1,7 @@
 """Persistence adapters owned by the local engine."""
 
 from .canonical_schema import SCHEMA_VERSION, initialize_schema
+from .collaboration_store import SqliteCollaborationStore
 from .data_exchange import FORMAT_VERSION, SqliteDataExchange
 from .embedding_store import SqliteEmbeddingStore
 from .encrypted_backup import (
@@ -34,6 +35,7 @@ __all__ = [
     "MigrationReport",
     "InvalidBackupError",
     "SCHEMA_VERSION",
+    "SqliteCollaborationStore",
     "SqliteDatabase",
     "SqliteDataExchange",
     "SqliteEmbeddingStore",

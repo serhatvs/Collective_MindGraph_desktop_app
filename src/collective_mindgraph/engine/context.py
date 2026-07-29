@@ -34,6 +34,7 @@ from collective_mindgraph.infrastructure.persistence import (
     CanonicalTranscriptionResultArchive,
     LegacyDataMigrator,
     MigrationReport,
+    SqliteCollaborationStore,
     SqliteDatabase,
     SqliteDataExchange,
     SqliteEmbeddingStore,
@@ -81,6 +82,7 @@ class EngineContext:
     key_envelopes: SqliteKeyEnvelopeStore
     workspace_keys: WorkspaceKeyService
     outbox: SqliteOutboxStore
+    collaboration: SqliteCollaborationStore
     sync_agent: SyncAgent | None
     create_meeting: CreateMeeting
     get_meeting: GetMeeting
@@ -156,6 +158,7 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
     workspaces = SqliteWorkspaceStore(database)
     key_envelopes = SqliteKeyEnvelopeStore(database)
     outbox = SqliteOutboxStore(database)
+    collaboration = SqliteCollaborationStore(database)
     workspace_keys = WorkspaceKeyService(
         envelopes=key_envelopes,
         device_secrets=create_device_secret_store(settings.data_dir / "device_secrets"),
@@ -204,6 +207,7 @@ def build_engine_context(settings: EngineSettings) -> EngineContext:
         key_envelopes=key_envelopes,
         workspace_keys=workspace_keys,
         outbox=outbox,
+        collaboration=collaboration,
         # The agent is installed once a workspace is signed in; local-only use
         # never needs one and must not be blocked by its absence.
         sync_agent=None,

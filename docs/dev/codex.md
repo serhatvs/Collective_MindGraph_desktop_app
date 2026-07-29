@@ -166,6 +166,21 @@
 - Still open from stage 8's original scope: virtualized list models, capture and
   review polish, and the PySide6 presentation deferred from stage 7.
 
+## Security Gate Availability
+
+- The repository is private and GitHub reports Advanced Security as not
+  purchased. CodeQL cannot upload results and dependency review cannot read the
+  dependency graph; both jobs probe for the capability and skip with an explicit
+  notice instead of failing or falsely passing.
+- Bandit is the enforcing Python security gate, and `pip-audit` over every
+  locked extra is the enforcing dependency gate, while those two are degraded.
+- Secret scanning no longer uses the gitleaks Action, which reports through the
+  GitHub API and cannot on this plan. It runs the pinned released binary over
+  the full history instead, so it works regardless of the plan.
+- These gates passed for stages 3 to 7, so the entitlement lapsed rather than
+  never existing. Restoring it is a release-gate prerequisite: a scanner that
+  cannot run has not found nothing.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.

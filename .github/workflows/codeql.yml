@@ -18,10 +18,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # Code scanning results can only be uploaded from a private repository
+      # that has Advanced Security. Without it the analysis cannot report, so
+      # the job says so rather than failing the build or claiming a clean scan.
+      # Bandit in the quality job remains the enforcing Python security gate.
+      - name: Check whether code scanning is available
+        id: probe
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          status=$(gh api "repos/${GITHUB_REPOSITORY}" \
+            --jq '.security_and_analysis.advanced_security.status // "unavailable"')
+          echo "status=${status}" >> "$GITHUB_OUTPUT"
+          if [ "${status}" != "enabled" ]; then
+            echo "::notice::CodeQL skipped: Advanced Security is ${status} on this private repository. Bandit remains the enforcing Python security gate."
+          fi
       - uses: github/codeql-action/init@v4
+        if: steps.probe.outputs.status == 'enabled'
         with:
           languages: python
           build-mode: none
       - uses: github/codeql-action/analyze@v4
+        if: steps.probe.outputs.status == 'enabled'
         with:
           category: /language:python

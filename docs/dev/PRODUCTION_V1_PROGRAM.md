@@ -170,6 +170,25 @@ this stage and stay open.
   vulnerability, known data-loss path, unresolved security finding, or
   independent cryptography-review finding.
 
+## Degraded security gates
+
+This repository is private and GitHub reports that Advanced Security has not
+been purchased, so two gates that previously ran cannot report:
+
+- **CodeQL code scanning** cannot upload results. Bandit in the quality job is
+  the enforcing Python security gate meanwhile.
+- **Dependency review** cannot read the dependency graph. `pip-audit` over every
+  locked extra is the enforcing dependency gate meanwhile.
+
+Both jobs now detect the missing capability and skip with an explicit notice
+rather than failing the build or reporting a pass they did not earn. Secret
+scanning was moved off the API-dependent Action onto the released gitleaks
+binary, so it keeps running on any plan.
+
+Restoring Advanced Security, or moving the repository to public, is a
+prerequisite for the `1.0.0` release gate that forbids unresolved security
+findings: a scanner that cannot run has not found nothing.
+
 External release inputs remain required: a code-signing certificate/HSM,
 provider OIDC registrations, EU PostgreSQL/S3/SMTP infrastructure, two clean
 Windows hardware profiles, licensed Turkish validation data, and an independent

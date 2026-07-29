@@ -20,7 +20,7 @@
 - Active branch: `chore/production-quality-baseline`, created directly from
   `origin/main`. It is stage 1 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
-- Draft delivery PR
+- Merge-ready delivery PR
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
   targets `main`; the stage will be squash-merged only after hosted gates and
   review are clean.
@@ -141,8 +141,7 @@
 
 ## Next Likely Tasks
 
-- Review PR #15, address hosted-gate findings, squash-merge it, and verify
-  remote `main`.
+- Squash-merge PR #15 and verify remote `main`.
 - Start `refactor/workspace-sync-identities` from the updated remote `main`.
 - Introduce schema v3 workspace/global identities while preserving local
   integer IDs, backup-first migration, and every golden contract.

@@ -1,5 +1,6 @@
 """Pure domain contracts for Collective MindGraph."""
 
+from .collaboration import ActivityEvent, ActivityKind, Comment, extract_mentions
 from .crypto import (
     CONTENT_NONCE_BYTES,
     PUBLIC_KEY_BYTES,
@@ -57,7 +58,10 @@ __all__ = [
     "CONTENT_NONCE_BYTES",
     "PUBLIC_KEY_BYTES",
     "WORKSPACE_KEY_BYTES",
+    "ActivityEvent",
     "ActivityEventId",
+    "ActivityKind",
+    "Comment",
     "CommentId",
     "ConflictId",
     "ConflictRecord",
@@ -110,4 +114,5 @@ __all__ = [
     "WorkspaceId",
     "WorkspaceKey",
     "WorkspaceKind",
+    "extract_mentions",
 ]

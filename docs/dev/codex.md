@@ -15,26 +15,27 @@
 
 ## Current State
 
-- Stages 1 to 5 were squash-merged through PRs
+- Stages 1 to 6 were squash-merged through PRs
   [#15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15),
   [#21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21),
   [#23](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/23),
   [#24](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/24),
+  [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25),
   and
-  [#25](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/25);
+  [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26);
   remote `main` is now
-  `d563aba feat: make identity provider-independent OIDC and add the admin surface`.
-- Active branch: `feat/desktop-sync-client`, created directly from that updated
-  `origin/main`. It is stage 6 of the twelve-PR program documented in
+  `a53a840 feat: add the engine-owned synchronization client`.
+- Active branch: `feat/collaboration-experience`, created directly from that
+  updated `origin/main`. It is stage 7 of the twelve-PR program documented in
   `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 80.67% branch-inclusive coverage and 298
-  existing strict-mypy errors across the full production package. Stage 6
-  changed-line coverage is 98%. CI rejects coverage below 75%, changed
+- Current quality measurements are 80.92% branch-inclusive coverage and 298
+  existing strict-mypy errors across the full production package. Stage 7
+  changed-line coverage is 99%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
   transition exceptions after stage 2 split canonical data exchange.
@@ -134,6 +135,18 @@
 - `/api/v2/sync` added exactly four OpenAPI paths; no `/api/v1` path changed,
   and `tests/fixtures/golden/openapi_surface.json` records the difference.
 
+## Collaboration
+
+- Stage 7 adds comments, mentions, and workspace activity, stored locally in the
+  schema-v3 tables and exposed through `/api/v2/collaboration`.
+- Comments and activity are append-only, which is exactly why they never reach
+  the conflict inbox: two devices writing at once both keep their record.
+- Mentions are parsed from the body, deduplicated, and case folded. Each comment
+  records one `comment.added` event plus one `member.mentioned` per distinct
+  mention. A reply must name an existing parent.
+- Everything here is local storage; local-only use still requires no account and
+  a test asserts the surface works with nobody signed in.
+
 ## Architecture and Runtime
 
 - `domain`: dependency-free entities, identifiers, enums, and invariants.
@@ -213,9 +226,9 @@
 
 ## Verification
 
-- Latest full automated run on stage 6: `481 passed, 4 skipped`; skips require
+- Latest full automated run on stage 7: `494 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 80.67%; stage-6 changed production lines: 98%.
+- Branch-inclusive coverage: 80.92%; stage-7 changed production lines: 99%.
 - Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
   reports two `B105` false positives for the `device-private-key` secret-name
   prefix and the `.secret` file extension.
@@ -245,12 +258,12 @@
 
 ## Next Likely Tasks
 
-- Finish the stage-6 hosted quality matrix, review, and squash PR.
-- The agent is wired into the engine context as `sync_agent = None`; stage 7
-  installs a real one once a workspace is signed in, and adds the desktop
-  workspace switcher, activity feed, comments, and conflict centre.
-- Stages 7 to 12 remain: collaboration UX, desktop polish and themes, the
-  knowledge canvas and retrieval work, audio and model quality gates, the
-  signed MSIX release, and 1.0.0 hardening.
+- Finish the stage-7 hosted quality matrix, review, and squash PR.
+- Stage 7 delivered the collaboration data layer and localhost surface. The
+  PySide6 presentation for it, the workspace switcher, and the conflict centre
+  are still to build, and belong with the stage-8 desktop polish work.
+- Stages 8 to 12 remain: desktop polish and themes, the knowledge canvas and
+  retrieval work, audio and model quality gates, the signed MSIX release, and
+  1.0.0 hardening.
 - Keep the sync server free of any ability to decrypt: it stores sealed bytes,
   routing metadata, and audit records only.

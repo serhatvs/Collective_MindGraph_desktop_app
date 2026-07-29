@@ -69,6 +69,19 @@
   "/api/v1/transcript-segments/{segment_id}": [
     "patch"
   ],
+  "/api/v2/collaboration/kinds": [
+    "get"
+  ],
+  "/api/v2/collaboration/{workspace_id}/activity": [
+    "get"
+  ],
+  "/api/v2/collaboration/{workspace_id}/comments": [
+    "get",
+    "post"
+  ],
+  "/api/v2/collaboration/{workspace_id}/mentions": [
+    "get"
+  ],
   "/api/v2/sync/conflicts/{conflict_id}/resolve": [
     "post"
   ],

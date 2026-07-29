@@ -11,6 +11,7 @@ from .encrypted_backup import (
 )
 from .insight_store import SqliteInsightStore
 from .job_store import SqliteJobStore
+from .key_envelope_store import SqliteKeyEnvelopeStore
 from .knowledge_store import SqliteKnowledgeGraphStore
 from .legacy_migration import LegacyDataMigrator, MigrationReport
 from .legacy_source_discovery import LegacySourceCandidates, discover_legacy_sources
@@ -37,6 +38,7 @@ __all__ = [
     "SqliteEmbeddingStore",
     "SqliteInsightStore",
     "SqliteJobStore",
+    "SqliteKeyEnvelopeStore",
     "SqliteKnowledgeGraphStore",
     "SqliteMeetingStore",
     "SqliteRecordingStore",

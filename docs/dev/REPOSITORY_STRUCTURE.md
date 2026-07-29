@@ -43,6 +43,8 @@ Collective-MindGraph-2/
 | Audio normalization and inspection | `src/collective_mindgraph/infrastructure/audio/` |
 | ASR, VAD, alignment, and retranscription adapters | `src/collective_mindgraph/infrastructure/transcription/` |
 | Local embeddings and language-model adapters | `src/collective_mindgraph/infrastructure/ai/` |
+| Workspace key lifecycle use cases | `src/collective_mindgraph/application/security/` |
+| Content cipher, key wrapping, and device secrets | `src/collective_mindgraph/infrastructure/security/` |
 | Composition, settings, FastAPI, and engine CLI | `src/collective_mindgraph/engine/` |
 | Typed engine client and PySide6 product shell | `src/collective_mindgraph/desktop/` |
 | Annotation dataset, experiments, export, and UI | `src/collective_mindgraph/tooling/transcript_annotation/` |

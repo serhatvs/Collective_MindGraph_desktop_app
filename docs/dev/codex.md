@@ -15,23 +15,22 @@
 
 ## Current State
 
-- Stage 1 was squash-merged through
-  [PR #15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15);
-  remote `main` is now `4ee7949 chore: establish production quality baseline`.
-- Active branch: `refactor/workspace-sync-identities`, created directly from
-  that updated `origin/main`. It is stage 2 of the twelve-PR program documented
-  in `docs/dev/PRODUCTION_V1_PROGRAM.md`.
-- Stage-2 delivery is tracked by
-  [PR #21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21)
-  with required hosted validation, full-diff review, and squash-only
-  integration into `main`.
+- Stages 1 and 2 were squash-merged through
+  [PR #15](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/15)
+  and
+  [PR #21](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/21);
+  remote `main` is now
+  `1762b93 refactor: establish workspace sync identities`.
+- Active branch: `feat/e2ee-key-management`, created directly from that updated
+  `origin/main`. It is stage 3 of the twelve-PR program documented in
+  `docs/dev/PRODUCTION_V1_PROGRAM.md`.
 - Stage 1 adds locked `uv` resolution, Windows/Linux Python 3.11-3.13 CI,
   Ruff format/lint, full-suite and golden-contract checks, strict-mypy debt
   ratcheting, branch-inclusive and changed-line coverage, Bandit, pip-audit,
   secret scanning, dependency review, CodeQL, CycloneDX SBOM, and Windows
   packaged-engine smoke.
-- Current quality measurements are 76.66% branch-inclusive coverage and 298
-  existing strict-mypy errors across the full production package. Stage 2
+- Current quality measurements are 77.72% branch-inclusive coverage and 298
+  existing strict-mypy errors across the full production package. Stage 3
   changed-line coverage is 99%. CI rejects coverage below 75%, changed
   production lines below 90%, or any new/increased module/error-code type debt.
 - The production module limit is now 400 lines with fifteen exact documented
@@ -52,6 +51,29 @@
   are enabled instead of bypassing dependency review. Hosted actions use
   current Node 24-compatible releases; setup-uv is pinned to its verified
   8.1.0 commit.
+
+## Encryption
+
+- Stage 3 adds the end-to-end encryption contract described in
+  `docs/dev/CRYPTO_THREAT_MODEL.md`. Content uses AES-256-GCM whose associated
+  data length-prefixes workspace, object type, object UUID, revision, and key
+  version, so ciphertext cannot be replayed onto another revision or version.
+- Workspace keys are wrapped per recipient with ephemeral X25519 plus
+  HKDF-SHA256; the derivation info doubles as envelope associated data.
+  Recovery uses a checksummed 256-bit Crockford base32 code with scrypt.
+- Device private keys never reach SQLite. They live in a `DeviceSecretStore`
+  sealed by Windows DPAPI under the current user; other platforms fall back to
+  an owner-only file store that reports `protected = False` honestly.
+- `WorkspaceKeyService` owns initialization, unlock, enrollment, recovery,
+  rotation, and revocation. Revoking a device revokes its envelopes and rotates
+  the key; rotation protects future content only and never recalls plaintext a
+  removed device already held.
+- Primitive behaviour is pinned by RFC 7748, RFC 5869, and published AES-GCM
+  specification vectors rather than by self-generated expectations.
+- `tests/conftest.py` redirects `CMG_DATABASE_PATH`, `LOCALAPPDATA`, and POSIX
+  `HOME` for the whole session. Without it, any test constructing
+  `EngineSettings` without an explicit `database_path` reads and writes the
+  developer's installed database.
 
 ## Architecture and Runtime
 
@@ -132,9 +154,14 @@
 
 ## Verification
 
-- Latest full automated run on stage 2: `324 passed, 4 skipped`; skips require
+- Latest full automated run on stage 3: `361 passed, 4 skipped`; skips require
   real local models, audio fixtures, or hardware.
-- Branch-inclusive coverage: 76.66%; stage-2 changed production lines: 99%.
+- Branch-inclusive coverage: 77.72%; stage-3 changed production lines: 99%.
+  The single uncovered changed line is the POSIX permission call, which the
+  Linux coverage job exercises instead.
+- Gated Bandit (high severity, high confidence) is clean. The unfiltered scan
+  reports two `B105` false positives for the `device-private-key` secret-name
+  prefix and the `.secret` file extension.
 - Ruff format/lint, complexity ratchet, 400-line architecture policy,
   strict-mypy ratchet, compileall, high-confidence/high-severity Bandit, and
   runtime dependency audit pass locally.
@@ -161,8 +188,9 @@
 
 ## Next Likely Tasks
 
-- Finish the complete stage-2 quality matrix, hosted review, and squash PR.
-- Keep legacy `/api/v1` contracts byte-compatible while validating schema-v3
-  migration failure recovery, export compatibility, and encrypted backup
-  tamper handling.
-- After stage 2 merges, start `feat/e2ee-key-management` from the new `main`.
+- Finish the stage-3 hosted quality matrix, review, and squash PR.
+- After stage 3 merges, start `feat/sync-service-core` from the new `main`:
+  the opaque PostgreSQL/S3 sync runtime, cursor push/pull, blob manifests,
+  and the retention windows already fixed by the program document.
+- Keep the sync server free of any ability to decrypt: it stores sealed bytes,
+  routing metadata, and audit records only.

@@ -16,8 +16,8 @@ remain runnable and reversible after each merge.
 | 6 | `feat/desktop-sync-client` | Engine-owned offline/near-real-time sync and conflicts | Merged in PR [#26](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/26) (`88939d6`) |
 | 7 | `feat/collaboration-experience` | Workspace, activity, comments, mentions and recovery UX | Merged in PR [#27](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/27) (`119d916`) |
 | 8 | `feat/desktop-product-polish` | Themes, contrast gate and opt-in telemetry | Merged in PR [#28](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/28) (`832c106`) |
-| 9 | `feat/knowledge-canvas-retrieval` | FTS5, rank fusion, bounded subgraph and deterministic layout | In review |
-| 10 | `feat/audio-model-quality` | Signed model manager and evidence-based audio/retrieval gates | Planned |
+| 9 | `feat/knowledge-canvas-retrieval` | FTS5, rank fusion, bounded subgraph and deterministic layout | Merged in PR [#29](https://github.com/serhatvs/Collective_MindGraph_desktop_app/pull/29) (`89966d4`) |
+| 10 | `feat/audio-model-quality` | Signed model manager and evidence-based quality gates | In review |
 | 11 | `build/signed-msix-release` | Signed MSIX/App Installer and deployable self-host stack | Planned |
 | 12 | `release/production-v1-hardening` | Scale, clean-machine, restore, security and 1.0.0 gates | Planned |
 
@@ -174,6 +174,29 @@ stay open; everything the canvas needs from the engine is here.
   500-node cap the caller cannot raise. Truncation is reported, not hidden.
 - Layout is a pure function of identifiers and edges, so the same graph always
   draws the same picture and a bug report is reproducible.
+
+## Delivered model and evidence contract
+
+Stage 10 delivers the signed model manager and the release-gate evaluator. It
+does **not** and cannot deliver measured WER, DER, or retrieval numbers: those
+need the consented Turkish corpus listed under external inputs.
+
+- The catalogue is Ed25519 signed over a canonical encoding, so reformatting
+  still verifies while changing any field does not. Unsigned catalogues,
+  catalogues signed by an unknown key, and tampered entries are all refused.
+- Model bytes must be fetched over HTTPS even though the digest is checked
+  afterwards, and a digest is normalised on entry so an uppercase catalogue
+  cannot fail verification for a file that was correct.
+- Nothing downloads without consent recorded against that exact model version
+  **and** its licence, because a new version may carry different terms.
+- Downloads resume rather than restart, and a file whose digest or size does
+  not match is deleted rather than kept. Versions live side by side outside the
+  application version, so rollback is possible and a pin blocks removal.
+- Every quality gate has three outcomes: met, not met, and **unevaluated**. A
+  measurement taken from too small or unconsented a corpus stays unevaluated
+  rather than counting, and anything not positively met blocks the release.
+  With no evidence at all the report blocks with seven unevaluated gates, which
+  is the honest answer.
 
 ## Release gates
 

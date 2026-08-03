@@ -9,12 +9,12 @@ description = "Local-first meeting capture, memory, and knowledge workspace."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "cryptography>=48.0.1,<49",
+  "cryptography>=48.0.1,<50",
   "fastapi>=0.115,<1.0",
   "httpx>=0.28,<1.0",
-  "numpy>=1.26,<2.4",
+  "numpy>=1.26,<2.5",
   "pydantic>=2.11,<3.0",
-  "PySide6>=6.8,<6.9",
+  "PySide6>=6.8,<6.12",
   "python-multipart>=0.0.9,<1.0",
   "uvicorn[standard]>=0.35,<1.0",
 ]
